@@ -152,6 +152,16 @@
     <!-- Network -->
     <section class="card" id="net-card" role="region" aria-label="Network traffic">
       <h2>Network</h2>
+      <div id="net-connectivity" class="connectivity-row" aria-live="polite">
+        <div class="connectivity-item">
+          <span class="connectivity-label">Internet</span>
+          <span class="connectivity-status" id="net-internet-status">—</span>
+        </div>
+        <div class="connectivity-item">
+          <span class="connectivity-label">Technitium DNS</span>
+          <span class="connectivity-status" id="net-dns-status">—</span>
+        </div>
+      </div>
       <div id="net-rows" aria-live="polite"></div>
     </section>
 
