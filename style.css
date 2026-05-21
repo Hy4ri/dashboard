@@ -523,6 +523,48 @@ tr:last-child td { border-bottom: none; }
   margin-bottom: 4px;
 }
 
+/* ── Connectivity status ──────────────────────────────── */
+
+.connectivity-row {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+
+.connectivity-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.connectivity-label {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: var(--text-xs);
+}
+
+.connectivity-status {
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.connectivity-status.online {
+  color: var(--green);
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.connectivity-status.offline {
+  color: var(--red);
+  background: rgba(239, 83, 80, 0.1);
+}
+
 /* ── Torrent Downloads ───────────────────────────────────────────── */
 #torrent-card {
   grid-column: 1 / -1;

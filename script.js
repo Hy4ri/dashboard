@@ -528,6 +528,40 @@ function renderNetwork(net) {
   }
 }
 
+function renderConnectivity(data) {
+  const internetEl = $('net-internet-status');
+  const dnsEl = $('net-dns-status');
+
+  if (!data) {
+    if (internetEl) { internetEl.textContent = NONE; internetEl.className = 'connectivity-status'; }
+    if (dnsEl) { dnsEl.textContent = NONE; dnsEl.className = 'connectivity-status'; }
+    return;
+  }
+
+  if (internetEl) {
+    if (data.internet && data.internet.ok) {
+      const ms = data.internet.latency != null ? ` (${data.internet.latency}ms)` : '';
+      internetEl.textContent = 'Online' + ms;
+      internetEl.className = 'connectivity-status online';
+    } else {
+      internetEl.textContent = 'Offline';
+      internetEl.className = 'connectivity-status offline';
+    }
+  }
+
+  if (dnsEl) {
+    if (data.dns && data.dns.ok) {
+      const ms = data.dns.latency != null ? ` (${data.dns.latency}ms)` : '';
+      dnsEl.textContent = 'Resolving' + ms;
+      dnsEl.className = 'connectivity-status online';
+    } else {
+      const err = data.dns && data.dns.error ? ` (${data.dns.error})` : '';
+      dnsEl.textContent = 'Issue' + err;
+      dnsEl.className = 'connectivity-status offline';
+    }
+  }
+}
+
 function renderBattery(bat) {
   const container = $('header-battery');
   const valEl = $('bat-header-val');
@@ -614,6 +648,7 @@ function updateUI(data) {
   renderSwap(data.swap);
   renderDisk(data.disk);
   renderNetwork(data.network);
+  renderConnectivity({ internet: data.internet, dns: data.dns });
   renderBattery(data.battery);
   renderTorrents(data.torrents);
   renderSystem(data.system);
