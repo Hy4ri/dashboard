@@ -674,6 +674,14 @@ function renderTorrents(torrents) {
       '<div class="torrent-header">' +
         '<span class="torrent-name" title="' + esc(t.name) + '">' + esc(t.name) + '</span>' +
         '<span class="torrent-meta">' + meta + '</span>' +
+        '<button class="torrent-delete" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Delete torrent and remove files" aria-label="Delete ' + esc(t.name) + '">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+            '<polyline points="3 6 5 6 21 6"/>' +
+            '<path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>' +
+            '<line x1="10" y1="11" x2="10" y2="17"/>' +
+            '<line x1="14" y1="11" x2="14" y2="17"/>' +
+          '</svg>' +
+        '</button>' +
       '</div>' +
       '<div class="torrent-bar"><div class="torrent-fill" style="width:' + pct + '%"></div></div>' +
       '<div class="torrent-stats">' +
@@ -883,6 +891,43 @@ $('speedtest-btn').addEventListener('click', () => {
         btn.textContent = 'Run Test Now';
       }, 30000);
     });
+});
+
+// ── Torrent delete handler ──────────────────────────────────────
+$('torrent-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.torrent-delete');
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+
+  const hash = btn.dataset.hash;
+  const name = btn.dataset.name;
+
+  if (!confirm('Delete "' + name + '" and remove downloaded files?')) return;
+
+  btn.disabled = true;
+  btn.setAttribute('aria-disabled', 'true');
+  const originalHTML = btn.innerHTML;
+  btn.innerHTML = '...';
+
+  try {
+    const res = await fetch('/api/qbittorrent/delete/' + hash, { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      // Refresh the torrent list
+      setTimeout(() => fetchStatus(), 500);
+    } else {
+      alert('Failed to delete: ' + (data.error || 'Unknown error'));
+      btn.disabled = false;
+      btn.removeAttribute('aria-disabled');
+      btn.innerHTML = originalHTML;
+    }
+  } catch (err) {
+    alert('Request failed: ' + err.message);
+    btn.disabled = false;
+    btn.removeAttribute('aria-disabled');
+    btn.innerHTML = originalHTML;
+  }
 });
 
 // ── Start ──────────────────────────────────────────────────────────

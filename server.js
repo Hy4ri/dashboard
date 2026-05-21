@@ -579,6 +579,7 @@ async function collectQBittorrent() {
   if (res.status !== 200) return qbCache.value || [];
   try {
     const result = JSON.parse(res.body).map(t => ({
+      hash: t.hash,
       name: t.name,
       size: t.size,
       progress: t.progress,
@@ -596,6 +597,22 @@ async function collectQBittorrent() {
     console.warn('qBittorrent parse failed:', err.message);
     return qbCache.value || [];
   }
+}
+
+async function qbDelete(hash) {
+  const body = `hashes=${encodeURIComponent(hash)}&deleteFiles=true`;
+  let res = await qbRequest('POST', '/api/v2/torrents/delete', body);
+  if (res.status === 403) {
+    const ok = await qbLogin();
+    if (!ok) return { success: false, error: 'Authentication failed' };
+    res = await qbRequest('POST', '/api/v2/torrents/delete', body);
+  }
+  if (res.status === 200) {
+    // Invalidate the qBittorrent cache so the next collect picks up the change
+    qbCache = { value: null, time: 0 };
+    return { success: true };
+  }
+  return { success: false, error: `HTTP ${res.status}` };
 }
 
 // ── Extracted collectors (CPU, Network, Disk I/O) ──────────────────
@@ -839,6 +856,22 @@ const server = http.createServer((req, res) => {
       'Access-Control-Allow-Origin': '*',
     });
     return res.end(JSON.stringify({ ok: true, message: 'Speedtest started' }));
+  }
+
+  // qBittorrent delete endpoint (POST only)
+  const qbDeleteMatch = requestPath.match(/^\/api\/qbittorrent\/delete\/([a-fA-F0-9]{40})$/);
+  if (qbDeleteMatch && req.method === 'POST') {
+    const hash = qbDeleteMatch[1];
+    (async () => {
+      const result = await qbDelete(hash);
+      const code = result.success ? 200 : 500;
+      res.writeHead(code, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.end(JSON.stringify(result));
+    })();
+    return;
   }
 
   // API endpoint
