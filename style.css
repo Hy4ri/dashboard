@@ -727,6 +727,42 @@ tr:last-child td { border-bottom: none; }
   color: var(--green);
 }
 
+/* ── Torrent delete button ───────────────────────────────────── */
+
+.torrent-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  transition: color 0.2s, background 0.2s;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.torrent-delete:hover {
+  color: var(--red);
+  background: rgba(239, 83, 80, 0.15);
+}
+
+.torrent-delete:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.torrent-delete:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.torrent-delete svg {
+  display: block;
+}
+
 .torrent-bar {
   height: 6px;
   background: #30363d;
