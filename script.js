@@ -441,22 +441,44 @@ function renderDisk(disk) {
   setText('disk-used', fmtBytes(disk.used));
   setText('disk-avail', fmtBytes(disk.available));
 
-  // I/O (dynamic device count, rebuild each time)
+  // I/O — patch in place to avoid DOM thrashing
   const ioEl = $('disk-io-rows');
   const io = disk.io;
   if (!io || Object.keys(io).length === 0) {
     ioEl.innerHTML = '<div class="none">No disk I/O data available</div>';
     return;
   }
-  ioEl.innerHTML = Object.entries(io).map(([dev, d]) =>
-    '<div class="io-block">' +
-    '<h3 class="io-device">' + dev + '</h3>' +
-    '<div class="info-row"><span class="key">Read Ops</span><span class="val">' + (d.reads || 0).toLocaleString() + ' (' + d.readsPerSec + '/s)</span></div>' +
-    '<div class="info-row"><span class="key">Write Ops</span><span class="val">' + (d.writes || 0).toLocaleString() + ' (' + d.writesPerSec + '/s)</span></div>' +
-    '<div class="info-row"><span class="key">Read Rate</span><span class="val">' + fmtSectors(d.sectorsReadPerSec) + '</span></div>' +
-    '<div class="info-row"><span class="key">Write Rate</span><span class="val">' + fmtSectors(d.sectorsWrittenPerSec) + '</span></div>' +
-    '</div>'
-  ).join('');
+
+  const ioEntries = Object.entries(io);
+  const existingBlocks = ioEl.querySelectorAll('.io-block[data-dev]');
+
+  if (existingBlocks.length !== ioEntries.length) {
+    // Rebuild only when device count changes
+    ioEl.innerHTML = ioEntries.map(([dev, d]) =>
+      '<div class="io-block" data-dev="' + dev + '">' +
+      '<h3 class="io-device">' + dev + '</h3>' +
+      '<div class="info-row"><span class="key">Read Ops</span><span class="val">' + (d.reads || 0).toLocaleString() + ' (' + d.readsPerSec + '/s)</span></div>' +
+      '<div class="info-row"><span class="key">Write Ops</span><span class="val">' + (d.writes || 0).toLocaleString() + ' (' + d.writesPerSec + '/s)</span></div>' +
+      '<div class="info-row"><span class="key">Read Rate</span><span class="val">' + fmtSectors(d.sectorsReadPerSec) + '</span></div>' +
+      '<div class="info-row"><span class="key">Write Rate</span><span class="val">' + fmtSectors(d.sectorsWrittenPerSec) + '</span></div>' +
+      '</div>'
+    ).join('');
+    return;
+  }
+
+  // Patch values in place
+  for (let i = 0; i < ioEntries.length; i++) {
+    const [, d] = ioEntries[i];
+    const block = existingBlocks[i];
+    if (!block) continue;
+    const vals = block.querySelectorAll('.val');
+    if (vals.length >= 4) {
+      setTextOf(vals[0], (d.reads || 0).toLocaleString() + ' (' + d.readsPerSec + '/s)');
+      setTextOf(vals[1], (d.writes || 0).toLocaleString() + ' (' + d.writesPerSec + '/s)');
+      setTextOf(vals[2], fmtSectors(d.sectorsReadPerSec));
+      setTextOf(vals[3], fmtSectors(d.sectorsWrittenPerSec));
+    }
+  }
 }
 
 function netIfaceLabel(iface) {
@@ -473,16 +495,37 @@ function renderNetwork(net) {
     el.innerHTML = '<div class="none">No network interfaces detected</div>';
     return;
   }
-  // Dynamic interface list - rebuild each time
-  el.innerHTML = Object.entries(net).map(([iface, d]) =>
-    '<div class="net-block">' +
-    '<h4>\u2193 ' + esc(netIfaceLabel(iface)) + ' \u2191</h4>' +
-    '<div class="info-row"><span class="key">RX Total</span><span class="val">' + fmtBytes(d.rx_bytes) + '</span></div>' +
-    '<div class="info-row"><span class="key">TX Total</span><span class="val">' + fmtBytes(d.tx_bytes) + '</span></div>' +
-    '<div class="info-row"><span class="key">\u2193 RX Rate</span><span class="val val-green">' + fmtBytesRate(d.rx_rate) + '</span></div>' +
-    '<div class="info-row"><span class="key">\u2191 TX Rate</span><span class="val val-yellow">' + fmtBytesRate(d.tx_rate) + '</span></div>' +
-    '</div>'
-  ).join('');
+
+  const netEntries = Object.entries(net);
+  const existingBlocks = el.querySelectorAll('.net-block[data-iface]');
+
+  if (existingBlocks.length !== netEntries.length) {
+    // Rebuild only when interface count changes
+    el.innerHTML = netEntries.map(([iface, d]) =>
+      '<div class="net-block" data-iface="' + esc(iface) + '">' +
+      '<h4>\u2193 ' + esc(netIfaceLabel(iface)) + ' \u2191</h4>' +
+      '<div class="info-row"><span class="key">RX Total</span><span class="val">' + fmtBytes(d.rx_bytes) + '</span></div>' +
+      '<div class="info-row"><span class="key">TX Total</span><span class="val">' + fmtBytes(d.tx_bytes) + '</span></div>' +
+      '<div class="info-row"><span class="key">\u2193 RX Rate</span><span class="val val-green">' + fmtBytesRate(d.rx_rate) + '</span></div>' +
+      '<div class="info-row"><span class="key">\u2191 TX Rate</span><span class="val val-yellow">' + fmtBytesRate(d.tx_rate) + '</span></div>' +
+      '</div>'
+    ).join('');
+    return;
+  }
+
+  // Patch values in place
+  for (let i = 0; i < netEntries.length; i++) {
+    const [, d] = netEntries[i];
+    const block = existingBlocks[i];
+    if (!block) continue;
+    const vals = block.querySelectorAll('.val');
+    if (vals.length >= 4) {
+      setTextOf(vals[0], fmtBytes(d.rx_bytes));
+      setTextOf(vals[1], fmtBytes(d.tx_bytes));
+      setTextOf(vals[2], fmtBytesRate(d.rx_rate));
+      setTextOf(vals[3], fmtBytesRate(d.tx_rate));
+    }
+  }
 }
 
 function renderBattery(bat) {

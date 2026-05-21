@@ -5,19 +5,32 @@ const path = require('path');
 const { execFile } = require('child_process');
 
 const PORT = parseInt(process.env.PORT, 10) || 8080;
-const COLLECT_MS = 2000;
+const COLLECT_MS = 3000;        // match client POLL_MS — no wasted cycles
 const IDLE_TIMEOUT_MS = 10000;  // stop polling if no request for 10s
-const DISK_CACHE_MS = 30000;    // refresh disk df every 30s
+const DISK_CACHE_MS = 120000;   // refresh disk usage every 2 min (barely changes)
+const PM2_CACHE_MS = 5000;      // cache pm2 jlist (avoids spawning node every 3s)
+const FREQ_CACHE_MS = 5000;     // cache CPU frequency readings
+const THERMAL_CACHE_MS = 5000;  // cache thermal sensor readings
+const QB_CACHE_MS = 10000;      // cache qBittorrent API responses
 const RATE_LIMIT = 10; // requests per second per IP
 
 const rateLimiter = (() => {
-  let hits = {};
-  setInterval(() => {
-    hits = {};
-  }, 1000);
+  const hits = new Map();
   return (ip) => {
-    hits[ip] = (hits[ip] || 0) + 1;
-    return hits[ip] <= RATE_LIMIT;
+    const now = Date.now();
+    const entry = hits.get(ip);
+    if (!entry || now - entry.ts >= 1000) {
+      hits.set(ip, { ts: now, count: 1 });
+      return true;
+    }
+    entry.count++;
+    // Prune stale entries lazily (every 50 unique IPs)
+    if (hits.size > 50) {
+      for (const [k, v] of hits) {
+        if (now - v.ts > 2000) hits.delete(k);
+      }
+    }
+    return entry.count <= RATE_LIMIT;
   };
 })();
 
@@ -27,7 +40,11 @@ let state = {};
 let prev = { cpu: null, net: null, disk: null, time: 0 };
 let pollTimer = null;
 let lastRequestTime = Date.now();
-let diskCache = { value: null, time: 0 };
+let diskCache    = { value: null, time: 0 };
+let pm2Cache     = { value: null, time: 0 };
+let freqCache    = { value: null, time: 0 };
+let thermalCache = { value: null, time: 0 };
+let qbCache      = { value: null, time: 0 };
 
 // ── Static caches (filled once at startup) ─────────────────────────
 
@@ -181,11 +198,15 @@ function parseMemInfo(text) {
 // ── Individual collectors ──────────────────────────────────────────
 
 async function collectPM2() {
+  const now = Date.now();
+  if (pm2Cache.value && (now - pm2Cache.time) < PM2_CACHE_MS) {
+    return pm2Cache.value;
+  }
   // NOTE: --mini is NOT supported by jlist — only by pm2 list (CLI)
   const out = await runCmd('pm2', ['jlist']);
-  if (!out) return [];
+  if (!out) return pm2Cache.value || [];
   try {
-    return JSON.parse(out).map(p => ({
+    const result = JSON.parse(out).map(p => ({
       id:       p.pm_id,
       name:     p.name,
       status:   p.pm2_env?.status,
@@ -195,23 +216,34 @@ async function collectPM2() {
       restarts: p.pm2_env?.restart_time ?? 0,
       pid:      p.pid,
     }));
+    pm2Cache = { value: result, time: now };
+    return result;
   } catch (err) {
     console.warn('PM2 parse failed:', err.message);
-    return [];
+    return pm2Cache.value || [];
   }
 }
 
 async function collectThermal() {
+  const now = Date.now();
+  if (thermalCache.value && (now - thermalCache.time) < THERMAL_CACHE_MS) {
+    return thermalCache.value;
+  }
   // thermalPaths was populated once at startup – just read the temp files
   const result = [];
   await Promise.all(thermalPaths.map(async tp => {
     const raw = await readFile(tp.path);
     if (raw) result.push({ name: tp.name, temp: parseInt(raw.trim(), 10) / 1000 });
   }));
+  thermalCache = { value: result, time: now };
   return result;
 }
 
 async function collectFreq() {
+  const now = Date.now();
+  if (freqCache.value && (now - freqCache.time) < FREQ_CACHE_MS) {
+    return freqCache.value;
+  }
   // cpuStaticInfo was populated once at startup – only read current freq
   const result = [];
   await Promise.all(cpuStaticInfo.map(async info => {
@@ -225,8 +257,11 @@ async function collectFreq() {
       governor: info.governor,
     });
   }));
+  freqCache = { value: result, time: now };
   return result;
 }
+
+const _statfs = fs.statfs ? (p => new Promise(r => fs.statfs(p, (e, s) => r(e ? null : s)))) : null;
 
 async function collectDiskUsage() {
   const now = Date.now();
@@ -234,6 +269,20 @@ async function collectDiskUsage() {
   if (diskCache.value && (now - diskCache.time) < DISK_CACHE_MS) {
     return diskCache.value;
   }
+  // Prefer fs.statfs (Node 18+) — avoids spawning df process
+  if (_statfs) {
+    const s = await _statfs('/');
+    if (s) {
+      const total = s.blocks * s.bsize;
+      const available = s.bavail * s.bsize;
+      diskCache = {
+        value: { total, used: total - available, available },
+        time: now,
+      };
+      return diskCache.value;
+    }
+  }
+  // Fallback: spawn df (Node < 18)
   const out = await runCmd('df', ['-B1', '/']);
   if (!out) return diskCache.value || null;
   for (const line of out.split('\n')) {
@@ -362,15 +411,19 @@ async function qbLogin() {
 }
 
 async function collectQBittorrent() {
+  const now = Date.now();
+  if (qbCache.value && (now - qbCache.time) < QB_CACHE_MS) {
+    return qbCache.value;
+  }
   let res = await qbRequest('GET', '/api/v2/torrents/info', null);
   if (res.status === 403) {
     const ok = await qbLogin();
-    if (!ok) return [];
+    if (!ok) return qbCache.value || [];
     res = await qbRequest('GET', '/api/v2/torrents/info', null);
   }
-  if (res.status !== 200) return [];
+  if (res.status !== 200) return qbCache.value || [];
   try {
-    return JSON.parse(res.body).map(t => ({
+    const result = JSON.parse(res.body).map(t => ({
       name: t.name,
       size: t.size,
       progress: t.progress,
@@ -382,9 +435,11 @@ async function collectQBittorrent() {
       num_peers: t.num_leechs,
       ratio: t.ratio,
     }));
+    qbCache = { value: result, time: now };
+    return result;
   } catch (err) {
     console.warn('qBittorrent parse failed:', err.message);
-    return [];
+    return qbCache.value || [];
   }
 }
 
