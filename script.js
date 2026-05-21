@@ -604,7 +604,10 @@ function renderTorrents(torrents) {
   list.innerHTML = torrents.map(t => {
     const pct = t.progress * 100;
     const stateLabel = t.state ? t.state.charAt(0).toUpperCase() + t.state.slice(1) : 'Unknown';
-    const ratio = t.ratio != null ? t.ratio.toFixed(2) + ' ratio' : '';
+    const ratioClass = t.ratio > 1 ? 'ratio-good' : '';
+    const ratio = t.ratio != null
+      ? '<span class="' + ratioClass + '">' + t.ratio.toFixed(2) + ' ratio</span>'
+      : '';
     const meta = [stateLabel, ratio].filter(Boolean).join(' \u00B7 ');
 
     return '<div class="torrent-item">' +

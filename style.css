@@ -609,6 +609,10 @@ tr:last-child td { border-bottom: none; }
   flex-shrink: 0;
 }
 
+.torrent-meta .ratio-good {
+  color: var(--green);
+}
+
 .torrent-bar {
   height: 6px;
   background: #30363d;
