@@ -4,6 +4,7 @@ const POLL_MS = 3000;
 let staleTimer = null;
 let pollTimer = null;
 let prevData = null;
+const API_KEY = document.querySelector('meta[name="api-key"]')?.content || '';
 
 // ── Name maps ──────────────────────────────────────────────────────
 
@@ -584,7 +585,7 @@ function setErrorState(msg) {
 }
 
 function fetchStatus() {
-  fetch('/api/status')
+  fetch('/api/status', { headers: { 'X-Api-Key': API_KEY } })
     .then(res => {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res.json();
@@ -658,7 +659,7 @@ function manualRefresh() {
   if (btn) btn.classList.add('spinning');
   isFetching = true;
 
-  fetch('/api/status')
+  fetch('/api/status', { headers: { 'X-Api-Key': API_KEY } })
     .then(res => {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res.json();

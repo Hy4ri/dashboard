@@ -2,12 +2,24 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 
 const PORT = parseInt(process.env.PORT, 10) || 8080;
 const COLLECT_MS = 2000;
 const IDLE_TIMEOUT_MS = 10000;  // stop polling if no request for 10s
 const DISK_CACHE_MS = 30000;    // refresh disk df every 30s
+const RATE_LIMIT = 10; // requests per second per IP
+
+const rateLimiter = (() => {
+  const hits = {};
+  setInterval(() => {
+    for (const k in hits) delete hits[k];
+  }, 1000);
+  return (ip) => {
+    hits[ip] = (hits[ip] || 0) + 1;
+    return hits[ip] <= RATE_LIMIT;
+  };
+})();
 
 // ── Cached state & previous-readings for delta calculations ────────
 
@@ -31,8 +43,8 @@ const readFile = p => new Promise(r =>
 const readDir = p => new Promise(r =>
   fs.readdir(p, (e, d) => r(e ? [] : d)));
 
-const runCmd = (cmd, tmo = 3000) => new Promise(r =>
-  exec(cmd, { timeout: tmo }, (e, o) => r(e ? '' : o.trim())));
+const runCmd = (cmd, args = [], tmo = 3000) => new Promise(r =>
+  execFile(cmd, args, { timeout: tmo }, (e, o) => r(e ? '' : o.trim())));
 
 // ── Startup initializers (run once) ─────────────────────────────────
 
@@ -40,8 +52,8 @@ async function initStaticSystem() {
   const [osRel, host, ip, kern, lscpu] = await Promise.all([
     readFile('/etc/os-release'),
     runCmd('hostname'),
-    runCmd('hostname -I'),
-    runCmd('uname -r'),
+    runCmd('hostname', ['-I']),
+    runCmd('uname', ['-r']),
     runCmd('lscpu'),
   ]);
   let os = null;
@@ -169,7 +181,7 @@ function parseMemInfo(text) {
 // ── Individual collectors ──────────────────────────────────────────
 
 async function collectPM2() {
-  const out = await runCmd('pm2 jlist');
+  const out = await runCmd('pm2', ['jlist', '--mini']);
   if (!out) return [];
   try {
     return JSON.parse(out).map(p => ({
@@ -218,7 +230,7 @@ async function collectDiskUsage() {
   if (diskCache.value && (now - diskCache.time) < DISK_CACHE_MS) {
     return diskCache.value;
   }
-  const out = await runCmd('df -B1 /');
+  const out = await runCmd('df', ['-B1', '/']);
   if (!out) return diskCache.value || null;
   for (const line of out.split('\n')) {
     const parts = line.trim().split(/\s+/);
@@ -271,8 +283,13 @@ async function collectSystem() {
 let qbCookie = null;
 const QB_HOST = 'localhost';
 const QB_PORT = 7777;
-const QB_USER = 'm57';
-const QB_PASS = 'm57';
+const QB_USER = process.env.QB_USER || 'admin';
+const QB_PASS = process.env.QB_PASS;
+
+if (!QB_PASS) {
+  console.error('FATAL: QB_PASS environment variable is required');
+  process.exit(1);
+}
 
 function qbRequest(method, path, body) {
   return new Promise(resolve => {
@@ -473,16 +490,35 @@ const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.css':  'text/css; charset=utf-8',
   '.js':   'text/javascript; charset=utf-8',
+  '.svg':  'image/svg+xml',
+  '.json': 'application/json',
 };
 const ROOT = __dirname;
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'no-referrer',
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'",
+};
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   let p = url.pathname;
 
+  if (!rateLimiter(req.socket.remoteAddress)) {
+    res.writeHead(429, SECURITY_HEADERS);
+    return res.end('Too Many Requests');
+  }
+
   if (p === '/api/status') {
-    ensureActivePolling();   // wake up polling on any API request
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    const apiKey = req.headers['x-api-key'] || url.searchParams.get('key');
+    const expectedKey = process.env.API_KEY;
+    if (!expectedKey || apiKey !== expectedKey) {
+      res.writeHead(401, Object.assign({ 'Content-Type': 'text/plain' }, SECURITY_HEADERS));
+      return res.end('Unauthorized');
+    }
+    ensureActivePolling();
+    res.writeHead(200, Object.assign({ 'Content-Type': 'application/json' }, SECURITY_HEADERS));
     res.end(JSON.stringify(state));
     return;
   }
@@ -491,17 +527,30 @@ const server = http.createServer((req, res) => {
 
   const filePath = path.join(ROOT, p);
   if (!filePath.startsWith(ROOT)) {
-    res.writeHead(403);
+    res.writeHead(403, SECURITY_HEADERS);
     return res.end('Forbidden');
   }
 
   const ext = path.extname(filePath);
+  // Special handling for .html files: inject API key from environment
+  if (ext === '.html') {
+    fs.readFile(filePath, 'utf8', (err, data) => {
+      if (err) {
+        res.writeHead(404, SECURITY_HEADERS);
+        return res.end('Not Found');
+      }
+      const content = data.replace('{{API_KEY}}', process.env.API_KEY || '');
+      res.writeHead(200, Object.assign({ 'Content-Type': MIME[ext] }, SECURITY_HEADERS));
+      res.end(content);
+    });
+    return;
+  }
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      res.writeHead(404);
+      res.writeHead(404, SECURITY_HEADERS);
       return res.end('Not Found');
     }
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+    res.writeHead(200, Object.assign({ 'Content-Type': MIME[ext] || 'application/octet-stream' }, SECURITY_HEADERS));
     res.end(data);
   });
 });
@@ -528,8 +577,22 @@ async function startup() {
 
 startup();
 
+function shutdown(signal) {
+  return () => {
+    console.log(`Received ${signal}, shutting down...`);
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+    server.close(() => process.exit(0));
+    // Force exit after 5 seconds
+    setTimeout(() => process.exit(1), 5000);
+  };
+}
+
+process.on('SIGTERM', shutdown('SIGTERM'));
+process.on('SIGINT', shutdown('SIGINT'));
 process.on('uncaughtException', err => {
   console.error('Uncaught:', err.message);
+  process.exit(1);
 });
 process.on('unhandledRejection', err => {
   console.error('Unhandled:', err.message);
