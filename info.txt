@@ -1,0 +1,121 @@
+  PM2 PROCESSES
+  ─────────────────────────────────────────────────────────────────────
+  Source         │ pm2 jlist                  │ JSON array of all
+                 │                            │ processes
+  ───────────────┼────────────────────────────┼────────────────────────
+  Fields         │ name, pm_id, status        │
+                 │ monit.cpu                  │ CPU % (instant)
+                 │ monit.memory               │ memory in bytes
+                 │ pm2_env.uptime             │ start time ms
+                 │ pm2_env.restart_time       │ restart count
+                 │ pid                        │ OS process ID
+  ───────────────┼────────────────────────────┼────────────────────────
+  Hint           │ Use pm2 jlist --mini       │ strips env vars
+  CPU
+  ─────────────────────────────────────────────────────────────────────
+  Overall Usage  │ /proc/stat                 │ Parse "cpu" line,
+                 │ read x2 with 1s gap        │ compute delta:
+                 │                            │ (total-idle)/total
+  ───────────────┼────────────────────────────┼────────────────────────
+  Per-core Usage │ /proc/stat                 │ Lines cpu0…cpu7
+                 │                            │ same delta method
+  ───────────────┼────────────────────────────┼────────────────────────
+  Temperature    │ /sys/class/thermal/        │ ÷1000 → °C
+                 │ thermal_zone{0..81}/{temp,type}
+                 │                            │
+  ───────────────┼────────────────────────────┼────────────────────────
+                 │ Key zones to watch:        │
+                 │   cpu-1-6-step             │ 58°C  hottest core
+                 │   battery                  │ 33°C
+                 │   gpuss-0-step             │ 47°C  GPU
+                 │   ddr-usr                  │ 49°C  RAM
+                 │   modem-lte-sub6-pa1       │ 43°C  5G modem
+                 │   pmr735a_tz               │ 40°C  PMIC
+  ───────────────┼────────────────────────────┼────────────────────────
+  Frequency      │ /sys/devices/system/cpu/   │ in kHz
+                 │ cpu*/cpufreq/              │
+                 │   scaling_cur_freq         │ current MHz
+                 │   scaling_min_freq         │ floor
+                 │   scaling_max_freq         │ ceiling
+                 │   scaling_governor         │ schedutil
+  ───────────────┼────────────────────────────┼────────────────────────
+  Load Average   │ /proc/loadavg              │ "1min 5min 15min"
+  MEMORY
+  ─────────────────────────────────────────────────────────────────────
+  Physical RAM   │ /proc/meminfo              │ all values in kB
+  ───────────────┼────────────────────────────┼────────────────────────
+  Key fields:    │ MemTotal                   │ 7,567,200  (7.2 GB)
+                 │ MemFree                    │   767,468
+                 │ MemAvailable               │ 1,500,164  ← use this
+                 │ Buffers                    │     1,388
+                 │ Cached                     │ 1,291,380
+  ───────────────┼────────────────────────────┼────────────────────────
+  Swap           │ SwapTotal                  │ 8,388,604  (8 GB)
+                 │ SwapFree                   │ 5,060,860
+                 │ /proc/diskstats → zram0    │ swap I/O counters
+  DISK
+  ─────────────────────────────────────────────────────────────────────
+  Usage          │ df -B1 /                   │ bytes (total/used/avail)
+                 │                            │ 224G total · 87% used
+  ───────────────┼────────────────────────────┼────────────────────────
+  I/O            │ /proc/diskstats → sda      │ columns:
+                 │                            │ reads, sectors read,
+                 │                            │ write time, writes,
+                 │                            │ sectors written,
+                 │                            │ I/O time (ms)
+                 │                            │
+                 │ Watch sda for total I/O    │
+                 │ Watch sda26 for userdata   │ ← actual data partition
+  NETWORK
+  ─────────────────────────────────────────────────────────────────────
+  Traffic        │ /proc/net/dev              │
+  ───────────────┼────────────────────────────┼────────────────────────
+  Active ifaces: │ wlan0                      │ WiFi — 104G RX / 41G TX
+                 │ tun0                       │ VPN tunnel — has traffic
+  ───────────────┼────────────────────────────┼────────────────────────
+  Ignore:        │ rmnet_data*, epdg*, p2p0,  │
+                 │ ip6tnl, gretap, dummy0…    │ 40+ virtual, all zero
+  ───────────────┼────────────────────────────┼────────────────────────
+  Bandwidth      │ Sample twice, compute      │ (bytes2 - bytes1) /
+                 │ delta / interval           │ interval
+  BATTERY
+  ─────────────────────────────────────────────────────────────────────
+  Main battery   │ /sys/class/power_supply/battery/
+  ───────────────┼────────────────────────────┼────────────────────────
+  capacity       │ .../capacity               │ 79  (%)
+  status         │ .../status                 │ Not charging
+  voltage_now    │ .../voltage_now            │ 4,040,000  (µV)
+  current_now    │ .../current_now            │ 0  (µA)
+  temp           │ thermal_zone81             │ 33°C
+  ───────────────┼────────────────────────────┼────────────────────────
+  Also available:│ ac, usb, wireless           │ status of each
+                 │ sec-dual-battery           │ Charging (other cell)
+                 │ max77705-charger           │ charger IC stats
+                 │ max77705-fuelgauge         │ fuel gauge data
+  SYSTEM
+  ─────────────────────────────────────────────────────────────────────
+  Uptime         │ /proc/uptime               │ seconds since boot
+  ───────────────┼────────────────────────────┼────────────────────────
+  Hostname       │ hostname                   │ localhost
+  ───────────────┼────────────────────────────┼────────────────────────
+  IP             │ hostname -I                │ 192.168.1.48
+  ───────────────┼────────────────────────────┼────────────────────────
+  Kernel         │ uname -a                   │ 5.4.274 · aarch64
+  ───────────────┼────────────────────────────┼────────────────────────
+  OS             │ /etc/os-release            │ Ubuntu 24.04
+  ───────────────┼────────────────────────────┼────────────────────────
+  Architecture   │ lscpu                      │ 4×A55 + 4×A78
+  PM2 SERVICES ON THIS SERVER
+  ─────────────────────────────────────────────────────────────────────
+  ID  │ Name         │ CPU  │ Mem        │ PID    │ Notes
+  ─────┼──────────────┼──────┼────────────┼────────┼────────────────────
+  0   │ bazarr       │ 0%   │ 2.0 MB     │ 12260  │ subs
+  1   │ cloudflared  │ 0%   │ 19.6 MB    │ 12295  │ tunnel
+  2   │ dufs         │ 0%   │ 564 KB     │ 12327  │ file serve
+  3   │ jellyfin     │ 0%   │ 1.1 GB     │ 12353  │ media server
+  4   │ prowlarr     │ 0%   │ 183.2 MB   │ 12416  │ indexer
+  5   │ qbittorrent  │ 0%   │ 44.3 MB    │ 12477  │ torrents
+  6   │ radarr       │ 0.4% │ 159.0 MB   │ 12521  │ movies
+  7   │ seerr        │ 0%   │ 10.8 MB    │ 12578  │ requests
+  8   │ sonarr       │ 0.2% │ 166.1 MB   │ 12649  │ TV shows
+  9   │ technitium   │ 0%   │ 716 KB     │ 12734  │ DNS server

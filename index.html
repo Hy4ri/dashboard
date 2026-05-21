@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Server Dashboard</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <header>
+    <h1>Dashboard</h1>
+    <div class="status-bar">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="last-update">Connecting...</span>
+    </div>
+  </header>
+
+  <main class="grid">
+
+    <!-- PM2 Services -->
+    <section class="card" id="pm2-card">
+      <h2>PM2 Services</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Status</th>
+              <th>CPU</th>
+              <th>Memory</th>
+              <th>Uptime</th>
+              <th>Rstrt</th>
+              <th>PID</th>
+            </tr>
+          </thead>
+          <tbody id="pm2-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- CPU -->
+    <section class="card" id="cpu-card">
+      <h2>CPU</h2>
+      <div id="cpu-overall"></div>
+      <div id="cpu-cores" class="core-grid"></div>
+    </section>
+
+    <!-- Thermal -->
+    <section class="card" id="thermal-card">
+      <h2>Thermal</h2>
+      <div id="thermal-grid" class="thermal-grid"></div>
+    </section>
+
+    <!-- Frequency -->
+    <section class="card" id="freq-card">
+      <h2>Frequency</h2>
+      <div id="freq-grid" class="freq-grid"></div>
+    </section>
+
+    <!-- Load Average -->
+    <section class="card" id="load-card">
+      <h2>Load Average</h2>
+      <div id="load-rows"></div>
+    </section>
+
+    <!-- Memory -->
+    <section class="card" id="mem-card">
+      <h2>Memory</h2>
+      <div id="mem-bar"></div>
+      <div id="mem-rows"></div>
+    </section>
+
+    <!-- Swap -->
+    <section class="card" id="swap-card">
+      <h2>Swap</h2>
+      <div id="swap-bar"></div>
+      <div id="swap-rows"></div>
+    </section>
+
+    <!-- Disk -->
+    <section class="card" id="disk-card">
+      <h2>Disk</h2>
+      <div id="disk-bar"></div>
+      <div id="disk-rows"></div>
+      <div id="disk-io-rows" style="margin-top:10px"></div>
+    </section>
+
+    <!-- Network -->
+    <section class="card" id="net-card">
+      <h2>Network</h2>
+      <div id="net-rows"></div>
+    </section>
+
+    <!-- Battery -->
+    <section class="card" id="battery-card">
+      <h2>Battery</h2>
+      <div id="battery-grid" class="battery-grid"></div>
+    </section>
+
+    <!-- System -->
+    <section class="card" id="system-card">
+      <h2>System</h2>
+      <div id="system-rows"></div>
+    </section>
+
+  </main>
+
+  <script src="/script.js"></script>
+</body>
+</html>

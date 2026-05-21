@@ -1,0 +1,391 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0d1117;
+  --card-bg: #161b22;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --text-muted: #8b949e;
+  --text-bright: #f0f6fc;
+  --green: #3fb950;
+  --red: #f85149;
+  --blue: #58a6ff;
+  --yellow: #d29922;
+  --orange: #db6d28;
+  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 16px;
+  min-height: 100vh;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding: 8px 4px;
+  gap: 12px;
+}
+
+header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-bright);
+  letter-spacing: -0.3px;
+}
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+  transition: background 0.3s;
+}
+.status-dot.off {
+  background: var(--red);
+}
+.status-dot.stale {
+  background: var(--yellow);
+}
+
+/* ── Grid Layout ────────────────────────────────────────────────────── */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 14px;
+}
+
+/* ── Cards ──────────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.card h2 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.card h3 {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-bright);
+  margin-bottom: 6px;
+}
+
+/* ── Tables ──────────────────────────────────────────────────────────── */
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+th, td {
+  text-align: left;
+  padding: 6px 8px;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+  font-weight: 500;
+  padding-top: 0;
+}
+
+td:first-child, th:first-child { padding-left: 0; }
+td:last-child, th:last-child { padding-right: 0; }
+
+tr:last-child td { border-bottom: none; }
+
+/* Status dot in table */
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.status-indicator.online { background: var(--green); }
+.status-indicator.errored { background: var(--red); }
+.status-indicator.stopped { background: var(--orange); }
+
+/* ── Progress Bars ──────────────────────────────────────────────────── */
+
+.bar-wrap {
+  height: 20px;
+  background: #21262d;
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 8px 0;
+  position: relative;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.5s ease;
+  background: linear-gradient(90deg, var(--blue), var(--green));
+  position: relative;
+}
+
+.bar-fill.cpu        { background: linear-gradient(90deg, var(--blue), var(--green)); }
+.bar-fill.memory     { background: linear-gradient(90deg, var(--green), var(--yellow)); }
+.bar-fill.swap       { background: linear-gradient(90deg, var(--yellow), var(--orange)); }
+.bar-fill.disk       { background: linear-gradient(90deg, var(--blue), var(--orange)); }
+
+.bar-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-bright);
+  z-index: 1;
+}
+
+.bar-fill.high   { background: linear-gradient(90deg, var(--yellow), var(--orange)); }
+.bar-fill.critical { background: linear-gradient(90deg, var(--orange), var(--red)); }
+
+/* ── Core CPU bars ─────────────────────────────────────────────────── */
+
+.core-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.core-item {
+  flex: 1 0 calc(25% - 6px);
+  min-width: 60px;
+}
+
+.core-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.core-bar {
+  height: 10px;
+  background: #21262d;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.core-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--blue);
+  transition: width 0.5s ease;
+}
+
+/* ── Thermal Grid ──────────────────────────────────────────────────── */
+
+.thermal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.thermal-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: #21262d;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.thermal-item .label {
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.thermal-item .temp {
+  font-weight: 600;
+  color: var(--text-bright);
+}
+
+.thermal-item .temp.hot        { color: var(--orange); }
+.thermal-item .temp.very-hot   { color: var(--red); }
+
+/* ── Frequency Grid ──────────────────────────────────────────────────── */
+
+.freq-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}
+
+.freq-item {
+  padding: 6px 8px;
+  background: #21262d;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.freq-item .core-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.freq-item .value {
+  color: var(--text-bright);
+}
+
+/* ── Info Rows (key-value) ─────────────────────────────────────────── */
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  border-bottom: 1px solid #21262d;
+}
+
+.info-row:last-child { border-bottom: none; }
+
+.info-row .key {
+  color: var(--text-muted);
+}
+
+.info-row .val {
+  color: var(--text-bright);
+  text-align: right;
+}
+
+/* ── Network Section ──────────────────────────────────────────────── */
+
+.net-block {
+  margin-bottom: 10px;
+}
+.net-block:last-child { margin-bottom: 0; }
+
+.net-block h4 {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-bright);
+  margin-bottom: 4px;
+}
+
+/* ── Battery ────────────────────────────────────────────────────────── */
+
+.battery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.battery-stat {
+  padding: 8px 10px;
+  background: #21262d;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.battery-stat .val {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-bright);
+  display: block;
+}
+
+.battery-stat .label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-top: 2px;
+}
+
+/* ── System ──────────────────────────────────────────────────────────── */
+
+#system-card .grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  body { padding: 10px; }
+  .grid { grid-template-columns: 1fr; }
+  header { flex-direction: column; align-items: flex-start; }
+  .core-item { flex: 1 0 calc(50% - 6px); }
+  .thermal-grid { grid-template-columns: repeat(2, 1fr); }
+  #system-card .grid-2 { grid-template-columns: 1fr; }
+}
+
+/* ── Utility ─────────────────────────────────────────────────────────── */
+
+.none {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 13px;
+  padding: 10px 0;
+}
+
+.val-green  { color: var(--green) !important; }
+.val-red    { color: var(--red) !important; }
+.val-yellow { color: var(--yellow) !important; }
+.val-blue   { color: var(--blue) !important; }
