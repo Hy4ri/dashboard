@@ -11,6 +11,7 @@
   --text-bright: #FFFFFF;
   --accent: #990000;
   --accent-text: #FF5252;
+  --bar-gradient: linear-gradient(90deg, var(--accent), var(--accent-text));
   --surface-raised: #2A2A2A;
   --surface-hover: #333333;
   --focus: #FF5252;
@@ -248,10 +249,6 @@ header h1 {
 
 /* ── Tables ──────────────────────────────────────────────────────────── */
 
-.table-wrap {
-  overflow-x: auto;
-}
-
 table {
   width: 100%;
   border-collapse: collapse;
@@ -313,13 +310,13 @@ tr:last-child td { border-bottom: none; }
   height: 100%;
   border-radius: 6px;
   transition: width 0.5s ease;
-  background: linear-gradient(90deg, var(--accent), var(--accent-text));
+  background: var(--bar-gradient);
   position: relative;
 }
 
-.bar-fill.memory     { background: linear-gradient(90deg, var(--accent), var(--accent-text)); }
+.bar-fill.memory     { background: var(--bar-gradient); }
 .bar-fill.swap       { background: linear-gradient(90deg, #990000, var(--red)); }
-.bar-fill.disk       { background: linear-gradient(90deg, var(--accent), var(--accent-text)); }
+.bar-fill.disk       { background: var(--bar-gradient); }
 
 .bar-label {
   position: absolute;
@@ -335,7 +332,7 @@ tr:last-child td { border-bottom: none; }
   text-shadow: 0 1px 3px rgba(0,0,0,0.85);
 }
 
-.bar-fill.high   { background: linear-gradient(90deg, var(--accent), var(--accent-text)); }
+.bar-fill.high   { background: var(--bar-gradient); }
 .bar-fill.critical { background: linear-gradient(90deg, #990000, var(--red)); }
 
 /* ── Core CPU bars ─────────────────────────────────────────────────── */
@@ -526,10 +523,7 @@ tr:last-child td { border-bottom: none; }
   margin-bottom: 4px;
 }
 
-
-
 /* ── Torrent Downloads ───────────────────────────────────────────── */
-
 #torrent-card {
   grid-column: 1 / -1;
 }
@@ -584,7 +578,7 @@ tr:last-child td { border-bottom: none; }
 .torrent-fill {
   height: 100%;
   border-radius: 3px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-text));
+  background: var(--bar-gradient);
   transition: width 0.5s ease;
 }
 

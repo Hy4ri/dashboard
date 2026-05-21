@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Lightweight server status dashboard — zero dependencies",
   "main": "server.js",
+  "engines": {
+    "node": ">=14"
+  },
   "scripts": {
     "start": "node server.js",
     "pm2:start": "pm2 start ecosystem.config.js",

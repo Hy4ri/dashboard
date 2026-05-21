@@ -3,7 +3,6 @@
 const POLL_MS = 3000;
 let staleTimer = null;
 let pollTimer = null;
-let prevData = null;
 const API_KEY = document.querySelector('meta[name="api-key"]')?.content || '';
 
 // ── Name maps ──────────────────────────────────────────────────────
@@ -159,8 +158,8 @@ function updateBar(id, pct, valText) {
 }
 
 function barClass(pct, warn, crit) {
-  if (pct > crit) return 'critical';
-  if (pct > warn) return 'high';
+  if (pct > crit) return ' critical';
+  if (pct > warn) return ' high';
   return '';
 }
 
@@ -257,7 +256,7 @@ function renderCPU(data) {
   const pct = data / 100;
   const fill = $('cpu-bar-fill');
   if (fill) {
-    fill.className = 'bar-fill cpu' + (barClass(pct, 0.6, 0.8) ? ' ' + barClass(pct, 0.6, 0.8) : '');
+    fill.className = 'bar-fill cpu' + barClass(pct, 0.6, 0.8);
   }
   updateBar('cpu-bar-fill', pct, data.toFixed(1) + '%');
 }
@@ -388,7 +387,7 @@ function renderMemory(mem) {
   const pct = mem.MemTotal > 0 ? used / mem.MemTotal : 0;
   const fill = $('mem-bar-fill');
   if (fill) {
-    fill.className = 'bar-fill memory' + (barClass(pct, 0.6, 0.8) ? ' ' + barClass(pct, 0.6, 0.8) : '');
+    fill.className = 'bar-fill memory' + barClass(pct, 0.6, 0.8);
   }
   updateBar('mem-bar-fill', pct, fmtBytes(used) + ' / ' + fmtBytes(mem.MemTotal));
   setText('mem-total', fmtBytes(mem.MemTotal));
@@ -411,7 +410,7 @@ function renderSwap(swap) {
   const pct = swap.total > 0 ? used / swap.total : 0;
   const fill = $('swap-bar-fill');
   if (fill) {
-    fill.className = 'bar-fill swap' + (barClass(pct, 0.6, 0.8) ? ' ' + barClass(pct, 0.6, 0.8) : '');
+    fill.className = 'bar-fill swap' + barClass(pct, 0.6, 0.8);
   }
   updateBar('swap-bar-fill', pct, fmtBytes(used) + ' / ' + fmtBytes(swap.total));
   setText('swap-total', fmtBytes(swap.total));
@@ -433,7 +432,7 @@ function renderDisk(disk) {
   const pct = disk.total > 0 ? disk.used / disk.total : 0;
   const fill = $('disk-bar-fill');
   if (fill) {
-    fill.className = 'bar-fill disk' + (barClass(pct, 0.7, 0.85) ? ' ' + barClass(pct, 0.7, 0.85) : '');
+    fill.className = 'bar-fill disk' + barClass(pct, 0.7, 0.85);
   }
   updateBar('disk-bar-fill', pct, (pct * 100).toFixed(1) + '%');
   setText('disk-used-label', fmtBytes(disk.used) + ' / ' + fmtBytes(disk.total));
@@ -574,8 +573,6 @@ function updateUI(data) {
   renderBattery(data.battery);
   renderTorrents(data.torrents);
   renderSystem(data.system);
-
-  prevData = data;
 }
 
 function setErrorState(msg) {
@@ -584,7 +581,8 @@ function setErrorState(msg) {
   $('status-text').textContent = 'Disconnected \u2014 ' + msg;
 }
 
-function fetchStatus() {
+function doFetch({ onStart, onDone }) {
+  if (onStart) onStart();
   fetch('/api/status', { headers: { 'X-Api-Key': API_KEY } })
     .then(res => {
       if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -592,17 +590,22 @@ function fetchStatus() {
     })
     .then(data => {
       updateUI(data);
-      // Mark dot green, clear stale timer
       $('status-dot').className = 'status-dot';
       clearTimeout(staleTimer);
       staleTimer = setTimeout(() => {
         $('status-dot').className = 'status-dot stale';
         $('status-text').textContent = 'Connected \u2014 data stale';
       }, POLL_MS * 2);
+      if (onDone) onDone();
     })
     .catch(err => {
       setErrorState(err.message);
+      if (onDone) onDone();
     });
+}
+
+function fetchStatus() {
+  doFetch({});
 }
 
 // ── Auto-pause when tab is hidden ──────────────────────────────────
@@ -656,30 +659,14 @@ let isFetching = false;
 function manualRefresh() {
   if (isFetching) return;
   const btn = $('refresh-btn');
-  if (btn) btn.classList.add('spinning');
   isFetching = true;
-
-  fetch('/api/status', { headers: { 'X-Api-Key': API_KEY } })
-    .then(res => {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    })
-    .then(data => {
-      updateUI(data);
-      $('status-dot').className = 'status-dot';
-      clearTimeout(staleTimer);
-      staleTimer = setTimeout(() => {
-        $('status-dot').className = 'status-dot stale';
-        $('status-text').textContent = 'Connected \u2014 data stale';
-      }, POLL_MS * 2);
-    })
-    .catch(err => {
-      setErrorState(err.message);
-    })
-    .finally(() => {
-      if (btn) btn.classList.remove('spinning');
+  doFetch({
+    onStart: () => { if (btn) btn.classList.add('spinning'); },
+    onDone: () => {
       isFetching = false;
-    });
+      if (btn) btn.classList.remove('spinning');
+    },
+  });
 }
 
 // Wire up refresh button
