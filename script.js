@@ -3,7 +3,6 @@
 const POLL_MS = 3000;
 let staleTimer = null;
 let pollTimer = null;
-const API_KEY = document.querySelector('meta[name="api-key"]')?.content || '';
 
 // ── Name maps ──────────────────────────────────────────────────────
 
@@ -583,7 +582,7 @@ function setErrorState(msg) {
 
 function doFetch({ onStart, onDone }) {
   if (onStart) onStart();
-  fetch('/api/status', { headers: { 'X-Api-Key': API_KEY } })
+  fetch('/api/status')
     .then(res => {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res.json();

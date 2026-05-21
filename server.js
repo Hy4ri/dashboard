@@ -550,28 +550,9 @@ const SECURITY_HEADERS = {
 // ── Route handlers ──────────────────────────────────────────────────
 
 function handleAPI(req, res) {
-  const apiKey = req.headers['x-api-key'];
-  const expectedKey = process.env.API_KEY;
-  if (!expectedKey || apiKey !== expectedKey) {
-    res.writeHead(401, Object.assign({ 'Content-Type': 'text/plain' }, SECURITY_HEADERS));
-    res.end('Unauthorized');
-    return;
-  }
   ensureActivePolling();
   res.writeHead(200, Object.assign({ 'Content-Type': 'application/json' }, SECURITY_HEADERS));
   res.end(JSON.stringify(state));
-}
-
-function handleHtml(filePath, res) {
-  fs.readFile(filePath, 'utf8', (err, data) => {
-    if (err) {
-      res.writeHead(404, SECURITY_HEADERS);
-      return res.end('Not Found');
-    }
-    const content = data.replace('{{API_KEY}}', process.env.API_KEY || '');
-    res.writeHead(200, Object.assign({ 'Content-Type': 'text/html; charset=utf-8' }, SECURITY_HEADERS));
-    res.end(content);
-  });
 }
 
 const server = http.createServer((req, res) => {
@@ -599,9 +580,9 @@ const server = http.createServer((req, res) => {
     return res.end('Forbidden');
   }
 
-  // HTML files: inject API key from environment
+  // HTML files — serve as static
   if (path.extname(filePath) === '.html') {
-    return handleHtml(filePath, res);
+    // fall through to static file handler below
   }
 
   // Other static files
