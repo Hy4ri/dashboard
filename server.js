@@ -285,12 +285,41 @@ async function collectSystem() {
 // ── qBittorrent API ──────────────────────────────────────────────
 
 let qbCookie = null;
-const QB_HOST = 'localhost';
-const QB_PORT = 7777;
-const QB_USER = process.env.QB_USER || 'admin';
-const QB_PASS = process.env.QB_PASS;
+let QB_HOST = 'localhost';
+let QB_PORT = 7777;
+let QB_USER = 'admin';
+let QB_PASS = null;
 
+// Load qBittorrent config from qb-config.json, falling back to env vars
+function loadQBConfig() {
+  const configPath = path.join(__dirname, 'qb-config.json');
+  try {
+    const raw = fs.readFileSync(configPath, 'utf8');
+    const config = JSON.parse(raw);
+    QB_HOST = config.host || 'localhost';
+    QB_PORT = config.port || 7777;
+    QB_USER = config.username || 'admin';
+    QB_PASS = config.password || null;
+    console.log('qBittorrent config loaded from qb-config.json');
+  } catch {
+    // Fall back to environment variables
+    QB_HOST = process.env.QB_HOST || 'localhost';
+    QB_PORT = parseInt(process.env.QB_PORT, 10) || 7777;
+    QB_USER = process.env.QB_USER || 'admin';
+    QB_PASS = process.env.QB_PASS || null;
+  }
+}
 
+// Validate config on startup (called from startup())
+function validateQBConfig() {
+  if (!QB_PASS) {
+    throw new Error(
+      'qBittorrent password not set.\n' +
+      '  Option 1: Copy qb-config.example.json → qb-config.json and fill in your password.\n' +
+      '  Option 2: Set the QB_PASS environment variable.'
+    );
+  }
+}
 
 function qbRequest(method, path, body) {
   return new Promise(resolve => {
@@ -590,10 +619,9 @@ const server = http.createServer((req, res) => {
 // ── Start ──────────────────────────────────────────────────────────
 
 async function startup() {
-  // Validate required environment
-  if (!QB_PASS) {
-    throw new Error('QB_PASS environment variable is required');
-  }
+  // Load qBittorrent config
+  loadQBConfig();
+  validateQBConfig();
 
   // Initialize all static caches
   await Promise.all([
