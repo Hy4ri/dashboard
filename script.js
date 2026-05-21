@@ -638,42 +638,6 @@ function initServiceBar() {
   ).join('');
 }
 
-// ── Refresh button spinning indicator ────────────────────────────
-
-// Inject spin animation CSS
-const spinStyle = document.createElement('style');
-spinStyle.textContent = `
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-  .spinning svg {
-    animation: spin 0.8s linear infinite;
-  }
-`;
-document.head.appendChild(spinStyle);
-
-let isFetching = false;
-
-function manualRefresh() {
-  if (isFetching) return;
-  const btn = $('refresh-btn');
-  isFetching = true;
-  doFetch({
-    onStart: () => { if (btn) btn.classList.add('spinning'); },
-    onDone: () => {
-      isFetching = false;
-      if (btn) btn.classList.remove('spinning');
-    },
-  });
-}
-
-// Wire up refresh button
-const refreshBtn = $('refresh-btn');
-if (refreshBtn) {
-  refreshBtn.addEventListener('click', manualRefresh);
-}
-
 // ── Start ──────────────────────────────────────────────────────────
 
 initServiceBar();
