@@ -3,25 +3,35 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Server Dashboard</title>
+  <meta name="theme-color" content="#0d1117">
+  <title id="page-title">Server Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2358a6ff'%3E%3Cpath d='M4 3h16a2 2 0 012 2v14a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2zm0 16h16V5H4v14zm2-8h4v6H6v-6zm6-4h4v10h-4V7z'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
+  <a href="#cpu-card" class="skip-link">Skip to content</a>
+
   <header>
     <h1>Dashboard</h1>
     <div class="status-bar">
-      <span class="status-dot" id="status-dot"></span>
+      <span id="header-battery" class="header-battery" style="display:none">
+        <span id="bat-header-icon">&#x1F50B;</span>
+        <span id="bat-header-val">—</span>
+      </span>
+      <span class="status-dot" id="status-dot" aria-hidden="true"></span>
+      <span class="sr-only" id="status-text" role="status">Connecting</span>
       <span id="last-update">Connecting...</span>
     </div>
   </header>
 
   <main class="grid">
 
-    <!-- PM2 Services -->
-    <section class="card" id="pm2-card">
-      <h2>PM2 Services</h2>
-      <div class="table-wrap">
+    <!-- PM2 Services (full width) -->
+    <section class="card" id="pm2-card" role="region" aria-label="Processes">
+      <h2>Processes</h2>
+      <div class="service-bar" id="service-bar" role="group" aria-label="Service links"></div>
+      <div class="table-wrap" role="group" aria-label="Process list">
         <table>
           <thead>
             <tr>
@@ -31,78 +41,124 @@
               <th>CPU</th>
               <th>Memory</th>
               <th>Uptime</th>
-              <th>Rstrt</th>
+              <th>Restarts</th>
               <th>PID</th>
             </tr>
           </thead>
-          <tbody id="pm2-body"></tbody>
+          <tbody id="pm2-body" aria-live="polite" aria-atomic="true"></tbody>
         </table>
       </div>
     </section>
 
-    <!-- CPU -->
-    <section class="card" id="cpu-card">
+    <!-- CPU (all-in-one block) -->
+    <section class="card" id="cpu-card" role="region" aria-label="CPU usage">
       <h2>CPU</h2>
-      <div id="cpu-overall"></div>
-      <div id="cpu-cores" class="core-grid"></div>
+
+      <!-- Overall usage bar -->
+      <div id="cpu-overall" aria-live="polite">
+        <div class="bar-wrap">
+          <div class="bar-fill cpu" id="cpu-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+          <div class="bar-label">
+            <span>Overall</span>
+            <span id="cpu-pct">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Per-core bars -->
+      <div id="cpu-cores" class="core-grid" aria-live="polite"></div>
+
+      <!-- Load & Thermal side-by-side -->
+      <div class="grid-2">
+        <!-- Load Average -->
+        <div id="load-rows" aria-live="polite">
+          <h3>Load</h3>
+          <div class="info-row"><span class="key">1 min</span><span class="val" id="load-1">—</span></div>
+          <div class="info-row"><span class="key">5 min</span><span class="val" id="load-5">—</span></div>
+          <div class="info-row"><span class="key">15 min</span><span class="val" id="load-15">—</span></div>
+        </div>
+        <!-- Thermal -->
+        <div>
+          <h3>Temperatures</h3>
+          <div id="thermal-grid" class="thermal-grid" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <!-- Frequency -->
+      <h3>Frequency</h3>
+      <div id="freq-grid" class="freq-grid" aria-live="polite"></div>
     </section>
 
-    <!-- Thermal -->
-    <section class="card" id="thermal-card">
-      <h2>Thermal</h2>
-      <div id="thermal-grid" class="thermal-grid"></div>
-    </section>
-
-    <!-- Frequency -->
-    <section class="card" id="freq-card">
-      <h2>Frequency</h2>
-      <div id="freq-grid" class="freq-grid"></div>
-    </section>
-
-    <!-- Load Average -->
-    <section class="card" id="load-card">
-      <h2>Load Average</h2>
-      <div id="load-rows"></div>
-    </section>
-
-    <!-- Memory -->
-    <section class="card" id="mem-card">
+    <!-- Memory & Swap (merged) -->
+    <section class="card" id="mem-card" role="region" aria-label="Memory and Swap usage">
       <h2>Memory</h2>
-      <div id="mem-bar"></div>
-      <div id="mem-rows"></div>
-    </section>
 
-    <!-- Swap -->
-    <section class="card" id="swap-card">
-      <h2>Swap</h2>
-      <div id="swap-bar"></div>
-      <div id="swap-rows"></div>
+      <!-- Physical Memory -->
+      <h3>Physical Memory</h3>
+      <div id="mem-bar" aria-live="polite">
+        <div class="bar-wrap">
+          <div class="bar-fill memory" id="mem-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+          <div class="bar-label">
+            <span>Used</span>
+            <span id="mem-pct">—</span>
+          </div>
+        </div>
+      </div>
+      <div id="mem-rows" aria-live="polite">
+        <div class="info-row"><span class="key">Total</span><span class="val" id="mem-total">—</span></div>
+        <div class="info-row"><span class="key">Available</span><span class="val val-green" id="mem-avail">—</span></div>
+        <div class="info-row"><span class="key">Free</span><span class="val" id="mem-free">—</span></div>
+        <div class="info-row"><span class="key">Buffers</span><span class="val" id="mem-buffers">—</span></div>
+        <div class="info-row"><span class="key">Cached</span><span class="val" id="mem-cached">—</span></div>
+      </div>
+
+      <!-- Swap Space -->
+      <h3>Swap Space</h3>
+      <div id="swap-bar" aria-live="polite">
+        <div class="bar-wrap">
+          <div class="bar-fill swap" id="swap-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+          <div class="bar-label">
+            <span>Used</span>
+            <span id="swap-pct">—</span>
+          </div>
+        </div>
+      </div>
+      <div id="swap-rows" aria-live="polite">
+        <div class="info-row"><span class="key">Total</span><span class="val" id="swap-total">—</span></div>
+        <div class="info-row"><span class="key">Free</span><span class="val val-green" id="swap-free">—</span></div>
+      </div>
     </section>
 
     <!-- Disk -->
-    <section class="card" id="disk-card">
+    <section class="card" id="disk-card" role="region" aria-label="Disk usage">
       <h2>Disk</h2>
-      <div id="disk-bar"></div>
-      <div id="disk-rows"></div>
-      <div id="disk-io-rows" style="margin-top:10px"></div>
+      <div id="disk-bar" aria-live="polite">
+        <div class="bar-wrap">
+          <div class="bar-fill disk" id="disk-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+          <div class="bar-label">
+            <span id="disk-used-label">—</span>
+            <span id="disk-pct">—</span>
+          </div>
+        </div>
+      </div>
+      <div id="disk-rows" aria-live="polite">
+        <div class="info-row"><span class="key">Total</span><span class="val" id="disk-total">—</span></div>
+        <div class="info-row"><span class="key">Used</span><span class="val" id="disk-used">—</span></div>
+        <div class="info-row"><span class="key">Available</span><span class="val val-green" id="disk-avail">—</span></div>
+      </div>
+      <div id="disk-io-rows" style="margin-top:var(--space-2)" aria-live="polite"></div>
     </section>
 
     <!-- Network -->
-    <section class="card" id="net-card">
+    <section class="card" id="net-card" role="region" aria-label="Network traffic">
       <h2>Network</h2>
-      <div id="net-rows"></div>
+      <div id="net-rows" aria-live="polite"></div>
     </section>
 
-    <!-- Battery -->
-    <section class="card" id="battery-card">
-      <h2>Battery</h2>
-      <div id="battery-grid" class="battery-grid"></div>
-    </section>
-
-    <!-- System -->
-    <section class="card" id="system-card">
-      <h2>System</h2>
-      <div id="system-rows"></div>
+    <!-- Torrents (bottom) -->
+    <section class="card" id="torrent-card" role="region" aria-label="Active Downloads" style="display:none">
+      <h2>Active Downloads</h2>
+      <div id="torrent-list" aria-live="polite"></div>
     </section>
 
   </main>

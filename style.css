@@ -1,9 +1,11 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
+  /* Colors */
   --bg: #0d1117;
   --card-bg: #161b22;
   --border: #30363d;
+  --border-subtle: #21262d;
   --text: #c9d1d9;
   --text-muted: #8b949e;
   --text-bright: #f0f6fc;
@@ -12,6 +14,23 @@
   --blue: #58a6ff;
   --yellow: #d29922;
   --orange: #db6d28;
+
+  /* Spacing scale (8pt grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* Type scale */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+
+  /* Fonts */
   --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
@@ -28,27 +47,66 @@ body {
 
 /* ── Header ─────────────────────────────────────────────────────────── */
 
+/* ── Skip link ────────────────────────────────────────────────────── */
+
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 8px;
+  background: var(--card-bg);
+  color: var(--text-bright);
+  padding: 8px 16px;
+  border-radius: 6px;
+  z-index: 100;
+  text-decoration: none;
+  font-size: var(--text-base);
+}
+.skip-link:focus {
+  top: 8px;
+}
+
+/* ── Focus visible ─────────────────────────────────────────────────── */
+
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+
 header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
-  padding: 8px 4px;
-  gap: 12px;
+  margin-bottom: var(--space-5);
+  padding: var(--space-2) var(--space-1);
+  gap: var(--space-3);
 }
 
 header h1 {
-  font-size: 22px;
+  font-size: var(--text-xl);
   font-weight: 700;
   color: var(--text-bright);
   letter-spacing: -0.3px;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .status-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
   font-size: 13px;
   color: var(--text-muted);
 }
@@ -67,12 +125,53 @@ header h1 {
   background: var(--yellow);
 }
 
+/* ── Header battery ──────────────────────────────────────────────── */
+
+.header-battery {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-right: var(--space-2);
+}
+
+/* ── Two-column grid utility ────────────────────────────────────────── */
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+@media (max-width: 640px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Card sub-section spacing ───────────────────────────────────────── */
+
+.card h3 + * {
+  margin-top: var(--space-1);
+}
+
+.card > * + h3 {
+  margin-top: var(--space-4);
+}
+
 /* ── Grid Layout ────────────────────────────────────────────────────── */
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
-  gap: 14px;
+  gap: var(--space-3);
+}
+
+/* Full-width process table */
+#pm2-card {
+  grid-column: 1 / -1;
 }
 
 /* ── Cards ──────────────────────────────────────────────────────────── */
@@ -81,23 +180,23 @@ header h1 {
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 16px;
+  padding: var(--space-4);
   overflow: hidden;
 }
 
 .card h2 {
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--text-muted);
-  margin-bottom: 12px;
-  padding-bottom: 8px;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border);
 }
 
 .card h3 {
-  font-size: 13px;
+  font-size: var(--text-base);
   font-weight: 500;
   color: var(--text-bright);
   margin-bottom: 6px;
@@ -125,12 +224,16 @@ th, td {
 
 th {
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.4px;
   color: var(--text-muted);
   font-weight: 500;
   padding-top: 0;
+  position: sticky;
+  top: 0;
+  background: var(--card-bg);
+  z-index: 1;
 }
 
 td:first-child, th:first-child { padding-left: 0; }
@@ -170,7 +273,6 @@ tr:last-child td { border-bottom: none; }
   position: relative;
 }
 
-.bar-fill.cpu        { background: linear-gradient(90deg, var(--blue), var(--green)); }
 .bar-fill.memory     { background: linear-gradient(90deg, var(--green), var(--yellow)); }
 .bar-fill.swap       { background: linear-gradient(90deg, var(--yellow), var(--orange)); }
 .bar-fill.disk       { background: linear-gradient(90deg, var(--blue), var(--orange)); }
@@ -181,11 +283,12 @@ tr:last-child td { border-bottom: none; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 10px;
+  padding: 0 var(--space-2);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--text-bright);
   z-index: 1;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.85);
 }
 
 .bar-fill.high   { background: linear-gradient(90deg, var(--yellow), var(--orange)); }
@@ -289,15 +392,20 @@ tr:last-child td { border-bottom: none; }
   color: var(--text-bright);
 }
 
+.freq-sub {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
 /* ── Info Rows (key-value) ─────────────────────────────────────────── */
 
 .info-row {
   display: flex;
   justify-content: space-between;
-  padding: 4px 0;
+  padding: var(--space-1) 0;
   font-family: var(--font-mono);
-  font-size: 13px;
-  border-bottom: 1px solid #21262d;
+  font-size: var(--text-base);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .info-row:last-child { border-bottom: none; }
@@ -309,6 +417,59 @@ tr:last-child td { border-bottom: none; }
 .info-row .val {
   color: var(--text-bright);
   text-align: right;
+}
+
+/* ── Disk I/O blocks ──────────────────────────────────────────────── */
+
+.io-block {
+  margin-bottom: 8px;
+}
+.io-block:last-child {
+  margin-bottom: 0;
+}
+
+.io-device {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-bright);
+  margin-bottom: var(--space-1);
+}
+
+/* ── Service Bar ─────────────────────────────────────────────────── */
+
+.service-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.service-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: #21262d;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  color: var(--text-bright);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
+}
+
+.service-btn:hover {
+  background: var(--border-subtle);
+  border-color: var(--blue);
+}
+
+.service-btn:active {
+  transform: scale(0.98);
 }
 
 /* ── Network Section ──────────────────────────────────────────────── */
@@ -326,54 +487,100 @@ tr:last-child td { border-bottom: none; }
   margin-bottom: 4px;
 }
 
-/* ── Battery ────────────────────────────────────────────────────────── */
 
-.battery-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 8px;
+
+/* ── Torrent Downloads ───────────────────────────────────────────── */
+
+#torrent-card {
+  grid-column: 1 / -1;
 }
 
-.battery-stat {
-  padding: 8px 10px;
+.torrent-item {
+  padding: var(--space-2);
   background: #21262d;
   border-radius: 6px;
-  text-align: center;
+  margin-bottom: var(--space-2);
 }
 
-.battery-stat .val {
-  font-family: var(--font-mono);
-  font-size: 18px;
-  font-weight: 600;
+.torrent-item:last-child {
+  margin-bottom: 0;
+}
+
+.torrent-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-1);
+  font-size: var(--text-sm);
+  gap: var(--space-2);
+}
+
+.torrent-name {
   color: var(--text-bright);
-  display: block;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
-.battery-stat .label {
-  font-size: 11px;
+.torrent-meta {
   color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  margin-top: 2px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-/* ── System ──────────────────────────────────────────────────────────── */
+.torrent-bar {
+  height: 6px;
+  background: #30363d;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: var(--space-1);
+}
 
-#system-card .grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+.torrent-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--blue), var(--green));
+  transition: width 0.5s ease;
+}
+
+.torrent-stats {
+  display: flex;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.torrent-stats span {
+  white-space: nowrap;
+}
+
+/* ── Reduced motion ────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .bar-fill,
+  .core-fill,
+  .status-dot {
+    transition: none !important;
+  }
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────── */
 
 @media (max-width: 640px) {
-  body { padding: 10px; }
+  body { padding: var(--space-2); }
   .grid { grid-template-columns: 1fr; }
+  #pm2-card { grid-column: auto; }
   header { flex-direction: column; align-items: flex-start; }
   .core-item { flex: 1 0 calc(50% - 6px); }
   .thermal-grid { grid-template-columns: repeat(2, 1fr); }
-  #system-card .grid-2 { grid-template-columns: 1fr; }
 }
 
 /* ── Utility ─────────────────────────────────────────────────────────── */
@@ -381,8 +588,25 @@ tr:last-child td { border-bottom: none; }
 .none {
   color: var(--text-muted);
   font-style: italic;
-  font-size: 13px;
-  padding: 10px 0;
+  font-size: var(--text-base);
+  padding: var(--space-2) 0;
+}
+
+/* ── Scroll hint for overflowing tables ──────────────────────────── */
+
+.table-wrap::after {
+  content: '';
+  position: sticky;
+  right: 0;
+  width: 24px;
+  background: linear-gradient(to left, var(--card-bg), transparent);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.table-wrap {
+  display: flex;
+  overflow-x: auto;
 }
 
 .val-green  { color: var(--green) !important; }
