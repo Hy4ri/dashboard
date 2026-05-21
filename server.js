@@ -188,7 +188,7 @@ async function collectPM2() {
     return JSON.parse(out).map(p => ({
       id:       p.pm_id,
       name:     p.name,
-      status:   p.status,
+      status:   p.pm2_env?.status,
       cpu:      p.monit?.cpu ?? 0,
       memory:   p.monit?.memory ?? 0,
       uptime:   p.pm2_env?.pm_uptime ?? null,
