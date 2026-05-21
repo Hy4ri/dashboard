@@ -562,6 +562,66 @@ function renderConnectivity(data) {
   }
 }
 
+function renderSpeedtest(data) {
+  const section = $('speedtest-section');
+  const statusEl = $('speedtest-status');
+  const resultsEl = $('speedtest-results');
+  const btn = $('speedtest-btn');
+
+  if (!section) return;
+
+  if (!data) {
+    statusEl.innerHTML = '';
+    resultsEl.innerHTML = '';
+    return;
+  }
+
+  // Not installed
+  if (data.installed === false) {
+    statusEl.innerHTML = '<div class="speedtest-error">speedtest-cli not found. Install: <code>sudo apt install speedtest-cli</code></div>';
+    resultsEl.innerHTML = '';
+    if (btn) btn.style.display = 'none';
+    return;
+  }
+
+  if (btn) btn.style.display = '';
+
+  // Running
+  if (data.running) {
+    statusEl.innerHTML = '<div class="speedtest-running">Testing...</div>';
+  } else {
+    // Show last test time or empty state
+    if (data.lastTestTime) {
+      const ago = Math.round((Date.now() - data.lastTestTime) / 60000);
+      statusEl.innerHTML = '<span class="speedtest-info">Last test: ' + (ago < 1 ? 'just now' : ago + ' min ago') + '</span>';
+    } else {
+      statusEl.innerHTML = '<span class="speedtest-info">No tests run yet</span>';
+    }
+  }
+
+  // Results table
+  if (!data.results || data.results.length === 0) {
+    resultsEl.innerHTML = '<div class="speedtest-empty">Run a test or wait for auto-test</div>';
+    return;
+  }
+
+  resultsEl.innerHTML = '<table class="speedtest-table">' +
+    '<thead><tr><th>Time</th><th>\u2193 Download</th><th>\u2191 Upload</th><th>Ping</th></tr></thead>' +
+    '<tbody>' +
+    data.results.map(r => {
+      const dl = r.download != null ? r.download.toFixed(1) + ' Mbps' : NONE;
+      const ul = r.upload != null   ? r.upload.toFixed(1) + ' Mbps' : NONE;
+      const pg = r.ping != null     ? r.ping.toFixed(0) + ' ms' : NONE;
+      return '<tr>' +
+        '<td>' + fmtTime(r.timestamp) + '</td>' +
+        '<td>' + dl + '</td>' +
+        '<td>' + ul + '</td>' +
+        '<td>' + pg + '</td>' +
+        '</tr>';
+    }).join('') +
+    '</tbody></table>';
+}
+
 function renderBattery(bat) {
   const container = $('header-battery');
   const valEl = $('bat-header-val');
@@ -654,6 +714,7 @@ function updateUI(data) {
   renderConnectivity({ internet: data.internet, dns: data.dns });
   renderBattery(data.battery);
   renderTorrents(data.torrents);
+  renderSpeedtest(data.speedtest);
   renderSystem(data.system);
 }
 
@@ -805,6 +866,24 @@ function initServiceBar() {
     '</a>'
   ).join('');
 }
+
+// ── Speedtest button ─────────────────────────────────────────────
+
+$('speedtest-btn').addEventListener('click', () => {
+  const btn = $('speedtest-btn');
+  btn.disabled = true;
+  btn.textContent = 'Running...';
+  fetch('/api/speedtest/run', { method: 'POST' })
+    .catch(() => {})
+    .finally(() => {
+      // Refresh UI after a short delay
+      setTimeout(() => fetchStatus(), 2000);
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = 'Run Test Now';
+      }, 30000);
+    });
+});
 
 // ── Start ──────────────────────────────────────────────────────────
 
