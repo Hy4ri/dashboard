@@ -565,6 +565,43 @@ const server = http.createServer((req, res) => {
     return res.end('Too Many Requests');
   }
 
+  // PM2 control endpoints (POST only)
+  const pm2Match = requestPath.match(/^\/api\/pm2\/(stop|start|restart)\/(.+)$/);
+  if (pm2Match && req.method === 'POST') {
+    const action = pm2Match[1];
+    const name = pm2Match[2];
+
+    // Validate name: non-empty and no shell metacharacters
+    if (!name || /[;|&$`()<>]/.test(name)) {
+      res.writeHead(400, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      });
+      return res.end(JSON.stringify({ error: 'Invalid request' }));
+    }
+
+    // Run the PM2 command asynchronously
+    (async () => {
+      try {
+        const out = await runCmd('pm2', [action, name]);
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(JSON.stringify({ success: true, message: `Process ${name} ${action}ed` }));
+        // Trigger a fresh collection after a brief delay
+        setTimeout(() => collect(), 300);
+      } catch (err) {
+        res.writeHead(500, {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    })();
+    return;
+  }
+
   // API endpoint
   if (requestPath === '/api/status') {
     return handleAPI(req, res);

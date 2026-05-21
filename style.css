@@ -293,7 +293,7 @@ tr:last-child td { border-bottom: none; }
 }
 .status-indicator.online { background: var(--green); }
 .status-indicator.errored { background: var(--red); }
-.status-indicator.stopped { background: var(--orange); }
+.status-indicator.stopped { background: var(--red); }
 
 /* ── Progress Bars ──────────────────────────────────────────────────── */
 
@@ -658,6 +658,69 @@ tr:last-child td { border-bottom: none; }
   font-size: var(--text-base);
   padding: var(--space-2) 0;
 }
+
+/* ── PM2 name clickable ─────────────────────────────────────────── */
+
+td:nth-child(2) strong {
+  cursor: pointer;
+  user-select: none;
+}
+td:nth-child(2) strong:hover {
+  color: var(--accent-text);
+  text-decoration: underline;
+}
+
+/* ── PM2 Context Menu ────────────────────────────────────────────────── */
+
+.pm2-menu {
+  position: fixed;
+  z-index: 1000;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: var(--space-1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 120px;
+  animation: pm2MenuIn 0.15s ease-out;
+}
+
+@keyframes pm2MenuIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.pm2-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.pm2-btn:hover {
+  background: var(--surface-hover);
+}
+
+.pm2-btn-start  { color: var(--green); }
+.pm2-btn-stop   { color: var(--red); }
+.pm2-btn-restart { color: var(--yellow); }
+
+.pm2-btn-start:hover  { background: rgba(76, 175, 80, 0.15); }
+.pm2-btn-stop:hover   { background: rgba(239, 83, 80, 0.15); }
+.pm2-btn-restart:hover { background: rgba(255, 183, 77, 0.15); }
 
 /* ── Scroll hint for overflowing tables ──────────────────────────── */
 
