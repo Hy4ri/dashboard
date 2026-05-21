@@ -181,7 +181,8 @@ function parseMemInfo(text) {
 // ── Individual collectors ──────────────────────────────────────────
 
 async function collectPM2() {
-  const out = await runCmd('pm2', ['jlist', '--mini']);
+  // NOTE: --mini is NOT supported by jlist — only by pm2 list (CLI)
+  const out = await runCmd('pm2', ['jlist']);
   if (!out) return [];
   try {
     return JSON.parse(out).map(p => ({
