@@ -14,6 +14,10 @@ const FREQ_CACHE_MS = 5000;     // cache CPU frequency readings
 const THERMAL_CACHE_MS = 5000;  // cache thermal sensor readings
 const QB_CACHE_MS = 10000;      // cache qBittorrent API responses
 const RATE_LIMIT = 10; // requests per second per IP
+const SPEEDTEST_INTERVAL_MS = 30 * 60 * 1000;  // 30 minutes
+const SPEEDTEST_LOG_FILE = path.join(__dirname, 'speedtest-log.json');
+const MAX_SPEEDTEST_ENTRIES = 50;
+const SPEEDTEST_CACHE_MS = 5000;  // cache results for 5s
 
 const rateLimiter = (() => {
   const hits = new Map();
@@ -48,6 +52,10 @@ let thermalCache = { value: null, time: 0 };
 let qbCache      = { value: null, time: 0 };
 let connectivityCache = { value: null, time: 0 };
 const CONNECTIVITY_CACHE_MS = 10000;  // 10 seconds
+let speedtestCache = { value: null, time: 0 };
+let speedtestRunning = false;
+let speedtestInstalled = null;  // null = unchecked, true, false
+let speedtestTimer = null;
 
 // ── Static caches (filled once at startup) ─────────────────────────
 
@@ -372,6 +380,99 @@ async function collectConnectivity() {
   return result;
 }
 
+// ── Speedtest ──────────────────────────────────────────────────
+
+function checkSpeedtestInstalled() {
+  return new Promise((resolve) => {
+    runCmd('which', ['speedtest-cli']).then((out) => {
+      speedtestInstalled = out.trim().length > 0;
+      resolve(speedtestInstalled);
+    }).catch(() => {
+      speedtestInstalled = false;
+      resolve(false);
+    });
+  });
+}
+
+async function runSpeedtest() {
+  if (speedtestRunning || !speedtestInstalled) return;
+  speedtestRunning = true;
+
+  const start = Date.now();
+  try {
+    const out = await runCmd('speedtest-cli', ['--json', '--timeout', '60'], 90000);
+    if (!out) throw new Error('No output from speedtest-cli');
+
+    const parsed = JSON.parse(out);
+    const entry = {
+      timestamp: Date.now(),
+      download: typeof parsed.download === 'number' ? Math.round(parsed.download / 1_000_000 * 10) / 10 : null,
+      upload:   typeof parsed.upload === 'number'   ? Math.round(parsed.upload / 1_000_000 * 10) / 10 : null,
+      ping:     typeof parsed.ping === 'number'     ? Math.round(parsed.ping * 10) / 10 : null,
+    };
+
+    // Read existing log, append, trim, write back
+    let entries = [];
+    try {
+      const raw = fs.readFileSync(SPEEDTEST_LOG_FILE, 'utf8');
+      entries = JSON.parse(raw);
+      if (!Array.isArray(entries)) entries = [];
+    } catch (_) {
+      entries = [];
+    }
+    entries.push(entry);
+    if (entries.length > MAX_SPEEDTEST_ENTRIES) {
+      entries = entries.slice(-MAX_SPEEDTEST_ENTRIES);
+    }
+    fs.writeFileSync(SPEEDTEST_LOG_FILE, JSON.stringify(entries, null, 2));
+
+    // Invalidate cache
+    speedtestCache = { value: null, time: 0 };
+    console.log('Speedtest complete: download=' + entry.download + ' Mbps, upload=' + entry.upload + ' Mbps, ping=' + entry.ping + ' ms');
+
+    return entry;
+  } catch (err) {
+    console.warn('Speedtest failed:', err.message);
+    return { error: err.message };
+  } finally {
+    speedtestRunning = false;
+  }
+}
+
+function getSpeedtestResults() {
+  const now = Date.now();
+  if (speedtestCache.value && (now - speedtestCache.time) < SPEEDTEST_CACHE_MS) {
+    return speedtestCache.value;
+  }
+
+  let results = [];
+  try {
+    const raw = fs.readFileSync(SPEEDTEST_LOG_FILE, 'utf8');
+    results = JSON.parse(raw);
+    if (!Array.isArray(results)) results = [];
+  } catch (_) {
+    results = [];
+  }
+
+  const last5 = results.slice(-5);
+
+  const data = {
+    installed: speedtestInstalled,
+    running: speedtestRunning,
+    results: last5,
+    lastTestTime: last5.length > 0 ? last5[last5.length - 1].timestamp : null,
+  };
+  speedtestCache = { value: data, time: now };
+  return data;
+}
+
+function startSpeedtestTimer() {
+  if (speedtestTimer) return;
+  speedtestTimer = setInterval(() => {
+    runSpeedtest();
+  }, SPEEDTEST_INTERVAL_MS);
+}
+
 async function collectSystem() {
   // staticSystem was populated once at startup – just read uptime
   const upt = await readFile('/proc/uptime');
@@ -604,6 +705,9 @@ async function collect() {
   // ── Connectivity check ─────────────────────────────────────────
   const connectivity = await collectConnectivity();
 
+  // ── Speedtest ────────────────────────────────────────────────
+  const speedtest = getSpeedtestResults();
+
   // ── Build state ────────────────────────────────────────────────
   state = {
     timestamp: now,
@@ -622,6 +726,7 @@ async function collect() {
     battery,
     system: sys,
     torrents,
+    speedtest,
   };
 }
 
@@ -716,6 +821,26 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Speedtest manual trigger (POST only)
+  if (requestPath === '/api/speedtest/run' && req.method === 'POST') {
+    if (speedtestRunning) {
+      res.writeHead(429, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      });
+      return res.end(JSON.stringify({ error: 'Speedtest already running' }));
+    }
+    // Fire and respond quickly
+    runSpeedtest().then((result) => {
+      // Already logged, nothing extra needed
+    });
+    res.writeHead(202, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    });
+    return res.end(JSON.stringify({ ok: true, message: 'Speedtest started' }));
+  }
+
   // API endpoint
   if (requestPath === '/api/status') {
     return handleAPI(req, res);
@@ -769,6 +894,13 @@ async function startup() {
   server.listen(PORT, () => {
     console.log(`Dashboard → http://localhost:${PORT}`);
     // Don't start polling yet – wait for first API request
+
+    // Check speedtest availability and start timer
+    checkSpeedtestInstalled().then(() => {
+      startSpeedtestTimer();
+      // Run first test after 10 seconds
+      setTimeout(() => runSpeedtest(), 10000);
+    });
   });
 }
 
@@ -779,6 +911,7 @@ function shutdown(signal) {
     console.log(`Received ${signal}, shutting down...`);
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = null;
+    if (speedtestTimer) clearInterval(speedtestTimer);
     server.close(() => process.exit(0));
     // Force exit after 5 seconds
     setTimeout(() => process.exit(1), 5000);
