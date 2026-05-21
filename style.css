@@ -2,18 +2,25 @@
 
 :root {
   /* Colors */
-  --bg: #0d1117;
-  --card-bg: #161b22;
-  --border: #30363d;
-  --border-subtle: #21262d;
-  --text: #c9d1d9;
-  --text-muted: #8b949e;
-  --text-bright: #f0f6fc;
-  --green: #3fb950;
-  --red: #f85149;
-  --blue: #58a6ff;
-  --yellow: #d29922;
-  --orange: #db6d28;
+  --bg: #121212;
+  --card-bg: #1E1E1E;
+  --border: #333333;
+  --border-subtle: #2A2A2A;
+  --text: #E0E0E0;
+  --text-muted: #9E9E9E;
+  --text-bright: #FFFFFF;
+  --accent: #990000;
+  --accent-text: #FF5252;
+  --surface-raised: #2A2A2A;
+  --surface-hover: #333333;
+  --focus: #FF5252;
+
+  /* Semantic colors (WCAG AA on #121212) */
+  --green: #4CAF50;
+  --red: #EF5350;
+  --blue: #64B5F6;
+  --yellow: #FFB74D;
+  --orange: #FF9800;
 
   /* Spacing scale (8pt grid) */
   --space-1: 4px;
@@ -68,7 +75,7 @@ body {
 /* ── Focus visible ─────────────────────────────────────────────────── */
 
 :focus-visible {
-  outline: 2px solid var(--blue);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -80,7 +87,7 @@ header {
   align-items: center;
   justify-content: space-between;
   margin-bottom: var(--space-5);
-  padding: var(--space-2) var(--space-1);
+  padding: var(--space-2) var(--space-4);
   gap: var(--space-3);
 }
 
@@ -112,8 +119,8 @@ header h1 {
 }
 
 .status-dot {
-  width: 10px;
-  height: 10px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: var(--green);
   transition: background 0.3s;
@@ -125,7 +132,7 @@ header h1 {
   background: var(--yellow);
 }
 
-/* ── Header battery ──────────────────────────────────────────────── */
+/* ── Header battery (CSS icon, no emoji) ──────────────────────── */
 
 .header-battery {
   display: inline-flex;
@@ -135,6 +142,47 @@ header h1 {
   font-size: 13px;
   color: var(--text-muted);
   margin-right: var(--space-2);
+}
+
+/* Battery rectangle outline */
+.battery-icon {
+  display: inline-block;
+  position: relative;
+  width: 28px;
+  height: 14px;
+  border: 2px solid var(--text-muted);
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* Battery terminal nub */
+.battery-icon::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: -5px;
+  width: 3px;
+  height: 6px;
+  background: var(--text-muted);
+  border-radius: 0 2px 2px 0;
+}
+
+/* Battery fill level (set via style attribute e.g. width:80%) */
+.battery-fill {
+  position: absolute;
+  inset: 1px;
+  width: 0%;
+  background: var(--accent-text);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+/* Color states for battery */
+.battery-fill.low {
+  background: var(--red);
+}
+.battery-fill.warn {
+  background: var(--orange);
 }
 
 /* ── Two-column grid utility ────────────────────────────────────────── */
@@ -151,14 +199,10 @@ header h1 {
   }
 }
 
-/* ── Card sub-section spacing ───────────────────────────────────────── */
-
-.card h3 + * {
-  margin-top: var(--space-1);
-}
+/* ── Card sub-section spacing (consistent) ───────────────────────── */
 
 .card > * + h3 {
-  margin-top: var(--space-4);
+  margin-top: var(--space-5);
 }
 
 /* ── Grid Layout ────────────────────────────────────────────────────── */
@@ -199,7 +243,7 @@ header h1 {
   font-size: var(--text-base);
   font-weight: 500;
   color: var(--text-bright);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-2);
 }
 
 /* ── Tables ──────────────────────────────────────────────────────────── */
@@ -258,7 +302,7 @@ tr:last-child td { border-bottom: none; }
 
 .bar-wrap {
   height: 20px;
-  background: #21262d;
+  background: var(--surface-raised);
   border-radius: 6px;
   overflow: hidden;
   margin: 8px 0;
@@ -269,13 +313,13 @@ tr:last-child td { border-bottom: none; }
   height: 100%;
   border-radius: 6px;
   transition: width 0.5s ease;
-  background: linear-gradient(90deg, var(--blue), var(--green));
+  background: linear-gradient(90deg, var(--accent), var(--accent-text));
   position: relative;
 }
 
-.bar-fill.memory     { background: linear-gradient(90deg, var(--green), var(--yellow)); }
-.bar-fill.swap       { background: linear-gradient(90deg, var(--yellow), var(--orange)); }
-.bar-fill.disk       { background: linear-gradient(90deg, var(--blue), var(--orange)); }
+.bar-fill.memory     { background: linear-gradient(90deg, var(--accent), var(--accent-text)); }
+.bar-fill.swap       { background: linear-gradient(90deg, #990000, var(--red)); }
+.bar-fill.disk       { background: linear-gradient(90deg, var(--accent), var(--accent-text)); }
 
 .bar-label {
   position: absolute;
@@ -291,21 +335,16 @@ tr:last-child td { border-bottom: none; }
   text-shadow: 0 1px 3px rgba(0,0,0,0.85);
 }
 
-.bar-fill.high   { background: linear-gradient(90deg, var(--yellow), var(--orange)); }
-.bar-fill.critical { background: linear-gradient(90deg, var(--orange), var(--red)); }
+.bar-fill.high   { background: linear-gradient(90deg, var(--accent), var(--accent-text)); }
+.bar-fill.critical { background: linear-gradient(90deg, #990000, var(--red)); }
 
 /* ── Core CPU bars ─────────────────────────────────────────────────── */
 
 .core-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 6px;
   margin-top: 10px;
-}
-
-.core-item {
-  flex: 1 0 calc(25% - 6px);
-  min-width: 60px;
 }
 
 .core-label {
@@ -319,7 +358,7 @@ tr:last-child td { border-bottom: none; }
 
 .core-bar {
   height: 10px;
-  background: #21262d;
+  background: var(--surface-raised);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -327,7 +366,7 @@ tr:last-child td { border-bottom: none; }
 .core-fill {
   height: 100%;
   border-radius: 4px;
-  background: var(--blue);
+  background: var(--accent);
   transition: width 0.5s ease;
 }
 
@@ -344,7 +383,7 @@ tr:last-child td { border-bottom: none; }
   justify-content: space-between;
   align-items: center;
   padding: 8px 10px;
-  background: #21262d;
+  background: var(--surface-raised);
   border-radius: 6px;
   font-family: var(--font-mono);
   font-size: 13px;
@@ -375,7 +414,7 @@ tr:last-child td { border-bottom: none; }
 
 .freq-item {
   padding: 6px 8px;
-  background: #21262d;
+  background: var(--surface-raised);
   border-radius: 6px;
   font-family: var(--font-mono);
   font-size: 12px;
@@ -451,7 +490,7 @@ tr:last-child td { border-bottom: none; }
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  background: #21262d;
+  background: var(--surface-raised);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 6px 12px;
@@ -465,7 +504,7 @@ tr:last-child td { border-bottom: none; }
 
 .service-btn:hover {
   background: var(--border-subtle);
-  border-color: var(--blue);
+  border-color: var(--accent);
 }
 
 .service-btn:active {
@@ -497,7 +536,7 @@ tr:last-child td { border-bottom: none; }
 
 .torrent-item {
   padding: var(--space-2);
-  background: #21262d;
+  background: var(--surface-raised);
   border-radius: 6px;
   margin-bottom: var(--space-2);
 }
@@ -545,7 +584,7 @@ tr:last-child td { border-bottom: none; }
 .torrent-fill {
   height: 100%;
   border-radius: 3px;
-  background: linear-gradient(90deg, var(--blue), var(--green));
+  background: linear-gradient(90deg, var(--accent), var(--accent-text));
   transition: width 0.5s ease;
 }
 
@@ -579,8 +618,42 @@ tr:last-child td { border-bottom: none; }
   .grid { grid-template-columns: 1fr; }
   #pm2-card { grid-column: auto; }
   header { flex-direction: column; align-items: flex-start; }
-  .core-item { flex: 1 0 calc(50% - 6px); }
   .thermal-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── Skeleton / Shimmer loading animations ─────────────────────────── */
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-raised) 25%, var(--surface-hover) 50%, var(--surface-raised) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite ease-in-out;
+  border-radius: 4px;
+}
+
+.skeleton-text {
+  height: 14px;
+  margin-bottom: var(--space-2);
+  width: 80%;
+}
+
+.skeleton-text.short {
+  width: 50%;
+}
+
+.skeleton-bar {
+  height: 20px;
+  border-radius: 6px;
+  margin-bottom: var(--space-2);
+}
+
+.skeleton-core {
+  height: 10px;
+  border-radius: 4px;
 }
 
 /* ── Utility ─────────────────────────────────────────────────────────── */
@@ -599,9 +672,11 @@ tr:last-child td { border-bottom: none; }
   position: sticky;
   right: 0;
   width: 24px;
+  height: 100%;
   background: linear-gradient(to left, var(--card-bg), transparent);
   pointer-events: none;
   flex-shrink: 0;
+  align-self: stretch;
 }
 
 .table-wrap {

@@ -25,23 +25,37 @@ const GOVERNOR_MAP = {
   userspace:   'Userspace',
 };
 
+const NET_IFACE_MAP = {
+  'wlan0': 'WiFi',
+  'wl': 'WiFi',
+  'eth0': 'Ethernet',
+  'enp': 'Ethernet',
+  'tun0': 'VPN',
+  'wg0': 'WireGuard',
+  'lo': 'Loopback',
+  'docker0': 'Docker',
+  'br-': 'Bridge',
+};
+
 // ── Service dashboard links ────────────────────────────────────────
 
 const SERVICE_LINKS = [
-  { name: 'Jellyfin', port: 8096, icon: '🎬' },
-  { name: 'Seerr',    port: 5055, icon: '🔍' },
-  { name: 'qBittorrent', port: 7777, icon: '📥' },
-  { name: 'Sonarr',   port: 8989, icon: '📺' },
-  { name: 'Radarr',   port: 7878, icon: '🎥' },
-  { name: 'Prowlarr', port: 9696, icon: '🏷️' },
-  { name: 'Bazarr',   port: 6767, icon: '✍️' },
-  { name: 'Dufs',     port: 5050, icon: '📂' },
-  { name: 'Technitium', port: 5380, icon: '🌐' },
+  { name: 'Jellyfin',    port: 8096, icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><polyline points="9 3 9 21"/></svg>' },
+  { name: 'Seerr',       port: 5055, icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' },
+  { name: 'qBittorrent', port: 7777, icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' },
+  { name: 'Sonarr',      port: 8989, icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>' },
+  { name: 'Radarr',      port: 7878, icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>' },
+  { name: 'Prowlarr',    port: 9696, icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>' },
+  { name: 'Bazarr',      port: 6767, icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>' },
+  { name: 'Dufs',        port: 5050, icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>' },
+  { name: 'Technitium',  port: 5380, icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>' },
 ];
+
+document.title = 'Server Dashboard \u2014 Loading...';
 
 // ── Format helpers ──────────────────────────────────────────────────
 
-const NONE = '\u2014'; // em dash
+const NONE = 'N/A';
 
 function fmtBytes(v) {
   if (v == null) return NONE;
@@ -113,7 +127,13 @@ const esc = s => s == null ? '' : String(s)
 // Update textContent of an element, given its id
 function setText(id, val) {
   const el = $(id);
-  if (el) el.textContent = val;
+  if (!el) return;
+  el.textContent = val;
+  if (val === NONE) {
+    el.setAttribute('aria-label', 'Not available');
+  } else {
+    el.removeAttribute('aria-label');
+  }
 }
 
 // Update bar fill width, text label, and ARIA
@@ -122,13 +142,17 @@ function updateBar(id, pct, valText) {
   if (!fill) return;
   fill.style.width = Math.min(pct * 100, 100) + '%';
   fill.setAttribute('aria-valuenow', Math.round(pct * 100));
-  // Update the sibling .bar-label's percentage span
   const bar = fill.closest('.bar-wrap');
   if (bar) {
     const label = bar.querySelector('.bar-label');
     if (label) {
       const pctSpan = label.querySelector('span:last-child');
-      if (pctSpan) pctSpan.textContent = valText;
+      if (pctSpan) {
+        let suffix = '';
+        if (pct > 0.85) suffix = ' \uD83D\uDEA8 Critical';
+        else if (pct > 0.7) suffix = ' \u26A0 High';
+        pctSpan.textContent = valText + suffix;
+      }
     }
   }
 }
@@ -144,7 +168,7 @@ function barClass(pct, warn, crit) {
 function renderPM2(data) {
   const tbody = $('pm2-body');
   if (!data || data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="none">No PM2 data</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="none">No processes monitored. Is PM2 running?</td></tr>';
     return;
   }
 
@@ -271,7 +295,7 @@ function renderCPUCores(cores) {
 function renderThermal(data) {
   const container = $('thermal-grid');
   if (!data || data.length === 0) {
-    container.innerHTML = '<div class="none">No thermal data</div>';
+    container.innerHTML = '<div class="none">No thermal sensors detected</div>';
     return;
   }
 
@@ -308,7 +332,7 @@ function renderThermal(data) {
 function renderFreq(data) {
   const container = $('freq-grid');
   if (!data || data.length === 0) {
-    container.innerHTML = '<div class="none">No frequency data</div>';
+    container.innerHTML = '<div class="none">No CPU frequency data available</div>';
     return;
   }
 
@@ -420,30 +444,38 @@ function renderDisk(disk) {
   const ioEl = $('disk-io-rows');
   const io = disk.io;
   if (!io || Object.keys(io).length === 0) {
-    ioEl.innerHTML = '<div class="none">No I/O data</div>';
+    ioEl.innerHTML = '<div class="none">No disk I/O data available</div>';
     return;
   }
   ioEl.innerHTML = Object.entries(io).map(([dev, d]) =>
     '<div class="io-block">' +
     '<h3 class="io-device">' + dev + '</h3>' +
-    '<div class="info-row"><span class="key">Reads</span><span class="val">' + (d.reads || 0).toLocaleString() + ' (' + d.readsPerSec + '/s)</span></div>' +
-    '<div class="info-row"><span class="key">Writes</span><span class="val">' + (d.writes || 0).toLocaleString() + ' (' + d.writesPerSec + '/s)</span></div>' +
-    '<div class="info-row"><span class="key">Read</span><span class="val">' + fmtSectors(d.sectorsReadPerSec) + '</span></div>' +
-    '<div class="info-row"><span class="key">Write</span><span class="val">' + fmtSectors(d.sectorsWrittenPerSec) + '</span></div>' +
+    '<div class="info-row"><span class="key">Read Ops</span><span class="val">' + (d.reads || 0).toLocaleString() + ' (' + d.readsPerSec + '/s)</span></div>' +
+    '<div class="info-row"><span class="key">Write Ops</span><span class="val">' + (d.writes || 0).toLocaleString() + ' (' + d.writesPerSec + '/s)</span></div>' +
+    '<div class="info-row"><span class="key">Read Rate</span><span class="val">' + fmtSectors(d.sectorsReadPerSec) + '</span></div>' +
+    '<div class="info-row"><span class="key">Write Rate</span><span class="val">' + fmtSectors(d.sectorsWrittenPerSec) + '</span></div>' +
     '</div>'
   ).join('');
+}
+
+function netIfaceLabel(iface) {
+  if (NET_IFACE_MAP[iface]) return NET_IFACE_MAP[iface] + ' (' + iface + ')';
+  for (const [prefix, label] of Object.entries(NET_IFACE_MAP)) {
+    if (iface.startsWith(prefix)) return label + ' (' + iface + ')';
+  }
+  return iface;
 }
 
 function renderNetwork(net) {
   const el = $('net-rows');
   if (!net || Object.keys(net).length === 0) {
-    el.innerHTML = '<div class="none">No network data</div>';
+    el.innerHTML = '<div class="none">No network interfaces detected</div>';
     return;
   }
   // Dynamic interface list - rebuild each time
   el.innerHTML = Object.entries(net).map(([iface, d]) =>
     '<div class="net-block">' +
-    '<h4>\u2193 ' + esc(iface) + ' \u2191</h4>' +
+    '<h4>\u2193 ' + esc(netIfaceLabel(iface)) + ' \u2191</h4>' +
     '<div class="info-row"><span class="key">RX Total</span><span class="val">' + fmtBytes(d.rx_bytes) + '</span></div>' +
     '<div class="info-row"><span class="key">TX Total</span><span class="val">' + fmtBytes(d.tx_bytes) + '</span></div>' +
     '<div class="info-row"><span class="key">\u2193 RX Rate</span><span class="val val-green">' + fmtBytesRate(d.rx_rate) + '</span></div>' +
@@ -455,6 +487,7 @@ function renderNetwork(net) {
 function renderBattery(bat) {
   const container = $('header-battery');
   const valEl = $('bat-header-val');
+  const fillEl = $('bat-fill');
   if (!container || !valEl) return;
 
   if (!bat || bat.capacity == null) {
@@ -463,17 +496,19 @@ function renderBattery(bat) {
   }
   container.style.display = 'inline-flex';
   valEl.textContent = bat.capacity + '%';
+
+  // Update CSS battery fill level
+  if (fillEl) {
+    fillEl.style.width = bat.capacity + '%';
+    fillEl.className = 'battery-fill';
+    if (bat.capacity <= 15) fillEl.classList.add('low');
+    else if (bat.capacity <= 30) fillEl.classList.add('warn');
+  }
 }
 
 function renderSystem(sys) {
-  if (!sys) return;
-
-  // Set dynamic page title (only once)
-  const titleEl = document.querySelector('title');
-  if (titleEl && sys.hostname && !titleEl.dataset.set) {
-    titleEl.textContent = 'Dashboard \u2014 ' + sys.hostname;
-    titleEl.dataset.set = '1';
-  }
+  if (!sys || !sys.hostname) return;
+  document.title = 'Dashboard \u2014 ' + sys.hostname;
 }
 
 // ── Render torrents ──────────────────────────────────────────────
@@ -484,11 +519,10 @@ function renderTorrents(torrents) {
   if (!card || !list) return;
 
   if (!torrents || torrents.length === 0) {
-    card.style.display = 'none';
+    list.innerHTML = '<div class="none">No active downloads. Torrents will appear here when downloading.</div>';
     return;
   }
 
-  card.style.display = 'block';
   list.innerHTML = torrents.map(t => {
     const pct = t.progress * 100;
     const stateLabel = t.state ? t.state.charAt(0).toUpperCase() + t.state.slice(1) : 'Unknown';
@@ -575,7 +609,7 @@ function fetchStatus() {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     clearInterval(pollTimer);
-    $('last-update').textContent = 'Paused \u2014 tab hidden';
+    $('last-update').textContent = 'Updates paused while tab is hidden';
     $('status-text').textContent = 'Paused';
   } else {
     fetchStatus();
@@ -594,10 +628,63 @@ function initServiceBar() {
 
   bar.innerHTML = SERVICE_LINKS.map(s =>
     '<a href="' + protocol + '//' + host + ':' + s.port + '" target="_blank" rel="noopener noreferrer" class="service-btn">' +
-    '<span class="service-icon" aria-hidden="true">' + s.icon + '</span>' +
+    s.icon +
     '<span>' + esc(s.name) + '</span>' +
+    '<span aria-hidden="true" style="font-size:10px;opacity:0.5">\u2197</span>' +
     '</a>'
   ).join('');
+}
+
+// ── Refresh button spinning indicator ────────────────────────────
+
+// Inject spin animation CSS
+const spinStyle = document.createElement('style');
+spinStyle.textContent = `
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  .spinning svg {
+    animation: spin 0.8s linear infinite;
+  }
+`;
+document.head.appendChild(spinStyle);
+
+let isFetching = false;
+
+function manualRefresh() {
+  if (isFetching) return;
+  const btn = $('refresh-btn');
+  if (btn) btn.classList.add('spinning');
+  isFetching = true;
+
+  fetch('/api/status')
+    .then(res => {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then(data => {
+      updateUI(data);
+      $('status-dot').className = 'status-dot';
+      clearTimeout(staleTimer);
+      staleTimer = setTimeout(() => {
+        $('status-dot').className = 'status-dot stale';
+        $('status-text').textContent = 'Connected \u2014 data stale';
+      }, POLL_MS * 2);
+    })
+    .catch(err => {
+      setErrorState(err.message);
+    })
+    .finally(() => {
+      if (btn) btn.classList.remove('spinning');
+      isFetching = false;
+    });
+}
+
+// Wire up refresh button
+const refreshBtn = $('refresh-btn');
+if (refreshBtn) {
+  refreshBtn.addEventListener('click', manualRefresh);
 }
 
 // ── Start ──────────────────────────────────────────────────────────

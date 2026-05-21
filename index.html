@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0d1117">
+  <meta name="theme-color" content="#121212">
   <title id="page-title">Server Dashboard</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2358a6ff'%3E%3Cpath d='M4 3h16a2 2 0 012 2v14a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2zm0 16h16V5H4v14zm2-8h4v6H6v-6zm6-4h4v10h-4V7z'/%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23990000'%3E%3Cpath d='M4 3h16a2 2 0 012 2v14a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2zm0 16h16V5H4v14zm2-8h4v6H6v-6zm6-4h4v10h-4V7z'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -14,10 +14,14 @@
 
   <header>
     <h1>Dashboard</h1>
+    <button id="refresh-btn" class="service-btn" title="Refresh data" aria-label="Manually refresh dashboard data">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 00-5.27 4h1.02A4.5 4.5 0 018 3.5a4.5 4.5 0 014.11 2.74l-1.39.8A3 3 0 008 5a3 3 0 00-2.6 1.5h1.1l-2 2.5-2-2.5h1.23A4 4 0 018 4a4 4 0 013.54 2H13v.5h2V4h-.5v1.74A5.5 5.5 0 008 2.5zm3.25 5l-2 2.5 2 2.5h-1.23A4 4 0 018 11a4 4 0 01-3.54-2H3v-.5H1V11h.5V9.26A5.5 5.5 0 008 13.5a5.5 5.5 0 005.27-4h-1.02z" fill="currentColor"/></svg>
+      Refresh
+    </button>
     <div class="status-bar">
       <span id="header-battery" class="header-battery" style="display:none">
-        <span id="bat-header-icon">&#x1F50B;</span>
-        <span id="bat-header-val">—</span>
+        <span class="battery-icon" aria-hidden="true"><span id="bat-fill" class="battery-fill" style="width:0%"></span></span>
+        <span id="bat-header-val" aria-label="Not available">—</span>
       </span>
       <span class="status-dot" id="status-dot" aria-hidden="true"></span>
       <span class="sr-only" id="status-text" role="status">Connecting</span>
@@ -60,7 +64,7 @@
           <div class="bar-fill cpu" id="cpu-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
           <div class="bar-label">
             <span>Overall</span>
-            <span id="cpu-pct">—</span>
+            <span id="cpu-pct" aria-label="Not available">—</span>
           </div>
         </div>
       </div>
@@ -73,9 +77,9 @@
         <!-- Load Average -->
         <div id="load-rows" aria-live="polite">
           <h3>Load</h3>
-          <div class="info-row"><span class="key">1 min</span><span class="val" id="load-1">—</span></div>
-          <div class="info-row"><span class="key">5 min</span><span class="val" id="load-5">—</span></div>
-          <div class="info-row"><span class="key">15 min</span><span class="val" id="load-15">—</span></div>
+          <div class="info-row"><span class="key">1 min</span><span class="val" id="load-1" aria-label="Not available">—</span></div>
+          <div class="info-row"><span class="key">5 min</span><span class="val" id="load-5" aria-label="Not available">—</span></div>
+          <div class="info-row"><span class="key">15 min</span><span class="val" id="load-15" aria-label="Not available">—</span></div>
         </div>
         <!-- Thermal -->
         <div>
@@ -100,16 +104,16 @@
           <div class="bar-fill memory" id="mem-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
           <div class="bar-label">
             <span>Used</span>
-            <span id="mem-pct">—</span>
+            <span id="mem-pct" aria-label="Not available">—</span>
           </div>
         </div>
       </div>
       <div id="mem-rows" aria-live="polite">
-        <div class="info-row"><span class="key">Total</span><span class="val" id="mem-total">—</span></div>
-        <div class="info-row"><span class="key">Available</span><span class="val val-green" id="mem-avail">—</span></div>
-        <div class="info-row"><span class="key">Free</span><span class="val" id="mem-free">—</span></div>
-        <div class="info-row"><span class="key">Buffers</span><span class="val" id="mem-buffers">—</span></div>
-        <div class="info-row"><span class="key">Cached</span><span class="val" id="mem-cached">—</span></div>
+        <div class="info-row"><span class="key">Total</span><span class="val" id="mem-total" aria-label="Not available">—</span></div>
+        <div class="info-row"><span class="key">Available</span><span class="val val-green" id="mem-avail" aria-label="Not available">—</span></div>
+        <div class="info-row"><span class="key">Free</span><span class="val" id="mem-free" aria-label="Not available">—</span></div>
+        <div class="info-row"><span class="key">Buffers</span><span class="val" id="mem-buffers" aria-label="Not available">—</span></div>
+        <div class="info-row"><span class="key">Cached</span><span class="val" id="mem-cached" aria-label="Not available">—</span></div>
       </div>
 
       <!-- Swap Space -->
@@ -119,13 +123,13 @@
           <div class="bar-fill swap" id="swap-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
           <div class="bar-label">
             <span>Used</span>
-            <span id="swap-pct">—</span>
+            <span id="swap-pct" aria-label="Not available">—</span>
           </div>
         </div>
       </div>
       <div id="swap-rows" aria-live="polite">
-        <div class="info-row"><span class="key">Total</span><span class="val" id="swap-total">—</span></div>
-        <div class="info-row"><span class="key">Free</span><span class="val val-green" id="swap-free">—</span></div>
+        <div class="info-row"><span class="key">Total</span><span class="val" id="swap-total" aria-label="Not available">—</span></div>
+        <div class="info-row"><span class="key">Free</span><span class="val val-green" id="swap-free" aria-label="Not available">—</span></div>
       </div>
     </section>
 
@@ -136,15 +140,15 @@
         <div class="bar-wrap">
           <div class="bar-fill disk" id="disk-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
           <div class="bar-label">
-            <span id="disk-used-label">—</span>
-            <span id="disk-pct">—</span>
+            <span id="disk-used-label" aria-label="Not available">—</span>
+            <span id="disk-pct" aria-label="Not available">—</span>
           </div>
         </div>
       </div>
       <div id="disk-rows" aria-live="polite">
-        <div class="info-row"><span class="key">Total</span><span class="val" id="disk-total">—</span></div>
-        <div class="info-row"><span class="key">Used</span><span class="val" id="disk-used">—</span></div>
-        <div class="info-row"><span class="key">Available</span><span class="val val-green" id="disk-avail">—</span></div>
+        <div class="info-row"><span class="key">Total</span><span class="val" id="disk-total" aria-label="Not available">—</span></div>
+        <div class="info-row"><span class="key">Used</span><span class="val" id="disk-used" aria-label="Not available">—</span></div>
+        <div class="info-row"><span class="key">Available</span><span class="val val-green" id="disk-avail" aria-label="Not available">—</span></div>
       </div>
       <div id="disk-io-rows" style="margin-top:var(--space-2)" aria-live="polite"></div>
     </section>
@@ -156,7 +160,7 @@
     </section>
 
     <!-- Torrents (bottom) -->
-    <section class="card" id="torrent-card" role="region" aria-label="Active Downloads" style="display:none">
+    <section class="card" id="torrent-card" role="region" aria-label="Active Downloads">
       <h2>Active Downloads</h2>
       <div id="torrent-list" aria-live="polite"></div>
     </section>
