@@ -2,12 +2,12 @@
   "name": "server-dashboard",
   "version": "1.0.0",
   "description": "Lightweight server status dashboard — zero dependencies",
-  "main": "server.js",
+  "main": "server/index.js",
   "engines": {
     "node": ">=14"
   },
   "scripts": {
-    "start": "node server.js",
+    "start": "node server/index.js",
     "pm2:start": "pm2 start ecosystem.config.js",
     "pm2:stop": "pm2 stop ecosystem.config.js",
     "pm2:restart": "pm2 restart ecosystem.config.js"
