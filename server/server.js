@@ -23,7 +23,7 @@ const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'no-referrer',
-  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'",
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:",
 };
 
 function ensureActivePolling() {
@@ -56,35 +56,37 @@ function createServer() {
     const url = new URL(req.url, `http://localhost:${PORT}`);
     let requestPath = url.pathname;
 
-    // Rate limiting
-    if (!rateLimiter(req.socket.remoteAddress)) {
-      res.writeHead(429, SECURITY_HEADERS);
-      return res.end('Too Many Requests');
+    // API routes — rate limited
+    if (requestPath.startsWith('/api')) {
+      if (!rateLimiter(req.socket.remoteAddress)) {
+        res.writeHead(429, SECURITY_HEADERS);
+        return res.end('Too Many Requests');
+      }
+
+      // PM2 control endpoints (POST only)
+      const pm2Match = requestPath.match(/^\/api\/pm2\/(stop|start|restart)\/(.+)$/);
+      if (pm2Match && req.method === 'POST') {
+        return handlePM2Control(req, res, pm2Match[1], pm2Match[2]);
+      }
+
+      // Speedtest manual trigger (POST only)
+      if (requestPath === '/api/speedtest/run' && req.method === 'POST') {
+        return handleSpeedtestRun(req, res);
+      }
+
+      // qBittorrent delete endpoint (POST only)
+      const qbDeleteMatch = requestPath.match(/^\/api\/qbittorrent\/delete\/([a-fA-F0-9]{40})$/);
+      if (qbDeleteMatch && req.method === 'POST') {
+        return handleQBDelete(req, res, qbDeleteMatch[1]);
+      }
+
+      // API status endpoint
+      if (requestPath === '/api/status') {
+        return handleAPI(req, res);
+      }
     }
 
-    // PM2 control endpoints (POST only)
-    const pm2Match = requestPath.match(/^\/api\/pm2\/(stop|start|restart)\/(.+)$/);
-    if (pm2Match && req.method === 'POST') {
-      return handlePM2Control(req, res, pm2Match[1], pm2Match[2]);
-    }
-
-    // Speedtest manual trigger (POST only)
-    if (requestPath === '/api/speedtest/run' && req.method === 'POST') {
-      return handleSpeedtestRun(req, res);
-    }
-
-    // qBittorrent delete endpoint (POST only)
-    const qbDeleteMatch = requestPath.match(/^\/api\/qbittorrent\/delete\/([a-fA-F0-9]{40})$/);
-    if (qbDeleteMatch && req.method === 'POST') {
-      return handleQBDelete(req, res, qbDeleteMatch[1]);
-    }
-
-    // API endpoint
-    if (requestPath === '/api/status') {
-      return handleAPI(req, res);
-    }
-
-    // Default to index.html
+    // Default to index.html (static files — no rate limiting)
     if (requestPath === '/') requestPath = '/index.html';
 
     // Path traversal protection
