@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#121212">
+  <meta name="theme-color" content="#080808">
   <title>Server Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23990000'%3E%3Cpath d='M4 3h16a2 2 0 012 2v14a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2zm0 16h16V5H4v14zm2-8h4v6H6v-6zm6-4h4v10h-4V7z'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/style.css">
@@ -34,157 +34,200 @@
   <main class="grid">
 
     <!-- PM2 Services (full width) -->
-    <section class="card" id="pm2-card" role="region" aria-label="Processes">
-      <h2>Processes</h2>
-      <div class="service-bar" id="service-bar" role="group" aria-label="Service links"></div>
-      <div class="table-wrap" role="group" aria-label="Process list">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Status</th>
-              <th>CPU</th>
-              <th>Memory</th>
-              <th>Uptime</th>
-              <th>Restarts</th>
-              <th>PID</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="pm2-body" aria-live="polite" aria-atomic="true"></tbody>
-        </table>
+    <section class="card" id="pm2-card" role="region" aria-label="Processes" data-accordion data-state="open">
+      <button class="card-header" aria-expanded="true" data-accordion-trigger>
+        Processes
+        <span class="chevron" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </span>
+      </button>
+      <div class="card-content">
+        <div class="service-bar" id="service-bar" role="group" aria-label="Service links"></div>
+        <div class="table-wrap" role="group" aria-label="Process list">
+          <table>
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="id">ID</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th class="sortable" data-sort="cpu">CPU</th>
+                <th class="sortable" data-sort="memory">Memory</th>
+                <th>Uptime</th>
+                <th>Restarts</th>
+                <th>PID</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="pm2-body" aria-live="polite" aria-atomic="true"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 
     <!-- CPU (all-in-one block) -->
-    <section class="card" id="cpu-card" role="region" aria-label="CPU usage">
-      <h2>CPU</h2>
-
-      <!-- Overall usage bar -->
-      <div id="cpu-overall" aria-live="polite">
-        <div class="bar-wrap">
-          <div class="bar-fill cpu" id="cpu-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-          <div class="bar-label">
-            <span>Overall</span>
-            <span id="cpu-pct" aria-label="Not available">—</span>
+    <section class="card" id="cpu-card" role="region" aria-label="CPU usage" data-accordion data-state="open">
+      <button class="card-header" aria-expanded="true" data-accordion-trigger>
+        CPU
+        <span class="chevron" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </span>
+      </button>
+      <div class="card-content">
+        <div id="cpu-overall" aria-live="polite">
+          <div class="bar-wrap">
+            <div class="bar-fill cpu" id="cpu-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+            <div class="bar-label">
+              <span>Overall</span>
+              <span id="cpu-pct" aria-label="Not available">—</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Per-core bars -->
-      <div id="cpu-cores" class="core-grid" aria-live="polite"></div>
+        <div id="cpu-cores" class="core-grid" aria-live="polite"></div>
 
-      <!-- Load & Thermal side-by-side -->
-      <div class="grid-2">
-        <!-- Load Average -->
-        <div id="load-rows" aria-live="polite">
-          <h3>Load</h3>
-          <div class="info-row"><span class="key">1 min</span><span class="val" id="load-1" aria-label="Not available">—</span></div>
-          <div class="info-row"><span class="key">5 min</span><span class="val" id="load-5" aria-label="Not available">—</span></div>
-          <div class="info-row"><span class="key">15 min</span><span class="val" id="load-15" aria-label="Not available">—</span></div>
+        <div class="grid-2">
+          <div id="load-rows" aria-live="polite">
+            <h3>Load</h3>
+            <div class="info-row"><span class="key">1 min</span><span class="val" id="load-1" aria-label="Not available">—</span></div>
+            <div class="info-row"><span class="key">5 min</span><span class="val" id="load-5" aria-label="Not available">—</span></div>
+            <div class="info-row"><span class="key">15 min</span><span class="val" id="load-15" aria-label="Not available">—</span></div>
+          </div>
+          <div>
+            <h3>Temperatures</h3>
+            <div id="thermal-grid" class="thermal-grid" aria-live="polite"></div>
+          </div>
         </div>
-        <!-- Thermal -->
-        <div>
-          <h3>Temperatures</h3>
-          <div id="thermal-grid" class="thermal-grid" aria-live="polite"></div>
-        </div>
-      </div>
 
-      <!-- Frequency -->
-      <h3>Frequency</h3>
-      <div id="freq-grid" class="freq-grid" aria-live="polite"></div>
+        <h3>Frequency</h3>
+        <div id="freq-grid" class="freq-grid" aria-live="polite"></div>
+      </div>
     </section>
 
     <!-- Memory & Swap (merged) -->
-    <section class="card" id="mem-card" role="region" aria-label="Memory and Swap usage">
-      <h2>Memory</h2>
-
-      <!-- Physical Memory -->
-      <h3>Physical Memory</h3>
-      <div id="mem-bar" aria-live="polite">
-        <div class="bar-wrap">
-          <div class="bar-fill memory" id="mem-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-          <div class="bar-label">
-            <span>Used</span>
-            <span id="mem-pct" aria-label="Not available">—</span>
+    <section class="card" id="mem-card" role="region" aria-label="Memory and Swap usage" data-accordion data-state="open">
+      <button class="card-header" aria-expanded="true" data-accordion-trigger>
+        Memory
+        <span class="chevron" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </span>
+      </button>
+      <div class="card-content">
+        <h3>Physical Memory</h3>
+        <div id="mem-bar" aria-live="polite">
+          <div class="bar-wrap">
+            <div class="bar-fill memory" id="mem-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+            <div class="bar-label">
+              <span>Used</span>
+              <span id="mem-pct" aria-label="Not available">—</span>
+            </div>
           </div>
         </div>
-      </div>
-      <div id="mem-rows" aria-live="polite">
-        <div class="info-row"><span class="key">Total</span><span class="val" id="mem-total" aria-label="Not available">—</span></div>
-        <div class="info-row"><span class="key">Available</span><span class="val val-green" id="mem-avail" aria-label="Not available">—</span></div>
-        <div class="info-row"><span class="key">Free</span><span class="val" id="mem-free" aria-label="Not available">—</span></div>
-        <div class="info-row"><span class="key">Buffers</span><span class="val" id="mem-buffers" aria-label="Not available">—</span></div>
-        <div class="info-row"><span class="key">Cached</span><span class="val" id="mem-cached" aria-label="Not available">—</span></div>
-      </div>
+        <div id="mem-rows" aria-live="polite">
+          <div class="info-row"><span class="key">Total</span><span class="val" id="mem-total" aria-label="Not available">—</span></div>
+          <div class="info-row"><span class="key">Available</span><span class="val val-green" id="mem-avail" aria-label="Not available">—</span></div>
+          <div class="info-row"><span class="key">Free</span><span class="val" id="mem-free" aria-label="Not available">—</span></div>
+          <div class="info-row"><span class="key">Buffers</span><span class="val" id="mem-buffers" aria-label="Not available">—</span></div>
+          <div class="info-row"><span class="key">Cached</span><span class="val" id="mem-cached" aria-label="Not available">—</span></div>
+        </div>
 
-      <!-- Swap Space -->
-      <h3>Swap Space</h3>
-      <div id="swap-bar" aria-live="polite">
-        <div class="bar-wrap">
-          <div class="bar-fill swap" id="swap-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-          <div class="bar-label">
-            <span>Used</span>
-            <span id="swap-pct" aria-label="Not available">—</span>
+        <h3>Swap Space</h3>
+        <div id="swap-bar" aria-live="polite">
+          <div class="bar-wrap">
+            <div class="bar-fill swap" id="swap-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+            <div class="bar-label">
+              <span>Used</span>
+              <span id="swap-pct" aria-label="Not available">—</span>
+            </div>
           </div>
         </div>
-      </div>
-      <div id="swap-rows" aria-live="polite">
-        <div class="info-row"><span class="key">Total</span><span class="val" id="swap-total" aria-label="Not available">—</span></div>
-        <div class="info-row"><span class="key">Free</span><span class="val val-green" id="swap-free" aria-label="Not available">—</span></div>
+        <div id="swap-rows" aria-live="polite">
+          <div class="info-row"><span class="key">Total</span><span class="val" id="swap-total" aria-label="Not available">—</span></div>
+          <div class="info-row"><span class="key">Free</span><span class="val val-green" id="swap-free" aria-label="Not available">—</span></div>
+        </div>
       </div>
     </section>
 
     <!-- Disk -->
-    <section class="card" id="disk-card" role="region" aria-label="Disk usage">
-      <h2>Disk</h2>
-      <div id="disk-bar" aria-live="polite">
-        <div class="bar-wrap">
-          <div class="bar-fill disk" id="disk-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-          <div class="bar-label">
-            <span id="disk-used-label" aria-label="Not available">—</span>
-            <span id="disk-pct" aria-label="Not available">—</span>
+    <section class="card" id="disk-card" role="region" aria-label="Disk usage" data-accordion data-state="open">
+      <button class="card-header" aria-expanded="true" data-accordion-trigger>
+        Disk
+        <span class="chevron" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </span>
+      </button>
+      <div class="card-content">
+        <div id="disk-bar" aria-live="polite">
+          <div class="bar-wrap">
+            <div class="bar-fill disk" id="disk-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+            <div class="bar-label">
+              <span id="disk-used-label" aria-label="Not available">—</span>
+              <span id="disk-pct" aria-label="Not available">—</span>
+            </div>
           </div>
         </div>
+        <div id="disk-rows" aria-live="polite">
+          <div class="info-row"><span class="key">Total</span><span class="val" id="disk-total" aria-label="Not available">—</span></div>
+          <div class="info-row"><span class="key">Used</span><span class="val" id="disk-used" aria-label="Not available">—</span></div>
+          <div class="info-row"><span class="key">Available</span><span class="val val-green" id="disk-avail" aria-label="Not available">—</span></div>
+        </div>
+        <div id="disk-io-rows" style="margin-top:var(--space-2)" aria-live="polite"></div>
       </div>
-      <div id="disk-rows" aria-live="polite">
-        <div class="info-row"><span class="key">Total</span><span class="val" id="disk-total" aria-label="Not available">—</span></div>
-        <div class="info-row"><span class="key">Used</span><span class="val" id="disk-used" aria-label="Not available">—</span></div>
-        <div class="info-row"><span class="key">Available</span><span class="val val-green" id="disk-avail" aria-label="Not available">—</span></div>
-      </div>
-      <div id="disk-io-rows" style="margin-top:var(--space-2)" aria-live="polite"></div>
     </section>
 
     <!-- Network -->
-    <section class="card" id="net-card" role="region" aria-label="Network traffic">
-      <h2>Network</h2>
-      <div id="net-connectivity" class="connectivity-row" aria-live="polite">
-        <div class="connectivity-item">
-          <span class="connectivity-label">Internet</span>
-          <span class="connectivity-status" id="net-internet-status">—</span>
+    <section class="card" id="net-card" role="region" aria-label="Network traffic" data-accordion data-state="open">
+      <button class="card-header" aria-expanded="true" data-accordion-trigger>
+        Network
+        <span class="chevron" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </span>
+      </button>
+      <div class="card-content">
+        <div id="net-connectivity" class="connectivity-row" aria-live="polite">
+          <div class="connectivity-item">
+            <span class="connectivity-label">Internet</span>
+            <span class="connectivity-status" id="net-internet-status">—</span>
+          </div>
+          <div class="connectivity-item">
+            <span class="connectivity-label">Technitium DNS</span>
+            <span class="connectivity-status" id="net-dns-status">—</span>
+          </div>
         </div>
-        <div class="connectivity-item">
-          <span class="connectivity-label">Technitium DNS</span>
-          <span class="connectivity-status" id="net-dns-status">—</span>
-        </div>
-      </div>
-      <div id="net-rows" aria-live="polite"></div>
+        <div id="net-rows" aria-live="polite"></div>
 
-      <div id="speedtest-section" class="speedtest-section">
-        <h3>Speedtest</h3>
-        <div id="speedtest-status" aria-live="polite"></div>
-        <div id="speedtest-results"></div>
-        <button id="speedtest-btn" class="speedtest-btn">Run Test Now</button>
+        <div id="speedtest-section" class="speedtest-section">
+          <h3>Speedtest</h3>
+          <div id="speedtest-status" aria-live="polite"></div>
+          <div id="speedtest-results"></div>
+          <button id="speedtest-btn" class="speedtest-btn">Run Test Now</button>
+        </div>
       </div>
     </section>
 
     <!-- Torrents (bottom) -->
-    <section class="card" id="torrent-card" role="region" aria-label="Active Downloads">
-      <h2>Active Downloads</h2>
-      <div id="torrent-list" aria-live="polite"></div>
+    <section class="card" id="torrent-card" role="region" aria-label="Active Downloads" data-accordion data-state="open">
+      <button class="card-header" aria-expanded="true" data-accordion-trigger>
+        Active Downloads
+        <span class="chevron" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </span>
+      </button>
+      <div class="card-content">
+        <div id="torrent-list" aria-live="polite"></div>
+      </div>
     </section>
-
 
   </main>
 

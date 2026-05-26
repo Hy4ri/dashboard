@@ -8,8 +8,46 @@ import { setupSpeedtestButton, setupTorrentDelete } from './events.js';
 
 document.title = 'Server Dashboard \u2014 Loading...';
 
+// ── Accordion Init ───────────────────────────────────────────────
+function initAccordions() {
+  const cards = document.querySelectorAll('[data-accordion]');
+  cards.forEach(card => {
+    const trigger = card.querySelector('[data-accordion-trigger]');
+    if (!trigger) return;
+
+    // Restore saved state from localStorage
+    const saved = localStorage.getItem('acc-' + card.id);
+    if (saved === 'closed') {
+      card.dataset.state = 'closed';
+      trigger.setAttribute('aria-expanded', 'false');
+    } else {
+      card.dataset.state = 'open';
+      trigger.setAttribute('aria-expanded', 'true');
+    }
+
+    trigger.addEventListener('click', () => {
+      const isOpen = card.dataset.state === 'open';
+      card.dataset.state = isOpen ? 'closed' : 'open';
+      trigger.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+      // Persist
+      localStorage.setItem('acc-' + card.id, isOpen ? 'closed' : 'open');
+    });
+
+    // Keyboard: Enter/Space on the trigger
+    trigger.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        trigger.click();
+      }
+    });
+  });
+}
+
 // Init service bar
 initServiceBar();
+
+// Init accordions
+initAccordions();
 
 // Setup event handlers
 setupPM2Menu();
@@ -34,7 +72,7 @@ if (logoutBtn) {
 // Initial connect
 connectWS();
 
-// Pause WebSocket connection when tab is hidden to save server resources
+// Pause WebSocket connection when tab is hidden
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     disconnectWS();
