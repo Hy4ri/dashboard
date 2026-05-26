@@ -1,4 +1,25 @@
 const path = require('path');
+const fs = require('fs');
+
+// Load .env manually if it exists (avoids adding external dotenv dependency)
+const dotenvPath = path.join(__dirname, '..', '.env');
+if (fs.existsSync(dotenvPath)) {
+  try {
+    const content = fs.readFileSync(dotenvPath, 'utf-8');
+    content.split(/\r?\n/).forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+      const parts = trimmed.split('=');
+      const key = parts[0].trim();
+      const val = parts.slice(1).join('=').trim().replace(/(^['"]|['"]$)/g, ''); // strip quotes
+      if (key && process.env[key] === undefined) {
+        process.env[key] = val;
+      }
+    });
+  } catch (err) {
+    console.warn('Failed to parse .env file:', err.message);
+  }
+}
 
 const PORT = parseInt(process.env.PORT, 10) || 8080;
 const COLLECT_MS = 3000;        // match client POLL_MS — no wasted cycles
@@ -15,6 +36,10 @@ const MAX_SPEEDTEST_ENTRIES = 50;
 const SPEEDTEST_CACHE_MS = 5000;  // cache results for 5s
 const CONNECTIVITY_CACHE_MS = 10000;  // 10 seconds
 
+// Technitium configuration
+const TECHNITIUM_TOKEN = process.env.TECHNITIUM_TOKEN || null;
+const TECHNITIUM_URL = process.env.TECHNITIUM_URL || 'http://127.0.0.1:5380';
+
 module.exports = {
   PORT,
   COLLECT_MS,
@@ -30,4 +55,6 @@ module.exports = {
   MAX_SPEEDTEST_ENTRIES,
   SPEEDTEST_CACHE_MS,
   CONNECTIVITY_CACHE_MS,
+  TECHNITIUM_TOKEN,
+  TECHNITIUM_URL,
 };

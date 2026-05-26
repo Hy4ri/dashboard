@@ -12,6 +12,8 @@ const { collectPM2 } = require('./collectors/pm2');
 const { collectQBittorrent } = require('./collectors/qbittorrent');
 const { collectConnectivity } = require('./collectors/connectivity');
 const { getSpeedtestResults } = require('./collectors/speedtest');
+const { collectServices } = require('./collectors/services');
+const { collectTechnitium } = require('./collectors/technitium');
 const { state, prev } = require('./state');
 
 async function collect() {
@@ -21,6 +23,7 @@ async function collect() {
   const [
     cpuText, netText, diskText, loadText, memText,
     thermal,  freq,    diskUse,  battery,  sys, pm2List, torrents,
+    services, dnsStats
   ] = await Promise.all([
     readFile('/proc/stat'),
     readFile('/proc/net/dev'),
@@ -34,6 +37,8 @@ async function collect() {
     collectSystem(),
     collectPM2(),
     collectQBittorrent(),
+    collectServices(),
+    collectTechnitium(),
   ]);
 
   const { cpuOverall, cpuCores } = collectCPU(cpuText, interval);
@@ -73,6 +78,8 @@ async function collect() {
     system: sys,
     torrents,
     speedtest,
+    services,
+    dnsStats,
   });
 }
 
