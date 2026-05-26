@@ -16,6 +16,21 @@ setupPM2Menu();
 setupSpeedtestButton();
 setupTorrentDelete();
 
+// Logout Button handler
+const logoutBtn = $('logout-btn');
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', async () => {
+    if (confirm('Are you sure you want to log out?')) {
+      try {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.reload();
+      } catch (err) {
+        alert('Logout failed: ' + err.message);
+      }
+    }
+  });
+}
+
 // Initial connect
 connectWS();
 

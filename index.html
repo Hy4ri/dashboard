@@ -13,7 +13,13 @@
   <a href="#cpu-card" class="skip-link">Skip to content</a>
 
   <header>
-    <h1>Dashboard</h1>
+    <div style="display: flex; align-items: center; gap: var(--space-2)">
+      <h1>Dashboard</h1>
+      <button id="logout-btn" class="logout-btn" style="display: none" aria-label="Log Out">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        <span>Logout</span>
+      </button>
+    </div>
     <div class="status-bar">
       <span id="header-battery" class="header-battery" style="display:none">
         <span class="battery-icon" aria-hidden="true"><span id="bat-fill" class="battery-fill" style="width:0%"></span></span>
@@ -177,6 +183,12 @@
     <section class="card" id="torrent-card" role="region" aria-label="Active Downloads">
       <h2>Active Downloads</h2>
       <div id="torrent-list" aria-live="polite"></div>
+    </section>
+
+    <!-- System Processes (OS-level top lists) -->
+    <section class="card" id="processes-card" role="region" aria-label="System Processes">
+      <h2>System Processes</h2>
+      <div id="processes-grid" class="processes-grid" aria-live="polite"></div>
     </section>
 
   </main>

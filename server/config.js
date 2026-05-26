@@ -40,6 +40,10 @@ const CONNECTIVITY_CACHE_MS = 10000;  // 10 seconds
 const TECHNITIUM_TOKEN = process.env.TECHNITIUM_TOKEN || null;
 const TECHNITIUM_URL = process.env.TECHNITIUM_URL || 'http://127.0.0.1:5380';
 
+// Authentication configuration (disabled if AUTH_PASS is not defined)
+const AUTH_USER = process.env.AUTH_USER || 'admin';
+const AUTH_PASS = process.env.AUTH_PASS || null;
+
 module.exports = {
   PORT,
   COLLECT_MS,
@@ -57,4 +61,6 @@ module.exports = {
   CONNECTIVITY_CACHE_MS,
   TECHNITIUM_TOKEN,
   TECHNITIUM_URL,
+  AUTH_USER,
+  AUTH_PASS,
 };

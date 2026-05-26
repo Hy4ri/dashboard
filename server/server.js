@@ -1,11 +1,12 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 const rateLimiter = require('./utils/rate-limiter');
 const stateModule = require('./state');
 const { collect } = require('./collect');
-const { PORT, COLLECT_MS, IDLE_TIMEOUT_MS } = require('./config');
+const { PORT, COLLECT_MS, IDLE_TIMEOUT_MS, AUTH_USER, AUTH_PASS } = require('./config');
 const { createHandleAPI } = require('./routes/api');
 const { createPM2Route } = require('./routes/pm2-control');
 const { createPM2LogsRoute } = require('./routes/pm2-logs');
@@ -25,15 +26,46 @@ const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'no-referrer',
-  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data:",
+  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data:",
 };
 
-// WebSocket clients tracking
-const activeClients = new Set();
+// Session Store
+const activeSessions = new Map();
+const WebSocketClients = new Set();
+
+function parseCookies(cookieHeader) {
+  const cookies = {};
+  if (!cookieHeader) return cookies;
+  cookieHeader.split(';').forEach(cookie => {
+    const parts = cookie.split('=');
+    if (parts.length >= 1) {
+      const name = parts[0].trim();
+      const value = parts.slice(1).join('=').trim();
+      cookies[name] = decodeURIComponent(value);
+    }
+  });
+  return cookies;
+}
+
+function isAuthenticated(req) {
+  if (!AUTH_PASS) return true; // Auth is disabled if no password is configured
+  const cookies = parseCookies(req.headers.cookie);
+  const token = cookies.session_token;
+  if (!token) return false;
+
+  const session = activeSessions.get(token);
+  if (!session) return false;
+
+  if (Date.now() > session.expiresAt) {
+    activeSessions.delete(token);
+    return false;
+  }
+  return true;
+}
 
 function broadcastState() {
   const payload = JSON.stringify(stateModule.state);
-  for (const client of activeClients) {
+  for (const client of WebSocketClients) {
     if (client.readyState === 1) { // OPEN
       try {
         client.send(payload);
@@ -50,11 +82,11 @@ function ensureActivePolling() {
   console.log('Polling started (active client/WS connection)');
 
   collect().then(() => {
-    if (activeClients.size > 0) broadcastState();
+    if (WebSocketClients.size > 0) broadcastState();
   });
 
   stateModule.pollTimer = setInterval(async () => {
-    const hasWsClients = activeClients.size > 0;
+    const hasWsClients = WebSocketClients.size > 0;
     const isHttpActive = (Date.now() - stateModule.lastRequestTime) <= IDLE_TIMEOUT_MS;
 
     if (!hasWsClients && !isHttpActive) {
@@ -89,6 +121,77 @@ function createServer() {
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, `http://localhost:${PORT}`);
     let requestPath = url.pathname;
+
+    // Login Endpoint (unauthenticated POST)
+    if (requestPath === '/api/login' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const credentials = JSON.parse(body);
+          if (credentials.username === AUTH_USER && credentials.password === AUTH_PASS) {
+            const token = crypto.randomBytes(32).toString('hex');
+            const remember = !!credentials.remember;
+            const maxAgeMs = remember ? 30 * 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000;
+            
+            activeSessions.set(token, {
+              username: AUTH_USER,
+              expiresAt: Date.now() + maxAgeMs
+            });
+
+            const maxAgeSec = Math.floor(maxAgeMs / 1000);
+            res.writeHead(200, Object.assign({
+              'Content-Type': 'application/json',
+              'Set-Cookie': `session_token=${token}; Path=/; HttpOnly; SameSite=Strict${remember ? `; Max-Age=${maxAgeSec}` : ''}`
+            }, SECURITY_HEADERS));
+            res.end(JSON.stringify({ success: true }));
+          } else {
+            res.writeHead(401, Object.assign({ 'Content-Type': 'application/json' }, SECURITY_HEADERS));
+            res.end(JSON.stringify({ success: false, error: 'Invalid username or password' }));
+          }
+        } catch (err) {
+          res.writeHead(400, Object.assign({ 'Content-Type': 'application/json' }, SECURITY_HEADERS));
+          res.end(JSON.stringify({ success: false, error: 'Invalid payload' }));
+        }
+      });
+      return;
+    }
+
+    // Logout Endpoint
+    if (requestPath === '/api/logout' && req.method === 'POST') {
+      const cookies = parseCookies(req.headers.cookie);
+      const token = cookies.session_token;
+      if (token) {
+        activeSessions.delete(token);
+      }
+      res.writeHead(200, Object.assign({
+        'Content-Type': 'application/json',
+        'Set-Cookie': 'session_token=; Path=/; HttpOnly; SameSite=Strict; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      }, SECURITY_HEADERS));
+      res.end(JSON.stringify({ success: true }));
+      return;
+    }
+
+    // Auth gate for everything else
+    const authed = isAuthenticated(req);
+    if (!authed) {
+      if (requestPath.startsWith('/api')) {
+        res.writeHead(401, SECURITY_HEADERS);
+        return res.end('Unauthorized');
+      }
+
+      // Serve login.html directly for unauthenticated browsers
+      const loginPath = path.join(ROOT, 'login.html');
+      fs.readFile(loginPath, (err, data) => {
+        if (err) {
+          res.writeHead(500, SECURITY_HEADERS);
+          return res.end('Error loading login screen');
+        }
+        res.writeHead(200, Object.assign({ 'Content-Type': 'text/html; charset=utf-8' }, SECURITY_HEADERS));
+        res.end(data);
+      });
+      return;
+    }
 
     // API routes — rate limited
     if (requestPath.startsWith('/api')) {
@@ -152,6 +255,13 @@ function createServer() {
   const wss = new WebSocketServer({ noServer: true });
 
   server.on('upgrade', (request, socket, head) => {
+    // Validate WebSocket handshake auth
+    if (!isAuthenticated(request)) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
     const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
     if (url.pathname === '/ws') {
       wss.handleUpgrade(request, socket, head, (ws) => {
@@ -163,19 +273,19 @@ function createServer() {
   });
 
   wss.on('connection', (ws) => {
-    activeClients.add(ws);
+    WebSocketClients.add(ws);
     ensureActivePolling();
 
     // Push current status immediately on connection
     ws.send(JSON.stringify(stateModule.state));
 
     ws.on('close', () => {
-      activeClients.delete(ws);
+      WebSocketClients.delete(ws);
     });
 
     ws.on('error', (err) => {
       console.warn('WS Client connection error:', err.message);
-      activeClients.delete(ws);
+      WebSocketClients.delete(ws);
     });
   });
 
