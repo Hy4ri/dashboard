@@ -2,6 +2,7 @@ import { $ } from '../utils/dom.js';
 
 const HISTORY_LIMIT = 30;
 const history = {
+  cpu: [],
   mem: [],
   rx: [],
   tx: []
@@ -68,6 +69,9 @@ export function renderSparklines(data) {
   if (!data) return;
 
   // 1. Push current metrics into history
+  if (data.cpu !== undefined) {
+    pushHistory('cpu', data.cpu);
+  }
   if (data.memory && data.memory.used_pct !== undefined) {
     pushHistory('mem', data.memory.used_pct);
   }
@@ -83,6 +87,15 @@ export function renderSparklines(data) {
   pushHistory('rx', totalRx);
   pushHistory('tx', totalTx);
 
+  // 2. Render CPU Sparkline
+  updateSparkline(
+    'cpu-sparkline', 
+    history.cpu, 
+    100, 
+    'var(--primary-color, #ff3333)', 
+    '#cpu-overall .bar-label',
+    ''
+  );
 
   // 3. Render Memory Sparkline
   updateSparkline(
