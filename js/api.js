@@ -6,11 +6,13 @@ import { POLL_MS } from './config.js';
 
 // Renderers - import all of them
 import { renderPM2 } from './ui/pm2.js';
+import { renderCPU, renderCPUCores, renderLoad } from './ui/cpu.js';
 import { renderMemory, renderSwap } from './ui/memory.js';
 import { renderDisk } from './ui/disk.js';
 import { renderNetwork, renderConnectivity, renderSpeedtest } from './ui/network.js';
 import { renderBattery } from './ui/battery.js';
 import { renderTorrents } from './ui/torrents.js';
+import { renderThermal, renderFreq } from './ui/thermal.js';
 import { renderSystem } from './ui/system.js';
 import { renderSparklines } from './ui/sparklines.js';
 import { checkAlerts, initNotifications } from './ui/alerts.js';
@@ -34,6 +36,11 @@ function updateUI(data) {
 
   // Sections
   renderPM2(data.pm2);
+  renderCPU(data.cpu);
+  renderCPUCores(data.cpuCores);
+  renderThermal(data.thermal);
+  renderFreq(data.frequency);
+  renderLoad(data.loadavg);
   renderMemory(data.memory);
   renderSwap(data.swap);
   renderDisk(data.disk);

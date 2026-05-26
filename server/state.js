@@ -1,9 +1,11 @@
 let state = {};
-let prev = { net: null, disk: null, time: 0 };
+let prev = { cpu: null, net: null, disk: null, time: 0 };
 let pollTimer = null;
 let lastRequestTime = Date.now();
 let diskCache    = { value: null, time: 0 };
 let pm2Cache     = { value: null, time: 0 };
+let freqCache    = { value: null, time: 0 };
+let thermalCache = { value: null, time: 0 };
 let qbCache      = { value: null, time: 0 };
 let connectivityCache = { value: null, time: 0 };
 let speedtestCache = { value: null, time: 0 };
@@ -14,6 +16,8 @@ let speedtestTimer = null;
 // ── Static caches (filled once at startup) ─────────────────────────
 
 let staticSystem = null;
+let thermalPaths = [];     // [{name, path}] – wanted zones mapped to temp files
+let cpuStaticInfo = [];    // [{core, min, max, governor}] – per-core static data
 
 // ── qBittorrent state ──────────────────────────────────────────────
 
@@ -30,6 +34,8 @@ module.exports = {
   lastRequestTime,
   diskCache,
   pm2Cache,
+  freqCache,
+  thermalCache,
   qbCache,
   connectivityCache,
   speedtestCache,
@@ -37,6 +43,8 @@ module.exports = {
   speedtestInstalled,
   speedtestTimer,
   staticSystem,
+  thermalPaths,
+  cpuStaticInfo,
   qbCookie,
   QB_HOST,
   QB_PORT,
