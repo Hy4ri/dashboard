@@ -90,20 +90,19 @@
         <div id="cpu-cores" class="core-grid" aria-live="polite"></div>
 
         <div class="grid-2">
-          <div id="load-rows" aria-live="polite">
+          <div class="sub-widget">
             <h3>Load</h3>
-            <div class="info-row"><span class="key">1 min</span><span class="val" id="load-1" aria-label="Not available">—</span></div>
-            <div class="info-row"><span class="key">5 min</span><span class="val" id="load-5" aria-label="Not available">—</span></div>
-            <div class="info-row"><span class="key">15 min</span><span class="val" id="load-15" aria-label="Not available">—</span></div>
+            <div id="load-rows" aria-live="polite">
+              <div class="info-row"><span class="key">1 min</span><span class="val" id="load-1" aria-label="Not available">—</span></div>
+              <div class="info-row"><span class="key">5 min</span><span class="val" id="load-5" aria-label="Not available">—</span></div>
+              <div class="info-row"><span class="key">15 min</span><span class="val" id="load-15" aria-label="Not available">—</span></div>
+            </div>
           </div>
           <div>
             <h3>Temperatures</h3>
             <div id="thermal-grid" class="thermal-grid" aria-live="polite"></div>
           </div>
         </div>
-
-        <h3>Frequency</h3>
-        <div id="freq-grid" class="freq-grid" aria-live="polite"></div>
       </div>
     </section>
 
@@ -178,7 +177,6 @@
           <div class="info-row"><span class="key">Used</span><span class="val" id="disk-used" aria-label="Not available">—</span></div>
           <div class="info-row"><span class="key">Available</span><span class="val val-green" id="disk-avail" aria-label="Not available">—</span></div>
         </div>
-        <div id="disk-io-rows" style="margin-top:var(--space-2)" aria-live="polite"></div>
       </div>
     </section>
 
@@ -186,6 +184,10 @@
     <section class="card" id="net-card" role="region" aria-label="Network traffic" data-accordion data-state="open">
       <button class="card-header" aria-expanded="true" data-accordion-trigger>
         Network
+        <span class="net-rate" id="net-rate-indicator" style="display:none">
+          <span class="net-rate-down">↓ —</span>
+          <span class="net-rate-up">↑ —</span>
+        </span>
         <span class="chevron" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="6 9 12 15 18 9"/>
@@ -203,8 +205,6 @@
             <span class="connectivity-status" id="net-dns-status">—</span>
           </div>
         </div>
-        <div id="net-rows" aria-live="polite"></div>
-
         <div id="speedtest-section" class="speedtest-section">
           <h3>Speedtest</h3>
           <div id="speedtest-status" aria-live="polite"></div>

@@ -1,6 +1,6 @@
-import { fmtTemp, fmtFreq, NONE } from '../utils/format.js';
+import { fmtTemp } from '../utils/format.js';
 import { $, esc, setTextOf } from '../utils/dom.js';
-import { THERMAL_MAP, GOVERNOR_MAP } from '../config.js';
+import { THERMAL_MAP } from '../config.js';
 
 function renderThermal(data) {
   const container = $('thermal-grid');
@@ -39,40 +39,4 @@ function renderThermal(data) {
   }
 }
 
-function renderFreq(data) {
-  const container = $('freq-grid');
-  if (!data || data.length === 0) {
-    container.innerHTML = '<div class="none">No CPU frequency data available</div>';
-    return;
-  }
-
-  const existing = container.querySelectorAll('.freq-item[data-core]');
-
-  if (existing.length !== data.length) {
-    container.innerHTML = data.map(f =>
-      '<div class="freq-item" data-core="' + f.core + '">' +
-      '<div class="core-label">CPU' + f.core + '</div>' +
-      '<div class="value">' + fmtFreq(f.current) + '</div>' +
-      '<div class="freq-sub">min ' + fmtFreq(f.min) + ' \u00B7 max ' + fmtFreq(f.max) + '</div>' +
-      '<div class="freq-sub">' + esc(GOVERNOR_MAP[f.governor] || f.governor || NONE) + '</div>' +
-      '</div>'
-    ).join('');
-    return;
-  }
-
-  // Patch
-  for (let i = 0; i < data.length; i++) {
-    const f = data[i];
-    const item = existing[i];
-    if (!item) continue;
-    const val = item.querySelector('.value');
-    if (val) setTextOf(val, fmtFreq(f.current));
-    const subs = item.querySelectorAll('.freq-sub');
-    if (subs.length >= 2) {
-      setTextOf(subs[0], 'min ' + fmtFreq(f.min) + ' \u00B7 max ' + fmtFreq(f.max));
-      setTextOf(subs[1], esc(GOVERNOR_MAP[f.governor] || f.governor || NONE));
-    }
-  }
-}
-
-export { renderThermal, renderFreq };
+export { renderThermal };
