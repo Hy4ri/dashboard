@@ -10,7 +10,7 @@
 </head>
 <body>
 
-  <a href="#cpu-card" class="skip-link">Skip to content</a>
+  <a href="#pm2-card" class="skip-link">Skip to content</a>
 
   <header>
     <div style="display: flex; align-items: center; gap: var(--space-2)">
@@ -55,45 +55,6 @@
           <tbody id="pm2-body" aria-live="polite" aria-atomic="true"></tbody>
         </table>
       </div>
-    </section>
-
-    <!-- CPU (all-in-one block) -->
-    <section class="card" id="cpu-card" role="region" aria-label="CPU usage">
-      <h2>CPU</h2>
-
-      <!-- Overall usage bar -->
-      <div id="cpu-overall" aria-live="polite">
-        <div class="bar-wrap">
-          <div class="bar-fill cpu" id="cpu-bar-fill" style="width:0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-          <div class="bar-label">
-            <span>Overall</span>
-            <span id="cpu-pct" aria-label="Not available">—</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Per-core bars -->
-      <div id="cpu-cores" class="core-grid" aria-live="polite"></div>
-
-      <!-- Load & Thermal side-by-side -->
-      <div class="grid-2">
-        <!-- Load Average -->
-        <div id="load-rows" aria-live="polite">
-          <h3>Load</h3>
-          <div class="info-row"><span class="key">1 min</span><span class="val" id="load-1" aria-label="Not available">—</span></div>
-          <div class="info-row"><span class="key">5 min</span><span class="val" id="load-5" aria-label="Not available">—</span></div>
-          <div class="info-row"><span class="key">15 min</span><span class="val" id="load-15" aria-label="Not available">—</span></div>
-        </div>
-        <!-- Thermal -->
-        <div>
-          <h3>Temperatures</h3>
-          <div id="thermal-grid" class="thermal-grid" aria-live="polite"></div>
-        </div>
-      </div>
-
-      <!-- Frequency -->
-      <h3>Frequency</h3>
-      <div id="freq-grid" class="freq-grid" aria-live="polite"></div>
     </section>
 
     <!-- Memory & Swap (merged) -->

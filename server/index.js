@@ -3,8 +3,6 @@ const { PORT } = require('./config');
 const { createServer } = require('./server');
 const { collect } = require('./collect');
 const { initStaticSystem } = require('./collectors/system');
-const { initThermalPaths } = require('./collectors/thermal');
-const { initCpuStaticInfo } = require('./collectors/frequency');
 const { loadQBConfig, validateQBConfig } = require('./collectors/qbittorrent');
 const { checkSpeedtestInstalled, startSpeedtestTimer, runSpeedtest } = require('./collectors/speedtest');
 
@@ -16,8 +14,6 @@ async function startup() {
   // Initialize all static caches
   await Promise.all([
     initStaticSystem(),
-    initThermalPaths(),
-    initCpuStaticInfo(),
   ]);
 
   // Perform initial collection then wait for first request
