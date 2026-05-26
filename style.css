@@ -165,6 +165,13 @@ header h1 {
 }
 @media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
 
+.sub-widget {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: var(--space-3);
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
@@ -398,28 +405,7 @@ th.sortable:hover { color: var(--text-bright); }
 .thermal-item .temp.hot { color: var(--orange); }
 .thermal-item .temp.very-hot { color: var(--red); }
 
-/* ── Frequency Grid ────────────────────────────────────────────── */
-.freq-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 6px;
-}
-.freq-item {
-  padding: 6px 8px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-.freq-item .core-label {
-  font-family: var(--font-sans);
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-bottom: 2px;
-}
-.freq-item .value { color: var(--text-bright); }
-.freq-sub { font-size: var(--text-xs); color: var(--text-muted); }
+
 
 /* ── Info Rows ─────────────────────────────────────────────────── */
 .info-row {
@@ -434,16 +420,7 @@ th.sortable:hover { color: var(--text-bright); }
 .info-row .key { color: var(--text-muted); }
 .info-row .val { color: var(--text-bright); text-align: right; }
 
-/* ── Disk I/O ──────────────────────────────────────────────────── */
-.io-block { margin-bottom: 8px; }
-.io-block:last-child { margin-bottom: 0; }
-.io-device {
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-bright);
-  margin-bottom: var(--space-1);
-}
+
 
 /* ── Service Bar ───────────────────────────────────────────────── */
 .service-bar {
@@ -473,15 +450,17 @@ th.sortable:hover { color: var(--text-bright); }
 .service-btn:active { transform: scale(0.98); }
 
 /* ── Network ────────────────────────────────────────────────────── */
-.net-block { margin-bottom: 10px; }
-.net-block:last-child { margin-bottom: 0; }
-.net-block h4 {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-bright);
-  margin-bottom: 4px;
+.net-rate {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: var(--space-3);
 }
+.net-rate-down { color: var(--green); }
+.net-rate-up { color: var(--yellow); }
 
 .connectivity-row {
   display: flex;
