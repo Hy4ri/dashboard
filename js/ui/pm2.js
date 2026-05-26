@@ -4,6 +4,10 @@ import { showLogsModal } from './logs-modal.js';
 import { pm2ControlAction } from '../pm2-menu.js';
 
 let eventsRegistered = false;
+let headersRegistered = false;
+let currentSortBy = 'id'; // default sort by ID
+let currentSortOrder = 'asc'; // asc or desc
+let lastPM2Data = null; // cached copy of last data payload for immediate resort
 
 function setupPM2Actions() {
   if (eventsRegistered) return;
@@ -28,6 +32,70 @@ function setupPM2Actions() {
   eventsRegistered = true;
 }
 
+function setupPM2Headers() {
+  if (headersRegistered) return;
+  const table = document.querySelector('#pm2-card table');
+  if (!table) return;
+  const headers = table.querySelectorAll('thead th');
+
+  const idHeader = headers[0];
+  const cpuHeader = headers[3];
+  const memHeader = headers[4];
+
+  const makeClickable = (header, field) => {
+    if (header) {
+      header.style.cursor = 'pointer';
+      header.style.userSelect = 'none';
+      header.addEventListener('click', () => toggleSort(field));
+    }
+  };
+
+  makeClickable(idHeader, 'id');
+  makeClickable(cpuHeader, 'cpu');
+  makeClickable(memHeader, 'memory');
+
+  headersRegistered = true;
+}
+
+function toggleSort(field) {
+  if (currentSortBy === field) {
+    currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+  } else {
+    currentSortBy = field;
+    currentSortOrder = (field === 'cpu' || field === 'memory') ? 'desc' : 'asc';
+  }
+  
+  if (lastPM2Data) {
+    renderPM2(lastPM2Data);
+  }
+}
+
+function updateHeaderIndicators() {
+  const table = document.querySelector('#pm2-card table');
+  if (!table) return;
+  const headers = table.querySelectorAll('thead th');
+  
+  const resetHeader = (header, text) => {
+    if (header) {
+      header.innerHTML = text;
+      header.title = `Sort by ${text}`;
+    }
+  };
+
+  resetHeader(headers[0], 'ID');
+  resetHeader(headers[3], 'CPU');
+  resetHeader(headers[4], 'Memory');
+
+  const indicator = currentSortOrder === 'asc' ? ' ▲' : ' ▼';
+  if (currentSortBy === 'id' && headers[0]) {
+    headers[0].innerHTML = 'ID' + indicator;
+  } else if (currentSortBy === 'cpu' && headers[3]) {
+    headers[3].innerHTML = 'CPU' + indicator;
+  } else if (currentSortBy === 'memory' && headers[4]) {
+    headers[4].innerHTML = 'Memory' + indicator;
+  }
+}
+
 function renderPM2(data) {
   const tbody = $('pm2-body');
   if (!data || data.length === 0) {
@@ -35,13 +103,41 @@ function renderPM2(data) {
     return;
   }
 
+  // Cache data
+  lastPM2Data = data;
+
   setupPM2Actions();
+  setupPM2Headers();
+  updateHeaderIndicators();
+
+  // Sort data copy
+  const sortedData = [...data];
+  if (currentSortBy) {
+    sortedData.sort((a, b) => {
+      let valA = a[currentSortBy];
+      let valB = b[currentSortBy];
+
+      // Handle null/undef
+      if (valA === null || valA === undefined) return 1;
+      if (valB === null || valB === undefined) return -1;
+
+      if (typeof valA === 'string') {
+        return currentSortOrder === 'asc' 
+          ? valA.localeCompare(valB) 
+          : valB.localeCompare(valA);
+      } else {
+        return currentSortOrder === 'asc' 
+          ? valA - valB 
+          : valB - valA;
+      }
+    });
+  }
 
   // Check if row count changed (full rebuild needed)
   const existing = tbody.querySelectorAll('tr[data-pm-id]');
-  if (existing.length !== data.length) {
+  if (existing.length !== sortedData.length) {
     // Rebuild all rows
-    tbody.innerHTML = data.map(p => {
+    tbody.innerHTML = sortedData.map(p => {
       const stCls = p.status === 'online' ? 'online' : p.status === 'errored' ? 'errored' : 'stopped';
       const uptime = p.uptime ? (Date.now() - p.uptime) / 1000 : null;
       return '<tr data-pm-id="' + p.id + '">' +
@@ -70,46 +166,51 @@ function renderPM2(data) {
   // Patch existing rows in-place
   const rows = tbody.querySelectorAll('tr[data-pm-id]');
   const map = {};
-  data.forEach(p => { map[p.id] = p; });
+  sortedData.forEach(p => { map[p.id] = p; });
 
-  for (const row of rows) {
-    const id = parseInt(row.getAttribute('data-pm-id'), 10);
-    const p = map[id];
-    if (!p) continue;
-
+  for (let idx = 0; idx < rows.length; idx++) {
+    const row = rows[idx];
+    const targetProcess = sortedData[idx];
+    
+    // If the sorted ID at this DOM position is different from before, re-bind row attributes
+    row.setAttribute('data-pm-id', targetProcess.id);
+    
     const cells = row.querySelectorAll('td');
     if (cells.length < 9) continue;
 
-    const uptime = p.uptime ? (Date.now() - p.uptime) / 1000 : null;
-    const stCls = p.status === 'online' ? 'online' : p.status === 'errored' ? 'errored' : 'stopped';
+    const uptime = targetProcess.uptime ? (Date.now() - targetProcess.uptime) / 1000 : null;
+    const stCls = targetProcess.status === 'online' ? 'online' : targetProcess.status === 'errored' ? 'errored' : 'stopped';
+
+    // ID cell
+    setTextOf(cells[0], '' + targetProcess.id);
 
     // Name
     const nameStrong = cells[1].querySelector('strong');
-    if (nameStrong) setTextOf(nameStrong, esc(p.name));
+    if (nameStrong) setTextOf(nameStrong, esc(targetProcess.name));
 
     // Status (cell[2] has span + text)
     const indicator = cells[2].querySelector('.status-indicator');
     if (indicator) {
       indicator.className = 'status-indicator ' + stCls;
     }
-    setTextOfLast(cells[2], esc(p.status));
+    setTextOfLast(cells[2], esc(targetProcess.status));
 
-    setTextOf(cells[3], p.cpu.toFixed(1) + '%');
-    setTextOf(cells[4], fmtBytes(p.memory));
+    setTextOf(cells[3], targetProcess.cpu.toFixed(1) + '%');
+    setTextOf(cells[4], fmtBytes(targetProcess.memory));
     setTextOf(cells[5], fmtUptime(uptime));
-    setTextOf(cells[6], '' + p.restarts);
-    setTextOf(cells[7], p.pid || NONE);
+    setTextOf(cells[6], '' + targetProcess.restarts);
+    setTextOf(cells[7], targetProcess.pid || NONE);
 
     // Update Action Buttons
     const actionCell = cells[8];
     if (actionCell) {
       actionCell.innerHTML = 
         '<div class="pm2-actions-cell">' +
-          (p.status === 'stopped'
-            ? '<button class="pm2-action-btn start" data-action="start" data-name="' + esc(p.name) + '" title="Start">▶</button>'
-            : '<button class="pm2-action-btn stop" data-action="stop" data-name="' + esc(p.name) + '" title="Stop">■</button>') +
-          '<button class="pm2-action-btn restart" data-action="restart" data-name="' + esc(p.name) + '" title="Restart">↻</button>' +
-          '<button class="pm2-action-btn logs" data-name="' + esc(p.name) + '" title="View Logs">📄</button>' +
+          (targetProcess.status === 'stopped'
+            ? '<button class="pm2-action-btn start" data-action="start" data-name="' + esc(targetProcess.name) + '" title="Start">▶</button>'
+            : '<button class="pm2-action-btn stop" data-action="stop" data-name="' + esc(targetProcess.name) + '" title="Stop">■</button>') +
+          '<button class="pm2-action-btn restart" data-action="restart" data-name="' + esc(targetProcess.name) + '" title="Restart">↻</button>' +
+          '<button class="pm2-action-btn logs" data-name="' + esc(targetProcess.name) + '" title="View Logs">📄</button>' +
         '</div>';
     }
   }
