@@ -10,43 +10,31 @@ function netIfaceLabel(iface) {
   return iface;
 }
 
-function renderNetwork(net) {
-  const el = $('net-rows');
+function renderNetworkRates(net) {
+  const indicator = $('net-rate-indicator');
+  if (!indicator) return;
   if (!net || Object.keys(net).length === 0) {
-    el.innerHTML = '<div class="none">No network interfaces detected</div>';
+    indicator.style.display = 'none';
     return;
   }
 
-  const netEntries = Object.entries(net);
-  const existingBlocks = el.querySelectorAll('.net-block[data-iface]');
+  let totalDown = 0;
+  let totalUp = 0;
+  for (const d of Object.values(net)) {
+    totalDown += d.rx_rate || 0;
+    totalUp += d.tx_rate || 0;
+  }
 
-  if (existingBlocks.length !== netEntries.length) {
-    // Rebuild only when interface count changes
-    el.innerHTML = netEntries.map(([iface, d]) =>
-      '<div class="net-block" data-iface="' + esc(iface) + '">' +
-      '<h4>\u2193 ' + esc(netIfaceLabel(iface)) + ' \u2191</h4>' +
-      '<div class="info-row"><span class="key">RX Total</span><span class="val">' + fmtBytes(d.rx_bytes) + '</span></div>' +
-      '<div class="info-row"><span class="key">TX Total</span><span class="val">' + fmtBytes(d.tx_bytes) + '</span></div>' +
-      '<div class="info-row"><span class="key">\u2193 RX Rate</span><span class="val val-green">' + fmtBytesRate(d.rx_rate) + '</span></div>' +
-      '<div class="info-row"><span class="key">\u2191 TX Rate</span><span class="val val-yellow">' + fmtBytesRate(d.tx_rate) + '</span></div>' +
-      '</div>'
-    ).join('');
+  if (totalDown === 0 && totalUp === 0) {
+    indicator.style.display = 'none';
     return;
   }
 
-  // Patch values in place
-  for (let i = 0; i < netEntries.length; i++) {
-    const [, d] = netEntries[i];
-    const block = existingBlocks[i];
-    if (!block) continue;
-    const vals = block.querySelectorAll('.val');
-    if (vals.length >= 4) {
-      setTextOf(vals[0], fmtBytes(d.rx_bytes));
-      setTextOf(vals[1], fmtBytes(d.tx_bytes));
-      setTextOf(vals[2], fmtBytesRate(d.rx_rate));
-      setTextOf(vals[3], fmtBytesRate(d.tx_rate));
-    }
-  }
+  const downEl = indicator.querySelector('.net-rate-down');
+  const upEl = indicator.querySelector('.net-rate-up');
+  if (downEl) downEl.textContent = '\u2193 ' + fmtBytesRate(totalDown);
+  if (upEl) upEl.textContent = '\u2191 ' + fmtBytesRate(totalUp);
+  indicator.style.display = 'inline-flex';
 }
 
 function renderConnectivity(data, dnsStats) {
@@ -187,4 +175,4 @@ function renderSpeedtest(data) {
     '</tbody></table>';
 }
 
-export { renderNetwork, renderConnectivity, renderSpeedtest, netIfaceLabel };
+export { renderNetworkRates, renderConnectivity, renderSpeedtest, netIfaceLabel };
