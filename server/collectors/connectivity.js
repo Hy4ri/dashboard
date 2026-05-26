@@ -1,4 +1,4 @@
-const http = require('http');
+const net = require('net');
 const dns = require('dns');
 const { CONNECTIVITY_CACHE_MS } = require('../config');
 let { connectivityCache } = require('../state');
@@ -6,14 +6,26 @@ let { connectivityCache } = require('../state');
 function checkInternet() {
   return new Promise((resolve) => {
     const start = Date.now();
-    const req = http.get('http://1.1.1.1', { timeout: 3000 }, (res) => {
-      // Any response means internet is reachable
-      res.resume(); // consume response data to free up memory
-      res.on('end', () => resolve({ ok: true, latency: Date.now() - start }));
+    // Connect directly to 1.1.1.1 (Cloudflare) on port 53 (DNS TCP)
+    // This tests raw IP routing completely bypassing local and system DNS.
+    const socket = net.createConnection({
+      host: '1.1.1.1',
+      port: 53,
+      timeout: 2000
     });
-    req.on('error', () => resolve({ ok: false }));
-    req.on('timeout', () => {
-      req.destroy();
+
+    socket.on('connect', () => {
+      const latency = Date.now() - start;
+      socket.end();
+      resolve({ ok: true, latency });
+    });
+
+    socket.on('error', () => {
+      resolve({ ok: false });
+    });
+
+    socket.on('timeout', () => {
+      socket.destroy();
       resolve({ ok: false });
     });
   });
@@ -24,15 +36,29 @@ function checkDNS() {
     const resolver = new dns.Resolver();
     resolver.setServers(['127.0.0.1']);
     const start = Date.now();
-    resolver.resolve4('google.com', (err, addresses) => {
+    
+    let finished = false;
+    
+    // Safety timeout
+    const timeoutId = setTimeout(() => {
+      if (!finished) {
+        finished = true;
+        resolve({ ok: false, error: 'Timeout' });
+      }
+    }, 4000);
+
+    // Resolves one.one.one.one (which points to 1.1.1.1) using the local Technitium DNS server
+    resolver.resolve4('one.one.one.one', (err, addresses) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timeoutId);
+
       if (err || !addresses || addresses.length === 0) {
         resolve({ ok: false, error: err ? (err.code || err.message) : 'No addresses' });
       } else {
         resolve({ ok: true, latency: Date.now() - start });
       }
     });
-    // Safety timeout
-    setTimeout(() => resolve({ ok: false, error: 'Timeout' }), 5000);
   });
 }
 
