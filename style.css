@@ -165,13 +165,6 @@ header h1 {
 }
 @media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
 
-.sub-widget {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: var(--space-3);
-}
-
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
