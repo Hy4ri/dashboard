@@ -6,10 +6,10 @@ let { connectivityCache } = require('../state');
 function checkInternet() {
   return new Promise((resolve) => {
     const start = Date.now();
-    // Connect directly to 1.1.1.1 (Cloudflare) on port 53 (DNS TCP)
+    // Connect directly to 8.8.8.8 (Google Public DNS) on port 53 (DNS TCP)
     // This tests raw IP routing completely bypassing local and system DNS.
     const socket = net.createConnection({
-      host: '1.1.1.1',
+      host: '8.8.8.8',
       port: 53,
       timeout: 2000
     });
@@ -47,8 +47,8 @@ function checkDNS() {
       }
     }, 4000);
 
-    // Resolves one.one.one.one (which points to 1.1.1.1) using the local Technitium DNS server
-    resolver.resolve4('one.one.one.one', (err, addresses) => {
+    // Resolves google.com (universally supported/cached) using the local Technitium DNS server
+    resolver.resolve4('google.com', (err, addresses) => {
       if (finished) return;
       finished = true;
       clearTimeout(timeoutId);
