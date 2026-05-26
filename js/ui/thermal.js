@@ -9,8 +9,9 @@ function renderThermal(data) {
     return;
   }
 
-  // Sort for consistent ordering
-  const sorted = data.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  // Filter out 5G and PMIC sensors, then sort for consistent ordering
+  const filtered = data.filter(t => t.name !== 'modem-lte-sub6-pa1' && t.name !== 'pmr735a_tz');
+  const sorted = filtered.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   const existing = container.querySelectorAll('.thermal-item[data-zone]');
 
