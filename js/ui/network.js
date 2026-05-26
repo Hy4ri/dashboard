@@ -49,7 +49,7 @@ function renderNetwork(net) {
   }
 }
 
-function renderConnectivity(data) {
+function renderConnectivity(data, dnsStats) {
   const internetEl = $('net-internet-status');
   const dnsEl = $('net-dns-status');
 
@@ -80,6 +80,50 @@ function renderConnectivity(data) {
       dnsEl.textContent = 'Issue' + err;
       dnsEl.className = 'connectivity-status offline';
     }
+  }
+
+  // Technitium DNS Stats render
+  let statsEl = $('net-dns-stats');
+  if (dnsStats && dnsStats.configured) {
+    if (!statsEl) {
+      const netCard = $('net-card');
+      if (netCard) {
+        statsEl = document.createElement('div');
+        statsEl.id = 'net-dns-stats';
+        statsEl.className = 'dns-stats-container';
+        const connRow = $('net-connectivity');
+        if (connRow) {
+          netCard.insertBefore(statsEl, connRow.nextSibling);
+        } else {
+          netCard.appendChild(statsEl);
+        }
+      }
+    }
+
+    if (statsEl) {
+      if (dnsStats.ok) {
+        statsEl.innerHTML = `
+          <div class="dns-stat-item">
+            <span class="dns-stat-key">Queries (24h)</span>
+            <span class="dns-stat-val">${dnsStats.totalQueries.toLocaleString()}</span>
+          </div>
+          <div class="dns-stat-item">
+            <span class="dns-stat-key">Blocked</span>
+            <span class="dns-stat-val val-red">${dnsStats.blockedQueries.toLocaleString()} (${dnsStats.blockedPercentage}%)</span>
+          </div>
+          <div class="dns-stat-item">
+            <span class="dns-stat-key">Cached</span>
+            <span class="dns-stat-val val-green">${dnsStats.cachedQueries.toLocaleString()}</span>
+          </div>
+        `;
+        statsEl.style.display = 'grid';
+      } else {
+        statsEl.innerHTML = `<div class="dns-stats-error">Technitium API Error: ${esc(dnsStats.error)}</div>`;
+        statsEl.style.display = 'block';
+      }
+    }
+  } else {
+    if (statsEl) statsEl.style.display = 'none';
   }
 }
 

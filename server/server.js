@@ -1,12 +1,14 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { WebSocketServer } = require('ws');
 const rateLimiter = require('./utils/rate-limiter');
 const stateModule = require('./state');
 const { collect } = require('./collect');
 const { PORT, COLLECT_MS, IDLE_TIMEOUT_MS } = require('./config');
 const { createHandleAPI } = require('./routes/api');
 const { createPM2Route } = require('./routes/pm2-control');
+const { createPM2LogsRoute } = require('./routes/pm2-logs');
 const { createSpeedtestRoute } = require('./routes/speedtest');
 const { createQBittorrentRoute } = require('./routes/qbittorrent');
 
@@ -23,22 +25,53 @@ const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'no-referrer',
-  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:",
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data:",
 };
+
+// WebSocket clients tracking
+const activeClients = new Set();
+
+function broadcastState() {
+  const payload = JSON.stringify(stateModule.state);
+  for (const client of activeClients) {
+    if (client.readyState === 1) { // OPEN
+      try {
+        client.send(payload);
+      } catch (err) {
+        console.error('WS broadcast error:', err.message);
+      }
+    }
+  }
+}
 
 function ensureActivePolling() {
   stateModule.lastRequestTime = Date.now();
   if (stateModule.pollTimer) return;
-  console.log('Polling resumed (client connected)');
-  collect();
-  stateModule.pollTimer = setInterval(() => {
-    if (Date.now() - stateModule.lastRequestTime > IDLE_TIMEOUT_MS) {
+  console.log('Polling started (active client/WS connection)');
+
+  collect().then(() => {
+    if (activeClients.size > 0) broadcastState();
+  });
+
+  stateModule.pollTimer = setInterval(async () => {
+    const hasWsClients = activeClients.size > 0;
+    const isHttpActive = (Date.now() - stateModule.lastRequestTime) <= IDLE_TIMEOUT_MS;
+
+    if (!hasWsClients && !isHttpActive) {
       clearInterval(stateModule.pollTimer);
       stateModule.pollTimer = null;
-      console.log('Polling paused (idle)');
+      console.log('Polling stopped (idle)');
       return;
     }
-    collect();
+
+    try {
+      await collect();
+      if (hasWsClients) {
+        broadcastState();
+      }
+    } catch (err) {
+      console.error('Error in collect loop:', err.message);
+    }
   }, COLLECT_MS);
 }
 
@@ -48,11 +81,12 @@ const handleAPI = createHandleAPI({
   SECURITY_HEADERS,
 });
 const handlePM2Control = createPM2Route({ collect });
+const handlePM2Logs = createPM2LogsRoute();
 const handleSpeedtestRun = createSpeedtestRoute();
 const handleQBDelete = createQBittorrentRoute();
 
 function createServer() {
-  return http.createServer((req, res) => {
+  const server = http.createServer((req, res) => {
     const url = new URL(req.url, `http://localhost:${PORT}`);
     let requestPath = url.pathname;
 
@@ -67,6 +101,12 @@ function createServer() {
       const pm2Match = requestPath.match(/^\/api\/pm2\/(stop|start|restart)\/(.+)$/);
       if (pm2Match && req.method === 'POST') {
         return handlePM2Control(req, res, pm2Match[1], pm2Match[2]);
+      }
+
+      // PM2 logs endpoint (GET only)
+      const pm2LogsMatch = requestPath.match(/^\/api\/pm2\/logs\/(.+)$/);
+      if (pm2LogsMatch && req.method === 'GET') {
+        return handlePM2Logs(req, res, pm2LogsMatch[1]);
       }
 
       // Speedtest manual trigger (POST only)
@@ -107,6 +147,39 @@ function createServer() {
       res.end(data);
     });
   });
+
+  // Attach WebSocket Server
+  const wss = new WebSocketServer({ noServer: true });
+
+  server.on('upgrade', (request, socket, head) => {
+    const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+    if (url.pathname === '/ws') {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    } else {
+      socket.destroy();
+    }
+  });
+
+  wss.on('connection', (ws) => {
+    activeClients.add(ws);
+    ensureActivePolling();
+
+    // Push current status immediately on connection
+    ws.send(JSON.stringify(stateModule.state));
+
+    ws.on('close', () => {
+      activeClients.delete(ws);
+    });
+
+    ws.on('error', (err) => {
+      console.warn('WS Client connection error:', err.message);
+      activeClients.delete(ws);
+    });
+  });
+
+  return server;
 }
 
 module.exports = { createServer, ensureActivePolling, SECURITY_HEADERS };

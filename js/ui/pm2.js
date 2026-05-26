@@ -1,12 +1,41 @@
 import { fmtBytes, fmtUptime, NONE } from '../utils/format.js';
 import { $, esc, setTextOf, setTextOfLast } from '../utils/dom.js';
+import { showLogsModal } from './logs-modal.js';
+import { pm2ControlAction } from '../pm2-menu.js';
+
+let eventsRegistered = false;
+
+function setupPM2Actions() {
+  if (eventsRegistered) return;
+  const tbody = $('pm2-body');
+  if (!tbody) return;
+
+  tbody.addEventListener('click', (e) => {
+    const btn = e.target.closest('.pm2-action-btn');
+    if (!btn) return;
+
+    e.stopPropagation();
+    const name = btn.getAttribute('data-name');
+    
+    if (btn.classList.contains('logs')) {
+      showLogsModal(name);
+    } else {
+      const action = btn.getAttribute('data-action');
+      pm2ControlAction(name, action);
+    }
+  });
+
+  eventsRegistered = true;
+}
 
 function renderPM2(data) {
   const tbody = $('pm2-body');
   if (!data || data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="none">No processes monitored. Is PM2 running?</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="none">No processes monitored. Is PM2 running?</td></tr>';
     return;
   }
+
+  setupPM2Actions();
 
   // Check if row count changed (full rebuild needed)
   const existing = tbody.querySelectorAll('tr[data-pm-id]');
@@ -24,6 +53,15 @@ function renderPM2(data) {
         '<td>' + fmtUptime(uptime) + '</td>' +
         '<td>' + p.restarts + '</td>' +
         '<td>' + (p.pid || NONE) + '</td>' +
+        '<td>' +
+          '<div class="pm2-actions-cell">' +
+            (p.status === 'stopped'
+              ? '<button class="pm2-action-btn start" data-action="start" data-name="' + esc(p.name) + '" title="Start">▶</button>'
+              : '<button class="pm2-action-btn stop" data-action="stop" data-name="' + esc(p.name) + '" title="Stop">■</button>') +
+            '<button class="pm2-action-btn restart" data-action="restart" data-name="' + esc(p.name) + '" title="Restart">↻</button>' +
+            '<button class="pm2-action-btn logs" data-name="' + esc(p.name) + '" title="View Logs">📄</button>' +
+          '</div>' +
+        '</td>' +
         '</tr>';
     }).join('');
     return;
@@ -40,7 +78,7 @@ function renderPM2(data) {
     if (!p) continue;
 
     const cells = row.querySelectorAll('td');
-    if (cells.length < 8) continue;
+    if (cells.length < 9) continue;
 
     const uptime = p.uptime ? (Date.now() - p.uptime) / 1000 : null;
     const stCls = p.status === 'online' ? 'online' : p.status === 'errored' ? 'errored' : 'stopped';
@@ -61,6 +99,19 @@ function renderPM2(data) {
     setTextOf(cells[5], fmtUptime(uptime));
     setTextOf(cells[6], '' + p.restarts);
     setTextOf(cells[7], p.pid || NONE);
+
+    // Update Action Buttons
+    const actionCell = cells[8];
+    if (actionCell) {
+      actionCell.innerHTML = 
+        '<div class="pm2-actions-cell">' +
+          (p.status === 'stopped'
+            ? '<button class="pm2-action-btn start" data-action="start" data-name="' + esc(p.name) + '" title="Start">▶</button>'
+            : '<button class="pm2-action-btn stop" data-action="stop" data-name="' + esc(p.name) + '" title="Stop">■</button>') +
+          '<button class="pm2-action-btn restart" data-action="restart" data-name="' + esc(p.name) + '" title="Restart">↻</button>' +
+          '<button class="pm2-action-btn logs" data-name="' + esc(p.name) + '" title="View Logs">📄</button>' +
+        '</div>';
+    }
   }
 }
 

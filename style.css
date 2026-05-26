@@ -941,3 +941,389 @@ td:nth-child(2) strong:hover {
 .val-red    { color: var(--red) !important; }
 .val-yellow { color: var(--yellow) !important; }
 .val-blue   { color: var(--blue) !important; }
+
+/* ── PM2 Actions Inline Buttons ──────────────────────────────────── */
+.pm2-actions-cell {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.pm2-action-btn {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text-bright);
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.pm2-action-btn:hover {
+  transform: scale(1.05);
+}
+
+.pm2-action-btn.start:hover {
+  background: rgba(76, 175, 80, 0.2);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.pm2-action-btn.stop:hover {
+  background: rgba(239, 83, 80, 0.2);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.pm2-action-btn.restart:hover {
+  background: rgba(255, 183, 77, 0.2);
+  border-color: var(--yellow);
+  color: var(--yellow);
+}
+
+.pm2-action-btn.logs:hover {
+  background: rgba(33, 150, 243, 0.2);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+/* ── PM2 Logs Overlay Modal ──────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 800px;
+  height: 80%;
+  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  animation: scaleUp 0.2s ease-out;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+}
+
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 24px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.modal-close-btn:hover {
+  color: var(--text-bright);
+}
+
+.modal-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-raised);
+}
+
+.tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-btn:hover {
+  color: var(--text-bright);
+}
+
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: var(--card-bg);
+}
+
+.modal-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px var(--space-3);
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+}
+
+.modal-body {
+  flex: 1;
+  overflow: auto;
+  padding: var(--space-3);
+  background: #090909;
+}
+
+.modal-body pre {
+  margin: 0;
+}
+
+.modal-body code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: #e0e0e0;
+  white-space: pre-wrap;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* ── Sparklines Trend Graphs ─────────────────────────────────────── */
+.sparkline-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  align-self: center;
+}
+
+.sparkline-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.sparkline-svg {
+  display: block;
+}
+
+.net-sparklines-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: var(--space-3);
+}
+
+.net-sparklines-row .sparkline-wrapper {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.bar-label {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.bar-label span:last-child {
+  margin-left: auto;
+}
+
+/* ── Service Health Dots ─────────────────────────────────────────── */
+.service-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-left: auto;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.service-status-dot.online {
+  background-color: var(--green);
+  color: var(--green);
+}
+
+.service-status-dot.offline {
+  background-color: var(--red);
+  color: var(--red);
+}
+
+.service-status-dot.unknown {
+  background-color: var(--text-muted);
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+/* ── Local Technitium DNS Stats Card ────────────────────────────── */
+.dns-stats-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: var(--space-2);
+  margin-top: 8px;
+}
+
+.dns-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.dns-stat-item:last-child {
+  border-right: none;
+}
+
+.dns-stat-key {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.dns-stat-val {
+  font-size: 11px;
+  color: var(--text-bright);
+  font-weight: 700;
+}
+
+.dns-stats-error {
+  font-size: 10px;
+  color: var(--red);
+  background: rgba(239, 83, 80, 0.1);
+  border: 1px solid rgba(239, 83, 80, 0.2);
+  border-radius: 6px;
+  padding: 6px;
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* ── Server Alert banners & notification config ──────────────────── */
+.alerts-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  z-index: 10000;
+  max-width: 320px;
+  pointer-events: none;
+}
+
+.alert-banner {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  animation: slideInRight 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+.alert-banner.danger {
+  background: #2a1111;
+  border: 1px solid var(--red);
+  color: #ffcccc;
+}
+
+.alert-banner.warning {
+  background: #2a2211;
+  border: 1px solid var(--yellow);
+  color: #ffeebc;
+}
+
+.alert-icon {
+  font-size: 14px;
+}
+
+.alert-message {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.notification-toggle-btn {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 4px var(--space-2);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.notification-toggle-btn:hover {
+  background: var(--border-subtle);
+  color: var(--text-bright);
+}
+
+.notification-toggle-btn.enabled {
+  border-color: rgba(76, 175, 80, 0.3);
+  color: var(--green);
+  background: rgba(76, 175, 80, 0.05);
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(120%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}

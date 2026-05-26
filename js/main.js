@@ -1,8 +1,7 @@
 /* ── Dashboard Entry Point ──────────────────────────────────────── */
 
-import { POLL_MS } from './config.js';
 import { $ } from './utils/dom.js';
-import { fetchStatus } from './api.js';
+import { connectWS, disconnectWS } from './api.js';
 import { initServiceBar } from './service-bar.js';
 import { setupPM2Menu } from './pm2-menu.js';
 import { setupSpeedtestButton, setupTorrentDelete } from './events.js';
@@ -17,20 +16,17 @@ setupPM2Menu();
 setupSpeedtestButton();
 setupTorrentDelete();
 
-// Initial fetch
-fetchStatus();
+// Initial connect
+connectWS();
 
-// Start polling
-let pollTimer = setInterval(fetchStatus, POLL_MS);
-
-// Pause polling when tab is hidden
+// Pause WebSocket connection when tab is hidden to save server resources
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    clearInterval(pollTimer);
+    disconnectWS();
     $('last-update').textContent = 'Updates paused while tab is hidden';
     $('status-text').textContent = 'Paused';
+    $('status-dot').className = 'status-dot off';
   } else {
-    fetchStatus();
-    pollTimer = setInterval(fetchStatus, POLL_MS);
+    connectWS();
   }
 });
