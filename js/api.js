@@ -17,7 +17,6 @@ import { renderSystem } from './ui/system.js';
 import { renderSparklines } from './ui/sparklines.js';
 import { checkAlerts, initNotifications } from './ui/alerts.js';
 import { updateServiceHealth } from './service-bar.js';
-import { renderProcesses } from './ui/processes.js';
 
 let staleTimer = null;
 let socket = null;
@@ -55,7 +54,6 @@ function updateUI(data) {
   renderSparklines(data);
   checkAlerts(data);
   updateServiceHealth(data.services);
-  renderProcesses(data.processes);
 
   // Toggle logout button visibility based on auth settings
   const logoutBtn = $('logout-btn');
