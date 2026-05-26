@@ -84,7 +84,7 @@ header {
   background: rgba(16,16,18,0.5);
   backdrop-filter: var(--glass-blur);
   border: 1px solid var(--card-border);
-  border-radius: 12px;
+  border-radius: 1px;
 }
 
 header h1 {
@@ -181,7 +181,7 @@ header h1 {
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--card-border);
-  border-radius: 12px;
+  border-radius: 1px;
   box-shadow: var(--card-shadow);
   overflow: hidden;
   transition: border-color 0.25s ease, box-shadow 0.25s ease;
