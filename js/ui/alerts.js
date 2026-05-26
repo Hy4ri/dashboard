@@ -81,20 +81,6 @@ export function checkAlerts(data) {
   const currentAlerts = [];
   const currentKeys = new Set();
 
-  // 1. Check CPU Temperature (Thermal)
-  if (data.thermal) {
-    Object.entries(data.thermal).forEach(([zone, temp]) => {
-      if (temp > 80) {
-        currentAlerts.push({
-          key: `temp_${zone}`,
-          type: 'danger',
-          message: `High temperature: ${zone} is ${temp}°C`
-        });
-        currentKeys.add(`temp_${zone}`);
-      }
-    });
-  }
-
   // 2. Check RAM usage
   if (data.memory && data.memory.used_pct > 95) {
     currentAlerts.push({

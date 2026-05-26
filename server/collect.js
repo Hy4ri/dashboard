@@ -1,10 +1,7 @@
 const { readFile } = require('./utils/helpers');
 const { parseMemInfo } = require('./parsers/memory');
-const { collectCPU } = require('./parsers/cpu');
 const { collectNetwork } = require('./parsers/network');
 const { collectDiskIO } = require('./parsers/disk');
-const { collectThermal } = require('./collectors/thermal');
-const { collectFreq } = require('./collectors/frequency');
 const { collectDiskUsage } = require('./collectors/disk-usage');
 const { collectBattery } = require('./collectors/battery');
 const { collectSystem } = require('./collectors/system');
@@ -22,17 +19,13 @@ async function collect() {
   const interval = (now - prev.time) / 1000;
 
   const [
-    cpuText, netText, diskText, loadText, memText,
-    thermal,  freq,    diskUse,  battery,  sys, pm2List, torrents,
+    netText, diskText, memText,
+    diskUse,  battery,  sys, pm2List, torrents,
     services, dnsStats, processes
   ] = await Promise.all([
-    readFile('/proc/stat'),
     readFile('/proc/net/dev'),
     readFile('/proc/diskstats'),
-    readFile('/proc/loadavg'),
     readFile('/proc/meminfo'),
-    collectThermal(),
-    collectFreq(),
     collectDiskUsage(),
     collectBattery(),
     collectSystem(),
@@ -43,16 +36,9 @@ async function collect() {
     collectProcesses(),
   ]);
 
-  const { cpuOverall, cpuCores } = collectCPU(cpuText, interval);
   const network = collectNetwork(netText, interval);
   const io = collectDiskIO(diskText, interval);
   prev.time = now;
-
-  let loadavg = null;
-  if (loadText) {
-    const parts = loadText.split(' ');
-    loadavg = parts.slice(0, 3).map(Number);
-  }
 
   const memory = memText ? parseMemInfo(memText) : null;
   const swap = memory
@@ -65,11 +51,6 @@ async function collect() {
   Object.assign(state, {
     timestamp: now,
     pm2: pm2List,
-    cpu: cpuOverall,
-    cpuCores,
-    thermal,
-    frequency: freq,
-    loadavg,
     memory,
     swap,
     disk: { ...(diskUse || {}), io },
