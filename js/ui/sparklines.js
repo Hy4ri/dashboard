@@ -93,7 +93,7 @@ export function renderSparklines(data) {
     history.cpu, 
     100, 
     'var(--primary-color, #ff3333)', 
-    '#cpu-overall .bar-label',
+    '#cpu-sparkline-container',
     ''
   );
 
@@ -110,13 +110,12 @@ export function renderSparklines(data) {
   // 4. Create Network Sparkline container in card if not exists
   let netWrapper = $('net-sparklines-row');
   if (!netWrapper) {
-    const netCard = $('net-card');
-    const netRows = $('net-rows');
-    if (netCard && netRows) {
+    const connectivity = $('net-connectivity');
+    if (connectivity) {
       netWrapper = document.createElement('div');
       netWrapper.id = 'net-sparklines-row';
       netWrapper.className = 'net-sparklines-row';
-      netCard.insertBefore(netWrapper, netRows);
+      connectivity.after(netWrapper);
     }
   }
 
