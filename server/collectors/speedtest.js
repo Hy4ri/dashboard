@@ -21,7 +21,7 @@ async function runSpeedtest() {
 
   const start = Date.now();
   try {
-    const out = await runCmd('speedtest-cli', ['--json', '--timeout', '60'], 90000);
+    const out = await runCmd('speedtest-cli', ['--json', '--timeout', '120'], 150000);
     if (!out) throw new Error('No output from speedtest-cli');
 
     const parsed = JSON.parse(out);
