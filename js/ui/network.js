@@ -81,7 +81,7 @@ function renderConnectivity(data, dnsStats) {
         statsEl.className = 'dns-stats-container';
         const connRow = $('net-connectivity');
         if (connRow) {
-          netCard.insertBefore(statsEl, connRow.nextSibling);
+          connRow.parentNode.insertBefore(statsEl, connRow.nextSibling);
         } else {
           netCard.appendChild(statsEl);
         }
