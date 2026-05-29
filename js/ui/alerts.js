@@ -150,7 +150,7 @@ export function checkAlerts(data) {
   currentAlerts.forEach(alert => {
     if (!previousAlerts.has(alert.key)) {
       triggerBrowserNotification(
-        alert.type === 'danger' ? '⚠️ Critical Server Alert' : '🔔 Server Alert',
+        'Server Alert',
         alert.message
       );
     }
@@ -162,12 +162,14 @@ export function checkAlerts(data) {
 
 function renderAlertsList(alerts) {
   let container = $('alerts-container');
-  
+
+  // No alerts active — remove container entirely
   if (alerts.length === 0) {
     if (container) container.remove();
     return;
   }
 
+  // Create container if needed
   if (!container) {
     container = document.createElement('div');
     container.id = 'alerts-container';
@@ -175,12 +177,38 @@ function renderAlertsList(alerts) {
     document.body.appendChild(container);
   }
 
-  container.innerHTML = alerts.map(a => `
-    <div class="alert-banner ${a.type}">
-      <span class="alert-icon">
-        ${a.type === 'danger' ? '⚠️' : '🔔'}
-      </span>
-      <span class="alert-message">${a.message}</span>
-    </div>
-  `).join('');
+  // Collect keys of alerts that should be displayed
+  const activeKeys = new Set(alerts.map(a => a.key));
+
+  // Remove banners for alerts that no longer exist
+  container.querySelectorAll('.alert-banner').forEach(banner => {
+    if (!activeKeys.has(banner.dataset.alertKey)) {
+      banner.remove();
+    }
+  });
+
+  // Add banners for new alerts (ones not already in the DOM)
+  const existingKeys = new Set(
+    Array.from(container.querySelectorAll('.alert-banner')).map(b => b.dataset.alertKey)
+  );
+
+  alerts.forEach(a => {
+    if (!existingKeys.has(a.key)) {
+      const banner = document.createElement('div');
+      banner.className = `alert-banner ${a.type} entering`;
+      banner.dataset.alertKey = a.key;
+      banner.innerHTML = `
+        <span class="alert-icon">
+          ${a.type === 'danger' ? '⚠️' : '🔔'}
+        </span>
+        <span class="alert-message">${a.message}</span>
+      `;
+      container.appendChild(banner);
+
+      // Remove the 'entering' class after animation completes
+      banner.addEventListener('animationend', () => {
+        banner.classList.remove('entering');
+      }, { once: true });
+    }
+  });
 }
