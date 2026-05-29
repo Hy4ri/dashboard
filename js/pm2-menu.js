@@ -89,6 +89,39 @@ export function setupPM2Menu() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closePM2Menu();
   });
+
+  // Restart All button
+  const restartAllBtn = $('restart-all-btn');
+  if (restartAllBtn) {
+    restartAllBtn.addEventListener('click', async () => {
+      if (!confirm('Restart all processes?')) return;
+      
+      restartAllBtn.disabled = true;
+      restartAllBtn.textContent = '↻ Restarting...';
+      
+      try {
+        // Get all PM2 processes from the table
+        const rows = $('pm2-body').querySelectorAll('tr[data-pm-id]');
+        const names = Array.from(rows).map(row => {
+          const nameEl = row.querySelector('td:nth-child(2) strong');
+          return nameEl ? nameEl.textContent.trim() : null;
+        }).filter(Boolean);
+        
+        // Restart each process
+        for (const name of names) {
+          await fetch('/api/pm2/restart/' + encodeURIComponent(name), { method: 'POST' });
+        }
+        
+        // Refresh the status
+        fetchStatus();
+      } catch (err) {
+        alert('Restart failed: ' + err.message);
+      } finally {
+        restartAllBtn.disabled = false;
+        restartAllBtn.textContent = '↻ Restart All';
+      }
+    });
+  }
 }
 
 export { showPM2Menu, closePM2Menu, pm2ControlAction, pm2MenuEl, pm2MenuTarget };

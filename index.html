@@ -42,14 +42,19 @@
 
     <!-- PM2 Services (full width) -->
     <section class="card" id="pm2-card" role="region" aria-label="Processes" data-accordion data-state="open">
-      <button class="card-header" aria-expanded="true" data-accordion-trigger>
-        Processes
-        <span class="chevron" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </span>
-      </button>
+      <div class="card-header">
+        <button class="card-header-trigger" aria-expanded="true" data-accordion-trigger>
+          Processes
+          <span class="chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </span>
+        </button>
+        <div class="pm2-header-actions">
+          <button id="restart-all-btn" class="pm2-btn-restart-all" title="Restart all processes">↻ Restart All</button>
+        </div>
+      </div>
       <div class="card-content">
         <div class="table-wrap" role="group" aria-label="Process list">
           <table>
