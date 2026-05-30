@@ -9,8 +9,7 @@ const SERVICES = [
   { name: 'Prowlarr', port: 9696 },
   { name: 'Bazarr', port: 6767 },
   { name: 'Dufs', port: 5050 },
-  { name: 'Technitium', port: 5380 },
-  { name: 'SearXNG', port: 8888 }
+  { name: 'Technitium', port: 5380 }
 ];
 
 function checkPort(port) {
