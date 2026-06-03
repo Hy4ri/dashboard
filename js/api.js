@@ -9,7 +9,7 @@ import { renderPM2 } from './ui/pm2.js';
 import { renderCPU, renderCPUCores, renderLoad } from './ui/cpu.js';
 import { renderMemory, renderSwap } from './ui/memory.js';
 import { renderDisk } from './ui/disk.js';
-import { renderNetworkRates, renderConnectivity, renderSpeedtest } from './ui/network.js';
+import { renderNetworkRates, renderConnectivity } from './ui/network.js';
 import { renderBattery } from './ui/battery.js';
 import { renderTorrents } from './ui/torrents.js';
 import { renderThermal } from './ui/thermal.js';
@@ -47,7 +47,6 @@ function updateUI(data) {
   renderConnectivity({ internet: data.internet, dns: data.dns }, data.dnsStats);
   renderBattery(data.battery);
   renderTorrents(data.torrents);
-  renderSpeedtest(data.speedtest);
   renderSystem(data.system);
 
   // New modules

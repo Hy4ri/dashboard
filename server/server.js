@@ -10,7 +10,6 @@ const { PORT, COLLECT_MS, IDLE_TIMEOUT_MS, AUTH_USER, AUTH_PASS } = require('./c
 const { createHandleAPI } = require('./routes/api');
 const { createPM2Route } = require('./routes/pm2-control');
 const { createPM2LogsRoute } = require('./routes/pm2-logs');
-const { createSpeedtestRoute } = require('./routes/speedtest');
 const { createQBittorrentRoute } = require('./routes/qbittorrent');
 
 const MIME = {
@@ -114,7 +113,6 @@ const handleAPI = createHandleAPI({
 });
 const handlePM2Control = createPM2Route({ collect });
 const handlePM2Logs = createPM2LogsRoute();
-const handleSpeedtestRun = createSpeedtestRoute();
 const handleQBDelete = createQBittorrentRoute();
 
 function createServer() {
@@ -210,11 +208,6 @@ function createServer() {
       const pm2LogsMatch = requestPath.match(/^\/api\/pm2\/logs\/(.+)$/);
       if (pm2LogsMatch && req.method === 'GET') {
         return handlePM2Logs(req, res, pm2LogsMatch[1]);
-      }
-
-      // Speedtest manual trigger (POST only)
-      if (requestPath === '/api/speedtest/run' && req.method === 'POST') {
-        return handleSpeedtestRun(req, res);
       }
 
       // qBittorrent delete endpoint (POST only)

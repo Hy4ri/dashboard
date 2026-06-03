@@ -4,7 +4,7 @@ import { $ } from './utils/dom.js';
 import { connectWS, disconnectWS } from './api.js';
 import { initServiceBar } from './service-bar.js';
 import { setupPM2Menu } from './pm2-menu.js';
-import { setupSpeedtestButton, setupTorrentDelete } from './events.js';
+import { setupTorrentDelete } from './events.js';
 import './particles.js';
 
 document.title = 'Server Dashboard \u2014 Loading...';
@@ -52,7 +52,6 @@ initAccordions();
 
 // Setup event handlers
 setupPM2Menu();
-setupSpeedtestButton();
 setupTorrentDelete();
 
 // Logout Button handler

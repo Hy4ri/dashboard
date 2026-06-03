@@ -3,24 +3,6 @@
 import { $ } from './utils/dom.js';
 import { fetchStatus } from './api.js';
 
-export function setupSpeedtestButton() {
-  $('speedtest-btn').addEventListener('click', () => {
-    const btn = $('speedtest-btn');
-    btn.disabled = true;
-    btn.textContent = 'Running...';
-    fetch('/api/speedtest/run', { method: 'POST' })
-      .catch(() => {})
-      .finally(() => {
-        // Refresh UI after a short delay
-        setTimeout(() => fetchStatus(), 2000);
-        setTimeout(() => {
-          btn.disabled = false;
-          btn.textContent = 'Run Test Now';
-        }, 30000);
-      });
-  });
-}
-
 export function setupTorrentDelete() {
   $('torrent-list').addEventListener('click', async (e) => {
     const btn = e.target.closest('.torrent-delete');

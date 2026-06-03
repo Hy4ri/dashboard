@@ -6,7 +6,6 @@ const { initStaticSystem } = require('./collectors/system');
 const { initThermalPaths } = require('./collectors/thermal');
 const { initCpuStaticInfo } = require('./collectors/frequency');
 const { loadQBConfig, validateQBConfig } = require('./collectors/qbittorrent');
-const { checkSpeedtestInstalled, startSpeedtestTimer, runSpeedtest } = require('./collectors/speedtest');
 
 async function startup() {
   // Load qBittorrent config
@@ -30,11 +29,7 @@ async function startup() {
   server.listen(PORT, () => {
     console.log(`Dashboard → http://localhost:${PORT}`);
     // Don't start polling yet – wait for first API request
-    checkSpeedtestInstalled().then(() => {
-      startSpeedtestTimer();
-      // Run first test after 10 seconds
-      setTimeout(() => runSpeedtest(), 10000);
-    });
+
   });
 }
 
@@ -43,7 +38,6 @@ function shutdown(signal) {
     console.log(`Received ${signal}, shutting down...`);
     if (stateModule.pollTimer) clearInterval(stateModule.pollTimer);
     stateModule.pollTimer = null;
-    if (stateModule.speedtestTimer) clearInterval(stateModule.speedtestTimer);
     if (stateModule.server) {
       stateModule.server.close(() => process.exit(0));
     }

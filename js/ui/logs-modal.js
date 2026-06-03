@@ -85,7 +85,7 @@ export function showLogsModal(processName) {
           <input type="checkbox" id="auto-scroll-chk" checked>
           Auto-scroll to bottom
         </label>
-        <button class="speedtest-btn" id="refresh-logs-btn">Refresh</button>
+        <button class="refresh-btn" id="refresh-logs-btn">Refresh</button>
       </div>
       <div class="modal-body" id="pm2-log-container">
         <pre><code id="pm2-log-content">Loading...</code></pre>

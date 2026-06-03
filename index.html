@@ -140,7 +140,6 @@
           </div>
         </div>
         <div id="mem-rows" aria-live="polite">
-          <div class="info-row"><span class="key">Total</span><span class="val" id="mem-total" aria-label="Not available">—</span></div>
           <div class="info-row"><span class="key">Available</span><span class="val val-green" id="mem-avail" aria-label="Not available">—</span></div>
           <div class="info-row"><span class="key">Free</span><span class="val" id="mem-free" aria-label="Not available">—</span></div>
           <div class="info-row"><span class="key">Buffers</span><span class="val" id="mem-buffers" aria-label="Not available">—</span></div>
@@ -158,7 +157,6 @@
           </div>
         </div>
         <div id="swap-rows" aria-live="polite">
-          <div class="info-row"><span class="key">Total</span><span class="val" id="swap-total" aria-label="Not available">—</span></div>
           <div class="info-row"><span class="key">Free</span><span class="val val-green" id="swap-free" aria-label="Not available">—</span></div>
         </div>
       </div>
@@ -217,19 +215,13 @@
             <span class="connectivity-status" id="net-dns-status">—</span>
           </div>
         </div>
-        <div id="speedtest-section" class="speedtest-section">
-          <h3>Speedtest</h3>
-          <div id="speedtest-status" aria-live="polite"></div>
-          <div id="speedtest-results"></div>
-          <button id="speedtest-btn" class="speedtest-btn">Run Test Now</button>
-        </div>
       </div>
     </section>
 
     <!-- Torrents (bottom) -->
     <section class="card" id="torrent-card" role="region" aria-label="Active Downloads" data-accordion data-state="open">
       <button class="card-header" aria-expanded="true" data-accordion-trigger>
-        Active Downloads
+        Active Downloads <span id="torrent-count" class="torrent-count"></span>
         <span class="chevron" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="6 9 12 15 18 9"/>
