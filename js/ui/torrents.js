@@ -1,14 +1,25 @@
-import { fmtBytesRate, fmtBytes } from '../utils/format.js';
 import { $, esc } from '../utils/dom.js';
+import { fmtBytesRate, fmtBytes } from '../utils/format.js';
 
 function renderTorrents(torrents) {
   const card = $('torrent-card');
   const list = $('torrent-list');
+  const countEl = $('torrent-count');
   if (!card || !list) return;
 
   if (!torrents || torrents.length === 0) {
     list.innerHTML = '<div class="none">No active downloads. Torrents will appear here when downloading.</div>';
+    if (countEl) countEl.textContent = '';
     return;
+  }
+
+  const total = torrents.length;
+  const done = torrents.filter(t => t.progress >= 1).length;
+  const seeded = torrents.filter(t => t.ratio > 1).length;
+  if (countEl) {
+    const parts = [done + '/' + total];
+    if (seeded > 0) parts.push('<span class="torrent-seeded">' + seeded + '</span>');
+    countEl.innerHTML = parts.join(' ');
   }
 
   list.innerHTML = torrents.map(t => {

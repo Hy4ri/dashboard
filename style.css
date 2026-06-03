@@ -315,6 +315,16 @@ header h1 {
 
 .card-header .chevron svg { display: block; width: 16px; height: 16px; }
 
+.torrent-count {
+  font-size: 0.8em;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 8px;
+  background: var(--border);
+}
+
 .card-content {
   overflow: hidden;
   transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease;
@@ -556,93 +566,6 @@ th.sortable:hover { color: var(--text-bright); }
 .connectivity-status.online { color: var(--green); background: rgba(76,175,80,0.12); }
 .connectivity-status.offline { color: var(--red); background: rgba(239,83,80,0.12); }
 
-/* ── Speedtest ─────────────────────────────────────────────────── */
-.speedtest-section {
-  margin-top: var(--space-4);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border);
-}
-.speedtest-section h3 {
-  font-size: var(--text-base);
-  font-weight: 500;
-  color: var(--text-bright);
-  margin-bottom: var(--space-2);
-}
-.speedtest-info { font-size: var(--text-sm); color: var(--text-muted); }
-.speedtest-error {
-  background: rgba(239,83,80,0.1);
-  border: 1px solid rgba(239,83,80,0.3);
-  border-radius: 1px;
-  padding: var(--space-2) var(--space-3);
-  color: var(--red);
-  font-size: var(--text-sm);
-  font-family: var(--font-mono);
-  margin-bottom: var(--space-2);
-}
-.speedtest-error code {
-  background: var(--surface-raised);
-  padding: 1px 4px;
-  border-radius: 1px;
-  color: var(--text-bright);
-}
-.speedtest-running {
-  font-size: var(--text-sm);
-  color: var(--blue);
-  margin-bottom: var(--space-2);
-  font-family: var(--font-mono);
-}
-.speedtest-empty {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  font-style: italic;
-  padding: var(--space-2) 0;
-}
-.speedtest-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  margin-top: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-.speedtest-table th {
-  font-family: var(--font-sans);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--text-muted);
-  font-weight: 500;
-  padding: var(--space-1) var(--space-2);
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-}
-.speedtest-table td {
-  padding: var(--space-1) var(--space-2);
-  color: var(--text-bright);
-  border-bottom: 1px solid var(--border);
-}
-.speedtest-table tr:last-child td { border-bottom: none; }
-.speedtest-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--border);
-  border-radius: 1px;
-  padding: 8px 16px;
-  color: var(--text-bright);
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-  width: 100%;
-  min-height: 36px;
-}
-.speedtest-btn:hover { background: rgba(255,255,255,0.08); border-color: var(--accent); }
-.speedtest-btn:active { transform: scale(0.98); }
-.speedtest-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
 /* ── Torrent Downloads ─────────────────────────────────────────── */
 .torrent-item {
   padding: var(--space-2);
@@ -678,6 +601,7 @@ th.sortable:hover { color: var(--text-bright); }
   flex-shrink: 0;
 }
 .torrent-meta .ratio-good { color: var(--green); }
+.torrent-seeded { color: var(--green); margin-left: 6px; }
 .torrent-delete {
   background: none;
   border: none;

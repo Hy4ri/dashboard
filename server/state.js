@@ -8,10 +8,6 @@ let freqCache    = { value: null, time: 0 };
 let thermalCache = { value: null, time: 0 };
 let qbCache      = { value: null, time: 0 };
 let connectivityCache = { value: null, time: 0 };
-let speedtestCache = { value: null, time: 0 };
-let speedtestRunning = false;
-let speedtestInstalled = null;  // null = unchecked, true, false
-let speedtestTimer = null;
 
 // ── Static caches (filled once at startup) ─────────────────────────
 
@@ -38,10 +34,6 @@ module.exports = {
   thermalCache,
   qbCache,
   connectivityCache,
-  speedtestCache,
-  speedtestRunning,
-  speedtestInstalled,
-  speedtestTimer,
   staticSystem,
   thermalPaths,
   cpuStaticInfo,

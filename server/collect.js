@@ -11,7 +11,6 @@ const { collectSystem } = require('./collectors/system');
 const { collectPM2 } = require('./collectors/pm2');
 const { collectQBittorrent } = require('./collectors/qbittorrent');
 const { collectConnectivity } = require('./collectors/connectivity');
-const { getSpeedtestResults } = require('./collectors/speedtest');
 const { collectServices } = require('./collectors/services');
 const { collectTechnitium } = require('./collectors/technitium');
 const { state, prev } = require('./state');
@@ -58,7 +57,6 @@ async function collect() {
     : null;
 
   const connectivity = await collectConnectivity();
-  const speedtest = getSpeedtestResults();
 
   Object.assign(state, {
     timestamp: now,
@@ -77,7 +75,6 @@ async function collect() {
     battery,
     system: sys,
     torrents,
-    speedtest,
     services,
     dnsStats,
     authEnabled: !!require('./config').AUTH_PASS,
