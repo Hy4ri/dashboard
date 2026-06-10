@@ -400,6 +400,42 @@ th {
 }
 td:first-child, th:first-child { padding-left: 0; }
 td:last-child, th:last-child { padding-right: 0; }
+
+/* Actions column — shrink to fit buttons */
+#pm2-card th:last-child,
+#pm2-card td:last-child {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* ── Compact PM2 Card ──────────────────────────────────────────── */
+#pm2-card .card-header {
+  padding: var(--space-2) var(--space-3);
+}
+#pm2-card .card-content {
+  padding: var(--space-2) var(--space-3);
+}
+#pm2-card th, #pm2-card td {
+  padding: 3px 6px;
+  font-size: 12px;
+}
+#pm2-card td:first-child { padding-left: 0; }
+#pm2-card td:last-child { padding-right: 0; }
+#pm2-card .pm2-actions-cell { gap: 4px; }
+#pm2-card .pm2-action-btn {
+  width: 24px; min-width: 24px;
+  height: 24px; min-height: 24px;
+  font-size: 11px;
+}
+#pm2-card .status-indicator {
+  width: 7px; height: 7px;
+  margin-right: 4px;
+}
+#pm2-card .pm2-btn-restart-all {
+  padding: 3px 8px;
+  font-size: 10px;
+}
+
 tr:last-child td { border-bottom: none; }
 
 th.sortable { cursor: pointer; user-select: none; }
