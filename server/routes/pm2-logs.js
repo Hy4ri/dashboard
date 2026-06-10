@@ -6,7 +6,18 @@ function runTail(filePath) {
     if (!filePath) return resolve('');
     execFile('tail', ['-n', '100', filePath], { timeout: 1000 }, (err, stdout, stderr) => {
       if (err) return resolve(`[Error reading log: ${err.message}]`);
-      resolve(stdout || stderr || '');
+      const output = stdout || stderr || '';
+      // Prepend ISO timestamp to each line
+      const now = new Date();
+      const ts = now.getFullYear() + '-' +
+        String(now.getMonth() + 1).padStart(2, '0') + '-' +
+        String(now.getDate()).padStart(2, '0') + ' ' +
+        String(now.getHours()).padStart(2, '0') + ':' +
+        String(now.getMinutes()).padStart(2, '0') + ':' +
+        String(now.getSeconds()).padStart(2, '0');
+      const lines = output.split('\n');
+      const timestamped = lines.map(line => line ? `[${ts}] ${line}` : '').join('\n');
+      resolve(timestamped);
     });
   });
 }

@@ -40,42 +40,57 @@
       </div>
     </section>
 
-    <!-- PM2 Services (full width) -->
-    <section class="card" id="pm2-card" role="region" aria-label="Processes" data-accordion data-state="open">
-      <div class="card-header">
-        <button class="card-header-trigger" aria-expanded="true" data-accordion-trigger>
-          Processes
+    <!-- PM2 + Torrent row (side by side) -->
+    <div class="card-row">
+
+      <!-- PM2 Services -->
+      <section class="card" id="pm2-card" role="region" aria-label="Processes" data-accordion data-state="open">
+        <div class="card-header">
+          <button class="card-header-trigger" aria-expanded="true" data-accordion-trigger>
+            Processes
+            <span class="chevron" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </span>
+          </button>
+          <div class="pm2-header-actions">
+            <button id="restart-all-btn" class="pm2-btn-restart-all" title="Restart all processes">↻ Restart All</button>
+          </div>
+        </div>
+        <div class="card-content">
+          <div class="table-wrap" role="group" aria-label="Process list">
+            <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th class="sortable" data-sort="cpu">CPU</th>
+                <th class="sortable" data-sort="memory">Memory</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+              <tbody id="pm2-body" aria-live="polite" aria-atomic="true"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Torrents (side panel) -->
+      <section class="card" id="torrent-card" role="region" aria-label="Active Downloads" data-accordion data-state="open">
+        <button class="card-header" aria-expanded="true" data-accordion-trigger>
+          Active Downloads <span id="torrent-count" class="torrent-count"></span>
           <span class="chevron" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="6 9 12 15 18 9"/>
             </svg>
           </span>
         </button>
-        <div class="pm2-header-actions">
-          <button id="restart-all-btn" class="pm2-btn-restart-all" title="Restart all processes">↻ Restart All</button>
+        <div class="card-content">
+          <div id="torrent-list" aria-live="polite"></div>
         </div>
-      </div>
-      <div class="card-content">
-        <div class="table-wrap" role="group" aria-label="Process list">
-          <table>
-            <thead>
-              <tr>
-                <th class="sortable" data-sort="id">ID</th>
-                <th>Name</th>
-                <th>Status</th>
-                <th class="sortable" data-sort="cpu">CPU</th>
-                <th class="sortable" data-sort="memory">Memory</th>
-                <th>Uptime</th>
-                <th>Restarts</th>
-                <th>PID</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="pm2-body" aria-live="polite" aria-atomic="true"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
+      </section>
+
+    </div><!-- /card-row -->
 
     <!-- CPU (all-in-one block) -->
     <section class="card" id="cpu-card" role="region" aria-label="CPU usage" data-accordion data-state="open">
@@ -215,21 +230,6 @@
             <span class="connectivity-status" id="net-dns-status">—</span>
           </div>
         </div>
-      </div>
-    </section>
-
-    <!-- Torrents (bottom) -->
-    <section class="card" id="torrent-card" role="region" aria-label="Active Downloads" data-accordion data-state="open">
-      <button class="card-header" aria-expanded="true" data-accordion-trigger>
-        Active Downloads <span id="torrent-count" class="torrent-count"></span>
-        <span class="chevron" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </span>
-      </button>
-      <div class="card-content">
-        <div id="torrent-list" aria-live="polite"></div>
       </div>
     </section>
 
