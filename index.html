@@ -13,13 +13,14 @@
   <a href="#cpu-card" class="skip-link">Skip to content</a>
 
   <header>
-    <div style="display: flex; align-items: center; gap: var(--space-2)">
+    <div class="header-left">
       <h1>Dashboard</h1>
       <button id="logout-btn" class="logout-btn" style="display: none" aria-label="Log Out">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
         <span>Logout</span>
       </button>
     </div>
+    <div class="service-bar" id="service-bar" role="group" aria-label="Service links"></div>
     <div class="status-bar">
       <span id="header-battery" class="header-battery" style="display:none">
         <span class="battery-icon" aria-hidden="true"><span id="bat-fill" class="battery-fill" style="width:0%"></span></span>
@@ -32,13 +33,6 @@
   </header>
 
   <main class="grid">
-
-    <!-- Service Links (full width) -->
-    <section class="card card-headerless" id="service-card" role="region" aria-label="Service links">
-      <div class="card-content">
-        <div class="service-bar" id="service-bar" role="group" aria-label="Service links"></div>
-      </div>
-    </section>
 
     <!-- PM2 + Torrent row (side by side) -->
     <div class="card-row">
