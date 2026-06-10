@@ -19,6 +19,7 @@ function showPM2Menu(name, status, rect) {
     ? [
         { label: 'Stop', action: 'stop', cls: 'pm2-btn-stop' },
         { label: 'Restart', action: 'restart', cls: 'pm2-btn-restart' },
+        { label: 'Delete', action: 'delete', cls: 'pm2-btn-delete' },
       ]
     : [];
 
@@ -51,6 +52,9 @@ function closePM2Menu() {
 }
 
 async function pm2ControlAction(name, action) {
+  if (action === 'delete' && !confirm(`Permanently delete process "${name}" from PM2? This cannot be undone.`)) {
+    return;
+  }
   try {
     const res = await fetch('/api/pm2/' + action + '/' + encodeURIComponent(name), { method: 'POST' });
     const data = await res.json();
@@ -67,12 +71,14 @@ async function pm2ControlAction(name, action) {
 export function setupPM2Menu() {
   // Click on PM2 name → show menu
   $('pm2-body').addEventListener('click', (e) => {
-    const nameEl = e.target.closest('td:nth-child(2) strong');
+    const nameEl = e.target.closest('td strong');
     if (!nameEl) return;
     e.stopPropagation();
     const row = nameEl.closest('tr[data-pm-id]');
-    const cells = row.querySelectorAll('td');
-    const statusText = cells[2].textContent.trim();
+    const indicator = row.querySelector('.status-indicator');
+    const statusText = indicator
+      ? (indicator.classList.contains('online') ? 'online' : indicator.classList.contains('errored') ? 'errored' : 'stopped')
+      : 'stopped';
     const name = nameEl.textContent.trim();
     const rect = nameEl.getBoundingClientRect();
     showPM2Menu(name, statusText, rect);
@@ -80,7 +86,7 @@ export function setupPM2Menu() {
 
   // Close menu when clicking outside
   document.addEventListener('click', (e) => {
-    if (pm2MenuEl && !pm2MenuEl.contains(e.target) && !e.target.closest('td:nth-child(2) strong')) {
+    if (pm2MenuEl && !pm2MenuEl.contains(e.target) && !e.target.closest('td strong')) {
       closePM2Menu();
     }
   });

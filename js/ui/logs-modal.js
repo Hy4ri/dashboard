@@ -5,6 +5,7 @@ let currentProcessName = null;
 let activeLogTab = 'out'; // 'out' or 'err'
 let logData = { out: '', err: '' };
 let autoScroll = true;
+let lastFetchedAt = '';
 
 function esc(text) {
   if (!text) return '';
@@ -28,6 +29,10 @@ async function fetchLogs() {
     if (data.success) {
       logData.out = data.out || 'No stdout logs.';
       logData.err = data.err || 'No stderr logs.';
+      const now = new Date();
+      lastFetchedAt = String(now.getHours()).padStart(2, '0') + ':' +
+        String(now.getMinutes()).padStart(2, '0') + ':' +
+        String(now.getSeconds()).padStart(2, '0');
       renderLogContent();
     } else {
       codeEl.textContent = 'Error: ' + (data.error || 'Unknown error');
@@ -43,6 +48,11 @@ function renderLogContent() {
 
   const content = activeLogTab === 'out' ? logData.out : logData.err;
   codeEl.innerHTML = esc(content);
+
+  const tsEl = $('pm2-log-timestamp');
+  if (tsEl) {
+    tsEl.textContent = lastFetchedAt ? '📋 Fetched: ' + lastFetchedAt : '';
+  }
 
   if (autoScroll) {
     const container = $('pm2-log-container');
@@ -85,7 +95,8 @@ export function showLogsModal(processName) {
           <input type="checkbox" id="auto-scroll-chk" checked>
           Auto-scroll to bottom
         </label>
-        <button class="refresh-btn" id="refresh-logs-btn">Refresh</button>
+        <span id="pm2-log-timestamp" class="log-timestamp"></span>
+        <button class="refresh-btn" id="refresh-logs-btn">↻ Refresh</button>
       </div>
       <div class="modal-body" id="pm2-log-container">
         <pre><code id="pm2-log-content">Loading...</code></pre>

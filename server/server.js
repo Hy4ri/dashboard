@@ -199,7 +199,7 @@ function createServer() {
       }
 
       // PM2 control endpoints (POST only)
-      const pm2Match = requestPath.match(/^\/api\/pm2\/(stop|start|restart)\/(.+)$/);
+      const pm2Match = requestPath.match(/^\/api\/pm2\/(stop|start|restart|delete)\/(.+)$/);
       if (pm2Match && req.method === 'POST') {
         return handlePM2Control(req, res, pm2Match[1], pm2Match[2]);
       }
