@@ -239,7 +239,7 @@ header h1 {
 .card-row {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 624px 1fr;
   gap: var(--space-3);
 }
 
@@ -408,6 +408,9 @@ td:last-child, th:last-child { padding-right: 0; }
   white-space: nowrap;
 }
 
+#pm2-card { max-width: 624px; order: 1; }
+#torrent-card { order: 2; }
+
 /* ── Compact PM2 Card ──────────────────────────────────────────── */
 #pm2-card .card-header {
   padding: var(--space-2) var(--space-3);
@@ -416,9 +419,10 @@ td:last-child, th:last-child { padding-right: 0; }
   padding: var(--space-2) var(--space-3);
 }
 #pm2-card th, #pm2-card td {
-  padding: 3px 6px;
+  padding: 2px 4px;
   font-size: 12px;
 }
+#pm2-card table { border-spacing: 1px; }
 #pm2-card td:first-child { padding-left: 0; }
 #pm2-card td:last-child { padding-right: 0; }
 #pm2-card .pm2-actions-cell { gap: 4px; }
@@ -642,12 +646,13 @@ th.sortable:hover { color: var(--text-bright); }
   gap: var(--space-2);
 }
 .torrent-name {
+  flex: 1;
+  min-width: 0;
   color: var(--text-bright);
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 0;
 }
 .torrent-meta {
   color: var(--text-muted);
@@ -700,6 +705,12 @@ th.sortable:hover { color: var(--text-bright); }
   flex-wrap: wrap;
 }
 .torrent-stats span { white-space: nowrap; }
+.torrent-stats span + span::before {
+  content: '·';
+  margin-right: var(--space-3);
+  color: var(--text-muted);
+  opacity: 0.6;
+}
 
 /* ── Compact torrent in side panel ───────────────────────────────── */
 .card-row #torrent-card .torrent-item {
@@ -707,7 +718,6 @@ th.sortable:hover { color: var(--text-bright); }
 }
 .card-row #torrent-card .torrent-name {
   font-size: var(--text-xs);
-  max-width: 120px;
 }
 .card-row #torrent-card .torrent-meta {
   font-size: 10px;
@@ -1121,6 +1131,27 @@ td:nth-child(2) strong:hover { color: var(--accent-text); text-decoration: under
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ── Terminal ──────────────────────────────────────────────────── */
+#terminal-card { grid-column: 1 / -1; }
+#terminal-card .card-content { padding: 0; }
+.terminal-status {
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.terminal-status.connected { color: var(--green); }
+.terminal-status.error { color: var(--red); }
+#terminal-container {
+  width: 100%;
+  height: 380px;
+  background: #0a0a0a;
+  overflow: hidden;
+}
+#terminal-container .xterm { padding: 8px; }
+#terminal-container .xterm-viewport { overflow-y: auto !important; }
 
 /* ── Responsive ────────────────────────────────────────────────── */
 @media (max-width: 640px) {

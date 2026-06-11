@@ -5,6 +5,7 @@ import { connectWS, disconnectWS } from './api.js';
 import { initServiceBar } from './service-bar.js';
 import { setupPM2Menu } from './pm2-menu.js';
 import { setupTorrentDelete } from './events.js';
+import { initTerminal } from './ui/terminal.js';
 import './particles.js';
 
 document.title = 'Server Dashboard \u2014 Loading...';
@@ -53,6 +54,7 @@ initAccordions();
 // Setup event handlers
 setupPM2Menu();
 setupTorrentDelete();
+initTerminal();
 
 // Logout Button handler
 const logoutBtn = $('logout-btn');

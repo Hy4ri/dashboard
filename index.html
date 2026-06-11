@@ -227,6 +227,22 @@
       </div>
     </section>
 
+    <!-- Web Terminal -->
+    <section class="card" id="terminal-card" role="region" aria-label="Terminal" data-accordion data-state="open">
+      <button class="card-header" aria-expanded="true" data-accordion-trigger>
+        Terminal
+        <span class="chevron" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </span>
+      </button>
+      <div class="card-content">
+        <div class="terminal-status" id="terminal-status">Click to connect</div>
+        <div id="terminal-container"></div>
+      </div>
+    </section>
+
   </main>
 
   <noscript>
@@ -235,5 +251,8 @@
     </div>
   </noscript>
   <script type="module" src="/js/main.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
 </body>
 </html>

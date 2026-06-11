@@ -11,6 +11,7 @@ const { createHandleAPI } = require('./routes/api');
 const { createPM2Route } = require('./routes/pm2-control');
 const { createPM2LogsRoute } = require('./routes/pm2-logs');
 const { createQBittorrentRoute } = require('./routes/qbittorrent');
+const { createTerminalRoute } = require('./routes/terminal');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -246,6 +247,9 @@ function createServer() {
 
   // Attach WebSocket Server
   const wss = new WebSocketServer({ noServer: true });
+  const wssTerminal = new WebSocketServer({ noServer: true });
+
+  createTerminalRoute(wssTerminal);
 
   server.on('upgrade', (request, socket, head) => {
     // Validate WebSocket handshake auth
@@ -259,6 +263,10 @@ function createServer() {
     if (url.pathname === '/ws') {
       wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit('connection', ws, request);
+      });
+    } else if (url.pathname === '/ws/terminal') {
+      wssTerminal.handleUpgrade(request, socket, head, (ws) => {
+        wssTerminal.emit('connection', ws, request);
       });
     } else {
       socket.destroy();

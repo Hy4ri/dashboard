@@ -13,8 +13,15 @@
     "pm2:restart": "pm2 restart ecosystem.config.js"
   },
   "dependencies": {
+    "node-pty": "^1.1.0",
+    "playwright": "^1.60.0",
     "ws": "^8.18.0"
   },
-  "keywords": ["dashboard", "server", "pm2", "monitor"],
+  "keywords": [
+    "dashboard",
+    "server",
+    "pm2",
+    "monitor"
+  ],
   "license": "MIT"
 }
