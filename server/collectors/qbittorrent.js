@@ -1,27 +1,13 @@
-const fs = require('fs');
-const path = require('path');
 const http = require('http');
 const { QB_CACHE_MS } = require('../config');
 let { qbCookie, QB_HOST, QB_PORT, QB_USER, QB_PASS, qbCache } = require('../state');
 
-// Load qBittorrent config from qb-config.json, falling back to env vars
+// Load qBittorrent config from environment variables
 function loadQBConfig() {
-  const configPath = path.join(__dirname, '..', '..', 'qb-config.json');
-  try {
-    const raw = fs.readFileSync(configPath, 'utf8');
-    const config = JSON.parse(raw);
-    QB_HOST = config.host || 'localhost';
-    QB_PORT = config.port || 7777;
-    QB_USER = config.username || 'admin';
-    QB_PASS = config.password || null;
-    console.log('qBittorrent config loaded from qb-config.json');
-  } catch {
-    // Fall back to environment variables
-    QB_HOST = process.env.QB_HOST || 'localhost';
-    QB_PORT = parseInt(process.env.QB_PORT, 10) || 7777;
-    QB_USER = process.env.QB_USER || 'admin';
-    QB_PASS = process.env.QB_PASS || null;
-  }
+  QB_HOST = process.env.QB_HOST || 'localhost';
+  QB_PORT = parseInt(process.env.QB_PORT, 10) || 7777;
+  QB_USER = process.env.QB_USER || 'admin';
+  QB_PASS = process.env.QB_PASS || null;
 }
 
 // Validate config on startup (called from startup())
@@ -29,8 +15,7 @@ function validateQBConfig() {
   if (!QB_PASS) {
     throw new Error(
       'qBittorrent password not set.\n' +
-      '  Option 1: Copy qb-config.example.json → qb-config.json and fill in your password.\n' +
-      '  Option 2: Set the QB_PASS environment variable.'
+      '  Set QB_PASS in /opt/dashboard/.env'
     );
   }
 }
