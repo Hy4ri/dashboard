@@ -13,6 +13,11 @@ function renderTorrents(torrents) {
     return;
   }
 
+  // Skip rebuild if data hasn't changed
+  const serialized = JSON.stringify(torrents);
+  if (list.dataset.lastTorrents === serialized) return;
+  list.dataset.lastTorrents = serialized;
+
   const total = torrents.length;
   const done = torrents.filter(t => t.progress >= 1).length;
   const seeded = torrents.filter(t => t.ratio > 1).length;
