@@ -3,5 +3,3 @@ node_modules/
 logs/
 *.log
 .DS_Store
-qb-config.json
-speedtest-log.json

@@ -6,12 +6,16 @@ function httpGet(url) {
   return new Promise((resolve, reject) => {
     const isHttps = url.startsWith('https:');
     const mod = isHttps ? https : http;
-    mod.get(url, { timeout: 10000 }, (res) => {
+    const opts = { timeout: 10000 };
+    if (isHttps) opts.rejectUnauthorized = false; // self-signed certs
+    mod.get(url, opts, (res) => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(data);
+        } else if ((res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) && res.headers.location) {
+          httpGet(res.headers.location).then(resolve, reject);
         } else {
           reject(new Error(`HTTP ${res.statusCode}`));
         }

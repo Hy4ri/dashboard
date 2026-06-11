@@ -1,6 +1,0 @@
-{
-  "host": "localhost",
-  "port": 7777,
-  "username": "admin",
-  "password": "your_qbittorrent_password_here"
-}
