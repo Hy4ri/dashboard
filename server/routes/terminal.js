@@ -1,5 +1,15 @@
 const pty = require('node-pty');
 const os = require('os');
+const fs = require('fs');
+
+function resolveShell() {
+  if (os.platform() === 'win32') return 'powershell.exe';
+  const candidates = [process.env.SHELL, '/bin/bash', '/bin/sh', '/usr/bin/bash'];
+  for (const sh of candidates) {
+    if (sh && fs.existsSync(sh)) return sh;
+  }
+  return '/bin/sh';
+}
 
 function createTerminalRoute(wss) {
   // We handle terminal connections on a separate path: /ws/terminal
@@ -9,7 +19,7 @@ function createTerminalRoute(wss) {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     if (url.pathname !== '/ws/terminal') return;
 
-    const shell = os.platform() === 'win32' ? 'powershell.exe' : (process.env.SHELL || '/bin/bash');
+    const shell = resolveShell();
     const term = pty.spawn(shell, [], {
       name: 'xterm-256color',
       cols: parseInt(url.searchParams.get('cols')) || 120,

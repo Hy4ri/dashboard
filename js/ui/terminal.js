@@ -114,10 +114,33 @@ function initTerminal() {
   const card = document.getElementById('terminal-card');
   if (!card) return;
 
+  // Fullscreen toggle
+  const fsBtn = document.getElementById('terminal-fullscreen-btn');
+  if (fsBtn) {
+    fsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isFs = card.dataset.fullscreen === 'true';
+      card.dataset.fullscreen = isFs ? 'false' : 'true';
+      document.body.style.overflow = isFs ? '' : 'hidden';
+      // Refit after layout settles
+      setTimeout(() => { if (fitAddon && term) fitAddon.fit(); }, 50);
+      setTimeout(() => { if (fitAddon && term) fitAddon.fit(); }, 250);
+    });
+  }
+
+  // Escape exits fullscreen
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && card.dataset.fullscreen === 'true') {
+      card.dataset.fullscreen = 'false';
+      document.body.style.overflow = '';
+      setTimeout(() => { if (fitAddon && term) fitAddon.fit(); }, 50);
+    }
+  });
+
   // Connect when card is opened
   card.addEventListener('click', (e) => {
     const trigger = card.querySelector('[data-accordion-trigger]');
-    if (trigger && e.target.closest('[data-accordion-trigger]')) {
+    if (trigger && e.target.closest('[data-accordion-trigger]') && !e.target.closest('.terminal-fullscreen-btn')) {
       // Give accordion time to animate open
       setTimeout(() => {
         if (!connected) {
