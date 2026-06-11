@@ -29,12 +29,9 @@ function renderTorrents(torrents) {
     const ratio = t.ratio != null
       ? '<span class="' + ratioClass + '">' + t.ratio.toFixed(2) + ' ratio</span>'
       : '';
-    const meta = [stateLabel, ratio].filter(Boolean).join(' \u00B7 ');
-
     return '<div class="torrent-item">' +
       '<div class="torrent-header">' +
         '<span class="torrent-name" title="' + esc(t.name) + '">' + esc(t.name) + '</span>' +
-        '<span class="torrent-meta">' + meta + '</span>' +
         '<button class="torrent-delete" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Delete torrent and remove files" aria-label="Delete ' + esc(t.name) + '">' +
           '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
             '<polyline points="3 6 5 6 21 6"/>' +
@@ -46,11 +43,13 @@ function renderTorrents(torrents) {
       '</div>' +
       '<div class="torrent-bar"><div class="torrent-fill" style="width:' + pct + '%"></div></div>' +
       '<div class="torrent-stats">' +
+        '<span>' + stateLabel + '</span>' +
         '<span>\u2193 ' + fmtBytesRate(t.dlspeed) + '</span>' +
         '<span>\u2191 ' + fmtBytesRate(t.upspeed) + '</span>' +
         '<span>' + fmtBytes(t.size) + '</span>' +
         '<span>Seeds: ' + (t.num_seeds || 0) + '</span>' +
         '<span>Peers: ' + (t.num_peers || 0) + '</span>' +
+        ratio +
       '</div>' +
       '</div>';
   }).join('');
