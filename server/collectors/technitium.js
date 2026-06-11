@@ -1,5 +1,24 @@
-const { execFile } = require('child_process');
+const http = require('http');
+const https = require('https');
 const { TECHNITIUM_TOKEN, TECHNITIUM_URL } = require('../config');
+
+function httpGet(url) {
+  return new Promise((resolve, reject) => {
+    const isHttps = url.startsWith('https:');
+    const mod = isHttps ? https : http;
+    mod.get(url, { timeout: 10000 }, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(data);
+        } else {
+          reject(new Error(`HTTP ${res.statusCode}`));
+        }
+      });
+    }).on('error', reject).on('timeout', function() { this.destroy(); reject(new Error('Timeout')); });
+  });
+}
 
 async function collectTechnitium() {
   if (!TECHNITIUM_TOKEN) {
@@ -11,17 +30,11 @@ async function collectTechnitium() {
     const tk = encodeURIComponent(TECHNITIUM_TOKEN);
     const url = baseUrl + '/api/dashboard/stats/get?token=' + tk + '&type=LastDay';
 
-    const data = await new Promise((resolve, reject) => {
-      execFile('curl', ['-skL', '--max-time', '10', url], { timeout: 15000 }, (err, stdout) => {
-        if (err) return reject(new Error('curl: ' + (err.message || 'failed')));
-        if (!stdout || !stdout.trim()) return reject(new Error('Empty response'));
-        try { resolve(JSON.parse(stdout)); }
-        catch (e) { reject(new Error('JSON: ' + e.message)); }
-      });
-    });
+    const data = await httpGet(url);
+    const parsed = JSON.parse(data);
 
-    if (data && data.status === 'ok') {
-      const stats = (data.response && data.response.stats) || {};
+    if (parsed && parsed.status === 'ok') {
+      const stats = (parsed.response && parsed.response.stats) || {};
       return {
         configured: true, ok: true,
         totalQueries: stats.totalQueries || 0,
@@ -34,7 +47,7 @@ async function collectTechnitium() {
 
     return {
       configured: true, ok: false,
-      error: data ? (data.errorMessage || 'API error') : 'Unknown response'
+      error: parsed ? (parsed.errorMessage || 'API error') : 'Unknown response'
     };
   } catch (err) {
     return { configured: true, ok: false, error: err.message };

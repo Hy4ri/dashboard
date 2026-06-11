@@ -4,14 +4,16 @@ let canvas, ctx;
 let particles = [];
 let cpuLoad = 0;
 let animId;
+let frameCount = 0;
+const FRAME_SKIP = 3; // run at ~20fps instead of 60fps (every 4th frame)
 
 const CONFIG = {
-  count: 60,
+  count: 35,
   maxSpeed: 0.8,
   minSpeed: 0.1,
   size: 2,
-  color: 'rgba(153, 0, 0, 0.4)',    // subtle red
-  colorHigh: 'rgba(204, 51, 51, 0.6)', // brighter when hot
+  color: 'rgba(153, 0, 0, 0.4)',
+  colorHigh: 'rgba(204, 51, 51, 0.6)',
   connectDist: 120,
   connectColor: 'rgba(153, 0, 0, 0.08)',
   connectColorHigh: 'rgba(204, 51, 51, 0.12)',
@@ -52,6 +54,20 @@ function createParticle() {
 }
 
 function animate() {
+  // Skip frames to throttle to ~20fps
+  frameCount++;
+  if (frameCount <= FRAME_SKIP) {
+    animId = requestAnimationFrame(animate);
+    return;
+  }
+  frameCount = 0;
+
+  // Skip entirely when tab is hidden
+  if (document.hidden) {
+    animId = requestAnimationFrame(animate);
+    return;
+  }
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // Scale speed by CPU load (0-100 → 0.5x-3x)

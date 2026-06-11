@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const zlib = require('zlib');
 const { WebSocketServer } = require('ws');
 const rateLimiter = require('./utils/rate-limiter');
 const stateModule = require('./state');
@@ -26,7 +27,7 @@ const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'no-referrer',
-  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' ws: wss:; img-src 'self' data:",
+  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data:",
 };
 
 // Session Store
@@ -63,8 +64,10 @@ function isAuthenticated(req) {
   return true;
 }
 
+let lastStateJson = '{}';
+
 function broadcastState() {
-  const payload = JSON.stringify(stateModule.state);
+  const payload = lastStateJson;
   for (const client of WebSocketClients) {
     if (client.readyState === 1) { // OPEN
       try {
@@ -82,6 +85,7 @@ function ensureActivePolling() {
   console.log('Polling started (active client/WS connection)');
 
   collect().then(() => {
+    lastStateJson = JSON.stringify(stateModule.state);
     if (WebSocketClients.size > 0) broadcastState();
   });
 
@@ -98,6 +102,7 @@ function ensureActivePolling() {
 
     try {
       await collect();
+      lastStateJson = JSON.stringify(stateModule.state);
       if (hasWsClients) {
         broadcastState();
       }
@@ -233,15 +238,41 @@ function createServer() {
       return res.end('Forbidden');
     }
 
-    // Static files
+    // Static files — with gzip + caching
+    const ext = path.extname(filePath);
+    const contentType = MIME[ext] || 'application/octet-stream';
+    const canCache = ['.html', '.css', '.js', '.svg', '.json'].includes(ext);
+    const acceptEncoding = req.headers['accept-encoding'] || '';
+
     fs.readFile(filePath, (err, data) => {
       if (err) {
         res.writeHead(404, SECURITY_HEADERS);
         return res.end('Not Found');
       }
-      const contentType = MIME[path.extname(filePath)] || 'application/octet-stream';
-      res.writeHead(200, Object.assign({ 'Content-Type': contentType }, SECURITY_HEADERS));
-      res.end(data);
+
+      const headers = {
+        'Content-Type': contentType,
+      };
+
+      if (canCache) {
+        headers['Cache-Control'] = 'public, max-age=3600';
+      }
+
+      // Gzip compressible types
+      if (canCache && acceptEncoding.includes('gzip') && data.length > 1024) {
+        zlib.gzip(data, (gzipErr, gzipped) => {
+          if (gzipErr || gzipped.length >= data.length) {
+            // Serve uncompressed if gzip doesn't help
+            res.writeHead(200, Object.assign(headers, SECURITY_HEADERS));
+            return res.end(data);
+          }
+          res.writeHead(200, Object.assign(headers, { 'Content-Encoding': 'gzip' }, SECURITY_HEADERS));
+          res.end(gzipped);
+        });
+      } else {
+        res.writeHead(200, Object.assign(headers, SECURITY_HEADERS));
+        res.end(data);
+      }
     });
   });
 
@@ -278,7 +309,7 @@ function createServer() {
     ensureActivePolling();
 
     // Push current status immediately on connection
-    ws.send(JSON.stringify(stateModule.state));
+    ws.send(lastStateJson);
 
     ws.on('close', () => {
       WebSocketClients.delete(ws);

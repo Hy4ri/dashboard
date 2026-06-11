@@ -1,13 +1,14 @@
 function parseMemInfo(text) {
   const result = {};
   for (const line of text.split('\n')) {
-    const m = line.match(/^(\w+):\s+(\d+)/);
-    if (!m) continue;
-    const key = m[1];
-    const val = parseInt(m[2], 10) * 1024;   // kB → bytes
-    if (/^(MemTotal|MemFree|MemAvailable|Buffers|Cached|SwapTotal|SwapFree)$/.test(key)) {
-      result[key] = val;
-    }
+    const colon = line.indexOf(':');
+    if (colon < 0) continue;
+    const key = line.slice(0, colon);
+    // Only extract the fields we need
+    if (!/^(MemTotal|MemFree|MemAvailable|Buffers|Cached|SwapTotal|SwapFree)$/.test(key)) continue;
+    const valStr = line.slice(colon + 1).trim();
+    const val = parseInt(valStr, 10) * 1024; // kB → bytes
+    if (!isNaN(val)) result[key] = val;
   }
   return result;
 }
