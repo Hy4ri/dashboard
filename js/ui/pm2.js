@@ -147,8 +147,9 @@ function renderPM2(data) {
     // Rebuild all rows
     tbody.innerHTML = sortedData.map(p => {
       const stCls = p.status === 'online' ? 'online' : p.status === 'errored' ? 'errored' : 'stopped';
+      const nameSuffix = p.restarts > 0 ? ' <span class="restart-count">• ' + p.restarts + '</span>' : '';
       return '<tr data-pm-id="' + p.id + '">' +
-        '<td><span class="status-indicator ' + stCls + '"></span><strong>' + esc(p.name) + '</strong></td>' +
+        '<td><span class="status-indicator ' + stCls + '"></span><strong>' + esc(p.name) + '</strong>' + nameSuffix + '</td>' +
         '<td>' + p.cpu.toFixed(1) + '%</td>' +
         '<td>' + fmtBytes(p.memory) + '</td>' +
         '<td>' + buildActionsHTML(p.name, p.status) + '</td>' +
@@ -174,6 +175,18 @@ function renderPM2(data) {
     // Name + Status (cell 0)
     const nameStrong = cells[0].querySelector('strong');
     if (nameStrong) setTextOf(nameStrong, esc(targetProcess.name));
+    // Update restart count suffix
+    let restSpan = cells[0].querySelector('.restart-count');
+    if (targetProcess.restarts > 0) {
+      if (!restSpan) {
+        restSpan = document.createElement('span');
+        restSpan.className = 'restart-count';
+        cells[0].appendChild(restSpan);
+      }
+      restSpan.textContent = '• ' + targetProcess.restarts;
+    } else {
+      if (restSpan) restSpan.remove();
+    }
     const indicator = cells[0].querySelector('.status-indicator');
     if (indicator) indicator.className = 'status-indicator ' + stCls;
 
