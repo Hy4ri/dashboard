@@ -72,7 +72,7 @@ export async function collect(): Promise<void> {
     loadavg,
     memory,
     swap,
-    disk: { ...(diskUse || {}), io },
+    disk: { ...diskUse, io },
     network,
     internet: connectivity.internet,
     dns: connectivity.dns,

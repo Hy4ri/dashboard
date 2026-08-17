@@ -3,7 +3,7 @@ import { $ } from '../utils/dom.js';
 let modalEl: HTMLElement | null = null;
 let currentProcessName: string | null = null;
 let activeLogTab: 'out' | 'err' = 'out';
-let logData = { out: '', err: '' };
+const logData = { out: '', err: '' };
 let autoScroll = true;
 let lastFetchedAt = '';
 
@@ -127,10 +127,12 @@ export function showLogsModal(processName: string): void {
     renderLogContent();
   });
 
-  const scrollChk = $('auto-scroll-chk') as HTMLInputElement | null;
-  scrollChk?.addEventListener('change', (e) => {
-    autoScroll = (e.target as HTMLInputElement).checked;
-    if (autoScroll) renderLogContent();
+  const scrollChk = $<HTMLInputElement>('auto-scroll-chk');
+  scrollChk?.addEventListener('change', () => {
+    if (scrollChk) {
+      autoScroll = scrollChk.checked;
+      if (autoScroll) renderLogContent();
+    }
   });
 
   $('refresh-logs-btn')?.addEventListener('click', fetchLogs);

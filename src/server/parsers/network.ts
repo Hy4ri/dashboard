@@ -1,8 +1,21 @@
 import { prev } from '../state';
 import { NetworkInterface } from '../../shared/types';
 
-export function parseProcNetDev(text: string): Record<string, { rx: number; tx: number }> {
-  const result: Record<string, { rx: number; tx: number }> = {};
+export interface RawNetDevEntry {
+  rx: number;
+  tx: number;
+}
+
+export interface RawNetDevMap {
+  [iface: string]: RawNetDevEntry;
+}
+
+export interface NetworkInterfaceMap {
+  [iface: string]: NetworkInterface;
+}
+
+export function parseProcNetDev(text: string): RawNetDevMap {
+  const result: RawNetDevMap = {};
   for (const line of text.split('\n')) {
     const m = line.match(/^\s*(wlan0|tun0)\s*:\s*(\d+)\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+(\d+)/);
     if (m) {
@@ -12,9 +25,9 @@ export function parseProcNetDev(text: string): Record<string, { rx: number; tx: 
   return result;
 }
 
-export function collectNetwork(netText: string | null, interval: number): Record<string, NetworkInterface> {
+export function collectNetwork(netText: string | null, interval: number): NetworkInterfaceMap {
   const netData = netText ? parseProcNetDev(netText) : {};
-  const network: Record<string, NetworkInterface> = {};
+  const network: NetworkInterfaceMap = {};
   for (const iface of ['wlan0', 'tun0']) {
     const cur = netData[iface];
     if (!cur) continue;

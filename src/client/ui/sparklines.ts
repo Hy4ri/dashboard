@@ -2,14 +2,22 @@ import { $ } from '../utils/dom.js';
 import { DashboardState } from '../../shared/types.js';
 
 const HISTORY_LIMIT = 30;
-const history = {
-  cpu: [] as number[],
-  mem: [] as number[],
-  rx: [] as number[],
-  tx: [] as number[],
+
+interface MetricHistory {
+  cpu: number[];
+  mem: number[];
+  rx: number[];
+  tx: number[];
+}
+
+const history: MetricHistory = {
+  cpu: [],
+  mem: [],
+  rx: [],
+  tx: [],
 };
 
-function pushHistory(key: keyof typeof history, val: number): void {
+function pushHistory(key: keyof MetricHistory, val: number): void {
   history[key].push(val);
   if (history[key].length > HISTORY_LIMIT) {
     history[key].shift();
