@@ -1,0 +1,120 @@
+import { fmtBytesRate, NONE } from '../utils/format.js';
+import { $, esc } from '../utils/dom.js';
+import { NET_IFACE_MAP } from '../config.js';
+import { NetworkInterface, ConnectivityStatus, TechnitiumStats } from '../../shared/types.js';
+
+export function netIfaceLabel(iface: string): string {
+  if (NET_IFACE_MAP[iface]) return NET_IFACE_MAP[iface] + ' (' + iface + ')';
+  for (const [prefix, label] of Object.entries(NET_IFACE_MAP)) {
+    if (iface.startsWith(prefix)) return label + ' (' + iface + ')';
+  }
+  return iface;
+}
+
+export function renderNetworkRates(net?: Record<string, NetworkInterface> | null): void {
+  const indicator = $('net-rate-indicator');
+  if (!indicator) return;
+  if (!net || Object.keys(net).length === 0) {
+    indicator.style.display = 'none';
+    return;
+  }
+
+  let totalDown = 0;
+  let totalUp = 0;
+  for (const d of Object.values(net)) {
+    totalDown += d.rx_rate || 0;
+    totalUp += d.tx_rate || 0;
+  }
+
+  if (totalDown === 0 && totalUp === 0) {
+    indicator.style.display = 'none';
+    return;
+  }
+
+  const downEl = indicator.querySelector('.net-rate-down');
+  const upEl = indicator.querySelector('.net-rate-up');
+  if (downEl) downEl.textContent = '↓ ' + fmtBytesRate(totalDown);
+  if (upEl) upEl.textContent = '↑ ' + fmtBytesRate(totalUp);
+  indicator.style.display = 'inline-flex';
+}
+
+export function renderConnectivity(
+  data?: { internet?: ConnectivityStatus; dns?: ConnectivityStatus } | null,
+  dnsStats?: TechnitiumStats | null
+): void {
+  const internetEl = $('net-internet-status');
+  const dnsEl = $('net-dns-status');
+
+  if (!data) {
+    if (internetEl) { internetEl.textContent = NONE; internetEl.className = 'connectivity-status'; }
+    if (dnsEl) { dnsEl.textContent = NONE; dnsEl.className = 'connectivity-status'; }
+    return;
+  }
+
+  if (internetEl) {
+    if (data.internet && data.internet.ok) {
+      const ms = data.internet.latency != null ? ` (${data.internet.latency}ms)` : '';
+      internetEl.textContent = 'Online' + ms;
+      internetEl.className = 'connectivity-status online';
+    } else {
+      internetEl.textContent = 'Offline';
+      internetEl.className = 'connectivity-status offline';
+    }
+  }
+
+  if (dnsEl) {
+    if (data.dns && data.dns.ok) {
+      const ms = data.dns.latency != null ? ` (${data.dns.latency}ms)` : '';
+      dnsEl.textContent = 'Resolving' + ms;
+      dnsEl.className = 'connectivity-status online';
+    } else {
+      const err = data.dns && data.dns.error ? ` (${data.dns.error})` : '';
+      dnsEl.textContent = 'Issue' + err;
+      dnsEl.className = 'connectivity-status offline';
+    }
+  }
+
+  // Technitium DNS Stats render
+  let statsEl = $('net-dns-stats');
+  if (dnsStats && dnsStats.configured) {
+    if (!statsEl) {
+      const netCard = $('net-card');
+      if (netCard) {
+        statsEl = document.createElement('div');
+        statsEl.id = 'net-dns-stats';
+        statsEl.className = 'dns-stats-container';
+        const connRow = $('net-connectivity');
+        if (connRow) {
+          connRow.parentNode?.insertBefore(statsEl, connRow.nextSibling);
+        } else {
+          netCard.appendChild(statsEl);
+        }
+      }
+    }
+
+    if (statsEl) {
+      if (dnsStats.ok) {
+        statsEl.innerHTML = `
+          <div class="dns-stat-item">
+            <span class="dns-stat-key">Queries (24h)</span>
+            <span class="dns-stat-val">${(dnsStats.totalQueries || 0).toLocaleString()}</span>
+          </div>
+          <div class="dns-stat-item">
+            <span class="dns-stat-key">Blocked</span>
+            <span class="dns-stat-val val-red">${(dnsStats.blockedQueries || 0).toLocaleString()} (${dnsStats.blockedPercentage || 0}%)</span>
+          </div>
+          <div class="dns-stat-item">
+            <span class="dns-stat-key">Cached</span>
+            <span class="dns-stat-val val-green">${(dnsStats.cachedQueries || 0).toLocaleString()}</span>
+          </div>
+        `;
+        statsEl.style.display = 'grid';
+      } else {
+        statsEl.innerHTML = `<div class="dns-stats-error">Technitium API Error: ${esc(dnsStats.error)}</div>`;
+        statsEl.style.display = 'block';
+      }
+    }
+  } else {
+    if (statsEl) statsEl.style.display = 'none';
+  }
+}
