@@ -60,13 +60,10 @@ export async function qbLogin(): Promise<boolean> {
   const body = `username=${encodeURIComponent(stateModule.QB_USER)}&password=${encodeURIComponent(stateModule.QB_PASS || '')}`;
   const res = await qbRequest('POST', '/api/v2/auth/login', body);
   if (res.status === 200 || res.status === 204 || (res.headers['set-cookie'] && res.body === 'Ok.')) {
-    const cookies = res.headers['set-cookie'];
-    if (cookies) {
-      if (Array.isArray(cookies)) {
-        stateModule.qbCookie = cookies[0].split(';')[0];
-      } else if (typeof cookies === 'string') {
-        stateModule.qbCookie = (cookies as string).split(';')[0];
-      }
+    const rawCookies = res.headers['set-cookie'];
+    if (rawCookies) {
+      const cookieStr = Array.isArray(rawCookies) ? rawCookies[0] : rawCookies;
+      stateModule.qbCookie = cookieStr.split(';')[0];
     }
     return true;
   }

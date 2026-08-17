@@ -10,6 +10,11 @@ export interface ParsedProcStat {
   cores: Record<string, ProcStatCpu>;
 }
 
+export interface CpuMetricsResult {
+  cpuOverall: number | null;
+  cpuCores: (number | null)[];
+}
+
 export function parseProcStat(text: string): ParsedProcStat {
   const result: ParsedProcStat = { overall: null, cores: {} };
   for (const line of text.split('\n')) {
@@ -33,7 +38,7 @@ export function computePct(prevStat: ProcStatCpu | null | undefined, currStat: P
   return dT === 0 ? 0 : Math.round(((dT - dI) / dT) * 1000) / 10;
 }
 
-export function collectCPU(cpuText: string | null, interval: number): { cpuOverall: number | null; cpuCores: (number | null)[] } {
+export function collectCPU(cpuText: string | null, _interval?: number): CpuMetricsResult {
   const cpuData = cpuText ? parseProcStat(cpuText) : null;
   let cpuOverall: number | null = null;
   const cpuCores: (number | null)[] = [];

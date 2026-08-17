@@ -10,9 +10,9 @@ interface Particle {
 
 let canvas: HTMLCanvasElement;
 let ctx: CanvasRenderingContext2D;
-let particles: Particle[] = [];
+const particles: Particle[] = [];
 let cpuLoad = 0;
-let animId: number;
+let _animId = 0;
 let frameCount = 0;
 const FRAME_SKIP = 3; // run at ~20fps instead of 60fps (every 4th frame)
 
@@ -50,14 +50,14 @@ function animate(): void {
   // Skip frames to throttle to ~20fps
   frameCount++;
   if (frameCount <= FRAME_SKIP) {
-    animId = requestAnimationFrame(animate);
+    _animId = requestAnimationFrame(animate);
     return;
   }
   frameCount = 0;
 
   // Skip entirely when tab is hidden
   if (document.hidden) {
-    animId = requestAnimationFrame(animate);
+    _animId = requestAnimationFrame(animate);
     return;
   }
 
@@ -105,7 +105,7 @@ function animate(): void {
     }
   }
 
-  animId = requestAnimationFrame(animate);
+  _animId = requestAnimationFrame(animate);
 }
 
 export function initParticles(): void {

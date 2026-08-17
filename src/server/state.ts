@@ -8,6 +8,8 @@ import {
   TorrentItem,
   ConnectivityStatus,
 } from '../shared/types';
+import { RawDiskMap } from './parsers/disk';
+import { RawNetDevMap } from './parsers/network';
 
 export interface PrevCpuData {
   overall: { total: number; idle: number } | null;
@@ -16,8 +18,8 @@ export interface PrevCpuData {
 
 export interface PrevState {
   cpu: PrevCpuData | null;
-  net: Record<string, { rx: number; tx: number }> | null;
-  disk: Record<string, any> | null;
+  net: RawNetDevMap | null;
+  disk: RawDiskMap | null;
   time: number;
 }
 
@@ -46,6 +48,28 @@ export interface CacheEntry<T> {
   time: number;
 }
 
+export interface StateModule {
+  state: DashboardState;
+  prev: PrevState;
+  pollTimer: NodeJS.Timeout | null;
+  lastRequestTime: number;
+  server: http.Server | null;
+  diskCache: CacheEntry<DiskUsage>;
+  pm2Cache: CacheEntry<PM2Process[]>;
+  freqCache: CacheEntry<CpuFrequency[]>;
+  thermalCache: CacheEntry<ThermalSensor[]>;
+  qbCache: CacheEntry<TorrentItem[]>;
+  connectivityCache: CacheEntry<{ internet: ConnectivityStatus; dns: ConnectivityStatus }>;
+  staticSystem: StaticSystemInfo | null;
+  thermalPaths: ThermalPathItem[];
+  cpuStaticInfo: CpuStaticInfoItem[];
+  qbCookie: string | null;
+  QB_HOST: string;
+  QB_PORT: number;
+  QB_USER: string;
+  QB_PASS: string | null;
+}
+
 export const state: DashboardState = {};
 
 export const prev: PrevState = {
@@ -55,26 +79,26 @@ export const prev: PrevState = {
   time: 0,
 };
 
-export const stateModule = {
+export const stateModule: StateModule = {
   state,
   prev,
-  pollTimer: null as NodeJS.Timeout | null,
+  pollTimer: null,
   lastRequestTime: Date.now(),
-  server: null as http.Server | null,
-  diskCache: { value: null, time: 0 } as CacheEntry<DiskUsage>,
-  pm2Cache: { value: null, time: 0 } as CacheEntry<PM2Process[]>,
-  freqCache: { value: null, time: 0 } as CacheEntry<CpuFrequency[]>,
-  thermalCache: { value: null, time: 0 } as CacheEntry<ThermalSensor[]>,
-  qbCache: { value: null, time: 0 } as CacheEntry<TorrentItem[]>,
-  connectivityCache: { value: null, time: 0 } as CacheEntry<{ internet: ConnectivityStatus; dns: ConnectivityStatus }>,
-  staticSystem: null as StaticSystemInfo | null,
-  thermalPaths: [] as ThermalPathItem[],
-  cpuStaticInfo: [] as CpuStaticInfoItem[],
-  qbCookie: null as string | null,
+  server: null,
+  diskCache: { value: null, time: 0 },
+  pm2Cache: { value: null, time: 0 },
+  freqCache: { value: null, time: 0 },
+  thermalCache: { value: null, time: 0 },
+  qbCache: { value: null, time: 0 },
+  connectivityCache: { value: null, time: 0 },
+  staticSystem: null,
+  thermalPaths: [],
+  cpuStaticInfo: [],
+  qbCookie: null,
   QB_HOST: 'localhost',
   QB_PORT: 7777,
   QB_USER: 'admin',
-  QB_PASS: null as string | null,
+  QB_PASS: null,
 };
 
 export default stateModule;

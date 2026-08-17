@@ -9,8 +9,16 @@ export interface RawDiskEntry {
   ioTime: number;
 }
 
-export function parseProcDiskStats(text: string): Record<string, RawDiskEntry> {
-  const result: Record<string, RawDiskEntry> = {};
+export interface RawDiskMap {
+  [name: string]: RawDiskEntry;
+}
+
+export interface DiskIOMap {
+  [dev: string]: DiskIOItem;
+}
+
+export function parseProcDiskStats(text: string): RawDiskMap {
+  const result: RawDiskMap = {};
   for (const line of text.split('\n')) {
     const parts = line.trim().split(/\s+/);
     if (parts.length < 14) continue;
@@ -28,9 +36,9 @@ export function parseProcDiskStats(text: string): Record<string, RawDiskEntry> {
   return result;
 }
 
-export function collectDiskIO(diskText: string | null, interval: number): Record<string, DiskIOItem> {
+export function collectDiskIO(diskText: string | null, interval: number): DiskIOMap {
   const diskData = diskText ? parseProcDiskStats(diskText) : {};
-  const io: Record<string, DiskIOItem> = {};
+  const io: DiskIOMap = {};
   for (const dev of ['sda', 'sda26', 'zram0']) {
     const cur = diskData[dev];
     if (!cur) continue;

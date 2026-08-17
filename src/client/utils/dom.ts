@@ -2,8 +2,10 @@
 
 import { NONE } from './format.js';
 
-export const $ = <T extends HTMLElement = HTMLElement>(id: string): T | null =>
-  document.getElementById(id) as T | null;
+export const $ = <T extends HTMLElement = HTMLElement>(id: string): T | null => {
+  // SAFETY: document.getElementById returns HTMLElement or null; generic specializes the subtype for callers.
+  return document.getElementById(id) as T | null;
+};
 
 export const esc = (s: any): string => (s == null ? '' : String(s)
   .replace(/&/g, '&amp;')

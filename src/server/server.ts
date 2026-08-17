@@ -14,7 +14,15 @@ import { createPM2LogsRoute } from './routes/pm2-logs';
 import { createQBittorrentRoute } from './routes/qbittorrent';
 import { createTerminalRoute } from './routes/terminal';
 
-const MIME: Record<string, string> = {
+export interface HeaderMap {
+  [header: string]: string;
+}
+
+export interface CookieMap {
+  [name: string]: string;
+}
+
+const MIME: HeaderMap = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -24,7 +32,7 @@ const MIME: Record<string, string> = {
 
 // Root of the project (parent of src/server or dist/server)
 const ROOT = path.resolve(__dirname, '../..');
-export const SECURITY_HEADERS: Record<string, string> = {
+export const SECURITY_HEADERS: HeaderMap = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'no-referrer',
@@ -40,8 +48,8 @@ interface SessionData {
 const activeSessions = new Map<string, SessionData>();
 const WebSocketClients = new Set<WebSocket>();
 
-function parseCookies(cookieHeader?: string): Record<string, string> {
-  const cookies: Record<string, string> = {};
+function parseCookies(cookieHeader?: string): CookieMap {
+  const cookies: CookieMap = {};
   if (!cookieHeader) return cookies;
   cookieHeader.split(';').forEach(cookie => {
     const parts = cookie.split('=');
@@ -161,7 +169,7 @@ export function createServer(): http.Server {
             res.writeHead(401, Object.assign({ 'Content-Type': 'application/json' }, SECURITY_HEADERS));
             res.end(JSON.stringify({ success: false, error: 'Invalid username or password' }));
           }
-        } catch (err) {
+        } catch {
           res.writeHead(400, Object.assign({ 'Content-Type': 'application/json' }, SECURITY_HEADERS));
           res.end(JSON.stringify({ success: false, error: 'Invalid payload' }));
         }
@@ -250,7 +258,8 @@ export function createServer(): http.Server {
     const ext = path.extname(filePath);
     const contentType = MIME[ext] || 'application/octet-stream';
     const canCache = ['.html', '.css', '.js', '.svg', '.json'].includes(ext);
-    const acceptEncoding = (req.headers['accept-encoding'] as string) || '';
+    const rawEncoding = req.headers['accept-encoding'];
+    const acceptEncoding = Array.isArray(rawEncoding) ? rawEncoding.join(',') : (rawEncoding || '');
 
     fs.readFile(filePath, (err, data) => {
       if (err) {
@@ -258,7 +267,7 @@ export function createServer(): http.Server {
         return res.end('Not Found');
       }
 
-      const headers: Record<string, string> = {
+      const headers: HeaderMap = {
         'Content-Type': contentType,
       };
 

@@ -188,16 +188,15 @@ function renderAlertsList(alerts: AlertItem[]): void {
   const activeKeys = new Set(alerts.map(a => a.key));
 
   // Remove banners for alerts that no longer exist
-  container.querySelectorAll('.alert-banner').forEach(banner => {
-    const el = banner as HTMLElement;
-    if (!activeKeys.has(el.dataset.alertKey || '')) {
+  container.querySelectorAll<HTMLElement>('.alert-banner').forEach(banner => {
+    if (!activeKeys.has(banner.dataset.alertKey || '')) {
       banner.remove();
     }
   });
 
   // Add banners for new alerts (ones not already in the DOM)
   const existingKeys = new Set(
-    Array.from(container.querySelectorAll('.alert-banner')).map(b => (b as HTMLElement).dataset.alertKey)
+    Array.from(container.querySelectorAll<HTMLElement>('.alert-banner')).map(b => b.dataset.alertKey)
   );
 
   alerts.forEach(a => {

@@ -73,8 +73,8 @@ export function setupPM2Menu(): void {
   const tbody = $('pm2-body');
   if (tbody) {
     tbody.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
-      const nameEl = target.closest('td strong');
+      if (!(e.target instanceof Element)) return;
+      const nameEl = e.target.closest('td strong');
       if (!nameEl) return;
       e.stopPropagation();
       const row = nameEl.closest('tr[data-pm-id]');
@@ -91,8 +91,8 @@ export function setupPM2Menu(): void {
 
   // Close menu when clicking outside
   document.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement;
-    if (pm2MenuEl && !pm2MenuEl.contains(target) && !target.closest('td strong')) {
+    if (!(e.target instanceof Node)) return;
+    if (pm2MenuEl && !pm2MenuEl.contains(e.target) && (e.target instanceof Element && !e.target.closest('td strong'))) {
       closePM2Menu();
     }
   });
@@ -103,7 +103,7 @@ export function setupPM2Menu(): void {
   });
 
   // Restart All button
-  const restartAllBtn = $('restart-all-btn') as HTMLButtonElement | null;
+  const restartAllBtn = $<HTMLButtonElement>('restart-all-btn');
   if (restartAllBtn) {
     restartAllBtn.addEventListener('click', async () => {
       if (!confirm('Restart all processes?')) return;
