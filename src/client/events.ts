@@ -8,9 +8,9 @@ export function setupTorrentDelete(): void {
   if (!torrentList) return;
 
   torrentList.addEventListener('click', async (e) => {
-    const target = e.target as HTMLElement;
-    const btn = target.closest('.torrent-delete') as HTMLButtonElement | null;
-    if (!btn) return;
+    if (!(e.target instanceof Element)) return;
+    const btn = e.target.closest('.torrent-delete');
+    if (!(btn instanceof HTMLButtonElement)) return;
     e.preventDefault();
     e.stopPropagation();
 

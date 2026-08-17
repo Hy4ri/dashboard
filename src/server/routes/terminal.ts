@@ -37,7 +37,7 @@ export function createTerminalRoute(wss: WebSocketServer): void {
       if (ws.readyState === 1) { // WebSocket.OPEN
         try {
           ws.send(JSON.stringify({ type: 'output', data }));
-        } catch (e) {
+        } catch {
           /* client gone */
         }
       }
@@ -49,7 +49,7 @@ export function createTerminalRoute(wss: WebSocketServer): void {
         try {
           ws.send(JSON.stringify({ type: 'exit', code: exitCode }));
           ws.close();
-        } catch (e) {
+        } catch {
           /* */
         }
       }
@@ -69,7 +69,7 @@ export function createTerminalRoute(wss: WebSocketServer): void {
             }
             break;
         }
-      } catch (e) {
+      } catch {
         // Ignore malformed messages
       }
     });
@@ -78,7 +78,7 @@ export function createTerminalRoute(wss: WebSocketServer): void {
       console.log(`[Terminal] Client disconnected, killing PTY pid=${term.pid}`);
       try {
         term.kill();
-      } catch (e) {
+      } catch {
         /* already dead */
       }
     });
@@ -87,7 +87,7 @@ export function createTerminalRoute(wss: WebSocketServer): void {
       console.warn(`[Terminal] WS error: ${err.message}`);
       try {
         term.kill();
-      } catch (e) {
+      } catch {
         /* */
       }
     });

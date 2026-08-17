@@ -18,8 +18,8 @@ function setupPM2Actions(): void {
   if (!tbody) return;
 
   tbody.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement;
-    const btn = target.closest('.pm2-action-btn') as HTMLElement | null;
+    if (!(e.target instanceof Element)) return;
+    const btn = e.target.closest('.pm2-action-btn');
     if (!btn) return;
 
     e.stopPropagation();
@@ -43,10 +43,10 @@ function setupPM2Headers(): void {
   if (headersRegistered) return;
   const table = document.querySelector('#pm2-card table');
   if (!table) return;
-  const headers = table.querySelectorAll('thead th');
+  const headers = table.querySelectorAll<HTMLElement>('thead th');
 
-  const cpuHeader = headers[1] as HTMLElement | undefined;
-  const memHeader = headers[2] as HTMLElement | undefined;
+  const cpuHeader = headers[1];
+  const memHeader = headers[2];
 
   const makeClickable = (header: HTMLElement | undefined, field: keyof PM2Process) => {
     if (header) {
@@ -78,12 +78,12 @@ function toggleSort(field: keyof PM2Process): void {
 function updateHeaderIndicators(): void {
   const table = document.querySelector('#pm2-card table');
   if (!table) return;
-  const headers = table.querySelectorAll('thead th');
+  const headers = table.querySelectorAll<HTMLElement>('thead th');
 
-  const resetHeader = (header: Element | undefined, text: string) => {
+  const resetHeader = (header: HTMLElement | undefined, text: string) => {
     if (header) {
       header.innerHTML = text;
-      (header as HTMLElement).title = `Sort by ${text}`;
+      header.title = `Sort by ${text}`;
     }
   };
 
@@ -128,23 +128,18 @@ export function renderPM2(data?: PM2Process[] | null): void {
   // Sort data copy
   const sortedData = [...data];
   if (currentSortBy) {
-    const sortField = currentSortBy;
+    const field = currentSortBy;
     sortedData.sort((a, b) => {
-      let valA: any = a[sortField];
-      let valB: any = b[sortField];
-
-      if (valA === null || valA === undefined) return 1;
-      if (valB === null || valB === undefined) return -1;
-
-      if (typeof valA === 'string') {
+      if (field === 'name' || field === 'status') {
+        const strA = String(a[field] ?? '');
+        const strB = String(b[field] ?? '');
         return currentSortOrder === 'asc'
-          ? valA.localeCompare(valB)
-          : valB.localeCompare(valA);
-      } else {
-        return currentSortOrder === 'asc'
-          ? valA - valB
-          : valB - valA;
+          ? strA.localeCompare(strB)
+          : strB.localeCompare(strA);
       }
+      const numA = Number(a[field] ?? 0);
+      const numB = Number(b[field] ?? 0);
+      return currentSortOrder === 'asc' ? numA - numB : numB - numA;
     });
   }
 

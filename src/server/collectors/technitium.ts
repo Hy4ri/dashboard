@@ -7,8 +7,8 @@ function httpGet(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const isHttps = url.startsWith('https:');
     const mod: typeof http | typeof https = isHttps ? https : http;
-    const opts: http.RequestOptions = { timeout: 10000 };
-    if (isHttps) (opts as https.RequestOptions).rejectUnauthorized = false; // self-signed certs
+    const opts: https.RequestOptions = { timeout: 10000 };
+    if (isHttps) opts.rejectUnauthorized = false; // self-signed certs
     mod.get(url, opts, (res: http.IncomingMessage) => {
       let data = '';
       res.on('data', (chunk: any) => { data += chunk; });

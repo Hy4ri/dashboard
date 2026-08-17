@@ -2,7 +2,19 @@
 
 export const POLL_MS = 3000;
 
-export const THERMAL_MAP: Record<string, string> = {
+export interface ThermalMap {
+  [key: string]: string;
+}
+
+export interface GovernorMap {
+  [key: string]: string;
+}
+
+export interface NetIfaceMap {
+  [key: string]: string;
+}
+
+export const THERMAL_MAP: ThermalMap = {
   'cpu-1-6-step': 'CPU Hotspot',
   'battery': 'Battery',
   'gpuss-0-step': 'GPU',
@@ -11,7 +23,7 @@ export const THERMAL_MAP: Record<string, string> = {
   'pmr735a_tz': 'PMIC',
 };
 
-export const GOVERNOR_MAP: Record<string, string> = {
+export const GOVERNOR_MAP: GovernorMap = {
   schedutil: 'Scheduler-guided',
   performance: 'Max Performance',
   powersave: 'Power Saving',
@@ -20,7 +32,7 @@ export const GOVERNOR_MAP: Record<string, string> = {
   userspace: 'Userspace',
 };
 
-export const NET_IFACE_MAP: Record<string, string> = {
+export const NET_IFACE_MAP: NetIfaceMap = {
   'wlan0': 'WiFi',
   'wl': 'WiFi',
   'eth0': 'Ethernet',

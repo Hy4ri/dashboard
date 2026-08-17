@@ -92,7 +92,7 @@ export function connect(): void {
           ws = null;
           break;
       }
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
   };
 
   ws.onclose = () => {
@@ -142,9 +142,9 @@ export function initTerminal(): void {
 
   // Connect when card is opened
   card.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement;
+    if (!(e.target instanceof Element)) return;
     const trigger = card.querySelector('[data-accordion-trigger]');
-    if (trigger && target.closest('[data-accordion-trigger]') && !target.closest('.terminal-fullscreen-btn')) {
+    if (trigger && e.target.closest('[data-accordion-trigger]') && !e.target.closest('.terminal-fullscreen-btn')) {
       // Give accordion time to animate open
       setTimeout(() => {
         if (!connected) {
