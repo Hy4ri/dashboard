@@ -49,63 +49,67 @@ export function renderAntigravity(data?: AntigravityAccountQuota[] | null): void
   const account = data[selectedAccountIndex];
   if (!account) return;
 
-  // Account selector tabs if multiple accounts
+  // Account selector pills
   let accountSelectorHtml = '';
   if (data.length > 1) {
     accountSelectorHtml = `
-      <div class="agy-account-tabs">
-        ${data.map((acc, idx) => `
-          <button class="agy-acc-tab ${idx === selectedAccountIndex ? 'active' : ''}" data-idx="${idx}">
-            ${esc(acc.email.split('@')[0])}
-          </button>
-        `).join('')}
+      <div class="agy-toolbar">
+        <div class="agy-filter-pills" role="group" aria-label="Select account">
+          ${data.map((acc, idx) => `
+            <button class="filter-pill ${idx === selectedAccountIndex ? 'active' : ''}" data-idx="${idx}">
+              ${esc(acc.email.split('@')[0])}
+            </button>
+          `).join('')}
+        </div>
       </div>
     `;
   }
 
-  let groupsHtml = '';
+  let itemsHtml = '';
   if (account.groups && account.groups.length > 0) {
-    groupsHtml = `
-      <div class="agy-groups-grid">
-        ${account.groups.map(group => `
-          <div class="agy-group-col">
-            <div class="agy-group-title">${esc(group.displayName)}</div>
-            <div class="agy-buckets-row">
-              ${group.buckets.map(b => {
-                const pct = b.remainingPct;
-                const cls = getStatClass(pct);
-                const winLabel = b.window === '5h' ? '5-Hour' : 'Weekly';
-                const timeLabel = formatRelativeTime(b.resetTime);
-                return `
-                  <div class="agy-bucket-card" title="Resets ${timeLabel ? esc(timeLabel) : 'soon'}">
-                    <div class="agy-bucket-header">
-                      <span class="agy-bucket-label">${winLabel}</span>
-                      ${timeLabel ? `<span class="agy-reset-tag">${esc(timeLabel)}</span>` : ''}
-                    </div>
-                    <div class="agy-bucket-num ${cls}">${pct.toFixed(1)}%</div>
-                    <div class="agy-mini-bar">
-                      <div class="agy-mini-fill ${cls}" style="width: ${Math.min(Math.max(pct, 0), 100)}%"></div>
-                    </div>
-                  </div>
-                `;
-              }).join('')}
+    const rows: string[] = [];
+
+    for (const group of account.groups) {
+      const isGemini = group.displayName.toLowerCase().includes('gemini');
+      const groupLabel = isGemini ? 'Gemini' : 'Claude / GPT';
+
+      for (const bucket of group.buckets) {
+        const is5h = bucket.window === '5h' || bucket.bucketId.includes('5h');
+        const winLabel = is5h ? '5h' : 'Weekly';
+        const pct = bucket.remainingPct;
+        const cls = getStatClass(pct);
+        const resetTag = formatRelativeTime(bucket.resetTime);
+
+        rows.push(`
+          <div class="agy-item">
+            <div class="info-row">
+              <span class="key">${groupLabel} <span class="agy-win-tag">${winLabel}</span></span>
+              <span class="val ${cls}">
+                ${pct.toFixed(1)}%
+                ${resetTag ? `<span class="agy-reset-hint">${esc(resetTag)}</span>` : ''}
+              </span>
+            </div>
+            <div class="bar-wrap agy-bar">
+              <div class="bar-fill ${cls}" style="width: ${Math.min(Math.max(pct, 0), 100)}%"></div>
             </div>
           </div>
-        `).join('')}
-      </div>
-    `;
+        `);
+      }
+    }
+
+    itemsHtml = `<div class="agy-grid">${rows.join('')}</div>`;
   } else {
-    groupsHtml = '<div class="none">No quota buckets available.</div>';
+    itemsHtml = '<div class="none">No quota data available.</div>';
   }
 
-  container.innerHTML = accountSelectorHtml + groupsHtml;
+  container.innerHTML = accountSelectorHtml + itemsHtml;
 
-  // Attach account tab switch handlers
-  const tabBtns = container.querySelectorAll<HTMLButtonElement>('.agy-acc-tab');
-  tabBtns.forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  // Event handlers for account tabs
+  const pills = container.querySelectorAll<HTMLButtonElement>('.filter-pill[data-idx]');
+  pills.forEach(pill => {
+    pill.addEventListener('click', (e) => {
       e.preventDefault();
-      const idx = parseInt(btn.dataset.idx || '0', 10);
+      const idx = parseInt(pill.dataset.idx || '0', 10);
       selectedAccountIndex = idx;
       renderAntigravity(data);
     });
