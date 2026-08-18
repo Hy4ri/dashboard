@@ -115,7 +115,8 @@ function setupPM2Filters(): void {
 
   const pills = document.querySelectorAll<HTMLElement>('#pm2-filter-pills .filter-pill');
   pills.forEach((pill) => {
-    pill.addEventListener('click', () => {
+    pill.addEventListener('click', (e) => {
+      e.preventDefault();
       pills.forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
       statusFilter = pill.getAttribute('data-filter') || 'all';
@@ -124,6 +125,29 @@ function setupPM2Filters(): void {
   });
 
   filtersRegistered = true;
+}
+
+function updateFilterCounts(data: PM2Process[]): void {
+  const total = data.length;
+  const online = data.filter(p => p.status === 'online').length;
+  const errored = data.filter(p => p.status === 'errored').length;
+  const stopped = data.filter(p => p.status === 'stopped').length;
+
+  const setCnt = (id: string, val: number) => {
+    const el = $(id);
+    if (el) el.textContent = String(val);
+  };
+
+  setCnt('filter-count-all', total);
+  setCnt('filter-count-online', online);
+  setCnt('filter-count-errored', errored);
+  setCnt('filter-count-stopped', stopped);
+}
+
+export function initPM2UI(): void {
+  setupPM2Actions();
+  setupPM2Headers();
+  setupPM2Filters();
 }
 
 function buildActionsHTML(name: string, status: string): string {
@@ -152,6 +176,7 @@ export function renderPM2(data?: PM2Process[] | null): void {
   setupPM2Headers();
   setupPM2Filters();
   updateHeaderIndicators();
+  updateFilterCounts(data);
 
   // Apply search & status filters
   let filteredData = [...data];

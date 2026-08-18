@@ -56,13 +56,13 @@
           <div class="pm2-toolbar">
             <div class="pm2-search-box">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input type="text" id="pm2-search" class="pm2-search-input" placeholder="Search processes..." aria-label="Search processes">
+              <input type="text" id="pm2-search" class="pm2-search-input" placeholder="Search processes..." aria-label="Search processes" autocomplete="off" spellcheck="false">
             </div>
             <div class="pm2-filter-pills" id="pm2-filter-pills" role="group" aria-label="Filter by status">
-              <button class="filter-pill active" data-filter="all">All</button>
-              <button class="filter-pill" data-filter="online">Online</button>
-              <button class="filter-pill" data-filter="errored">Errored</button>
-              <button class="filter-pill" data-filter="stopped">Stopped</button>
+              <button class="filter-pill active" data-filter="all">All <span class="filter-count" id="filter-count-all">0</span></button>
+              <button class="filter-pill" data-filter="online">Online <span class="filter-count" id="filter-count-online">0</span></button>
+              <button class="filter-pill" data-filter="errored">Errored <span class="filter-count" id="filter-count-errored">0</span></button>
+              <button class="filter-pill" data-filter="stopped">Stopped <span class="filter-count" id="filter-count-stopped">0</span></button>
             </div>
           </div>
           <div class="table-wrap" role="group" aria-label="Process list">
