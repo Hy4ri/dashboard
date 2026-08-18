@@ -1,7 +1,7 @@
 import http from 'http';
 import { QB_CACHE_MS } from '../config';
 import stateModule from '../state';
-import { TorrentItem } from '../../shared/types';
+import { TorrentItem, ActionResult } from '../../shared/types';
 
 // Load qBittorrent config from environment variables
 export function loadQBConfig(): void {
@@ -106,7 +106,7 @@ export async function collectQBittorrent(): Promise<TorrentItem[]> {
   }
 }
 
-export async function qbDelete(hash: string): Promise<{ success: boolean; error?: string }> {
+export async function qbDelete(hash: string): Promise<ActionResult> {
   const body = `hashes=${encodeURIComponent(hash)}&deleteFiles=true`;
   let res = await qbRequest('POST', '/api/v2/torrents/delete', body);
   if (res.status === 403) {
@@ -122,7 +122,7 @@ export async function qbDelete(hash: string): Promise<{ success: boolean; error?
   return { success: false, error: `HTTP ${res.status}` };
 }
 
-export async function qbPause(hash: string): Promise<{ success: boolean; error?: string }> {
+export async function qbPause(hash: string): Promise<ActionResult> {
   const body = `hashes=${encodeURIComponent(hash)}`;
   let res = await qbRequest('POST', '/api/v2/torrents/stop', body);
   if (res.status === 404) {
@@ -143,7 +143,7 @@ export async function qbPause(hash: string): Promise<{ success: boolean; error?:
   return { success: false, error: `HTTP ${res.status}` };
 }
 
-export async function qbResume(hash: string): Promise<{ success: boolean; error?: string }> {
+export async function qbResume(hash: string): Promise<ActionResult> {
   const body = `hashes=${encodeURIComponent(hash)}`;
   let res = await qbRequest('POST', '/api/v2/torrents/start', body);
   if (res.status === 404) {

@@ -1,5 +1,6 @@
 import http from 'http';
 import { qbDelete, qbPause, qbResume } from '../collectors/qbittorrent';
+import { ActionResult } from '../../shared/types';
 
 export function createQBittorrentRoute() {
   return function handleQBAction(
@@ -9,7 +10,7 @@ export function createQBittorrentRoute() {
     hash: string
   ): void {
     (async () => {
-      let result: { success: boolean; error?: string } = { success: false, error: 'Unknown action' };
+      let result: ActionResult = { success: false, error: 'Unknown action' };
       if (action === 'delete') {
         result = await qbDelete(hash);
       } else if (action === 'pause') {
