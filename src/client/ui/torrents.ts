@@ -103,15 +103,15 @@ export function renderTorrents(torrents?: TorrentItem[] | null): void {
       : '';
 
     const pauseResumeBtn = paused
-      ? '<button class="torrent-action-btn resume" data-action="resume" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Resume torrent" aria-label="Resume ' + esc(t.name) + '">▶</button>'
-      : '<button class="torrent-action-btn pause" data-action="pause" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Pause torrent" aria-label="Pause ' + esc(t.name) + '">⏸</button>';
+      ? '<button class="torrent-action-btn resume" data-action="resume" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Resume torrent" aria-label="Resume ' + esc(t.name) + '"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>'
+      : '<button class="torrent-action-btn pause" data-action="pause" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Pause torrent" aria-label="Pause ' + esc(t.name) + '"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="4" width="4.5" height="16" rx="0.5"/><rect x="14.5" y="4" width="4.5" height="16" rx="0.5"/></svg></button>';
 
     return '<div class="torrent-item' + (paused ? ' paused' : '') + '">' +
       '<div class="torrent-header">' +
         '<span class="torrent-name" title="' + esc(t.name) + '">' + esc(t.name) + '</span>' +
         '<div class="torrent-actions">' +
           pauseResumeBtn +
-          '<button class="torrent-action-btn delete" data-action="delete" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Delete torrent and remove files" aria-label="Delete ' + esc(t.name) + '">✕</button>' +
+          '<button class="torrent-action-btn delete" data-action="delete" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Delete torrent and remove files" aria-label="Delete ' + esc(t.name) + '"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>' +
         '</div>' +
       '</div>' +
       '<div class="torrent-bar"><div class="torrent-fill" style="width:' + pct + '%"></div></div>' +
