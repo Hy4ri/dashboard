@@ -121,3 +121,45 @@ export async function qbDelete(hash: string): Promise<{ success: boolean; error?
   }
   return { success: false, error: `HTTP ${res.status}` };
 }
+
+export async function qbPause(hash: string): Promise<{ success: boolean; error?: string }> {
+  const body = `hashes=${encodeURIComponent(hash)}`;
+  let res = await qbRequest('POST', '/api/v2/torrents/stop', body);
+  if (res.status === 404) {
+    res = await qbRequest('POST', '/api/v2/torrents/pause', body);
+  }
+  if (res.status === 403) {
+    const ok = await qbLogin();
+    if (!ok) return { success: false, error: 'Authentication failed' };
+    res = await qbRequest('POST', '/api/v2/torrents/stop', body);
+    if (res.status === 404) {
+      res = await qbRequest('POST', '/api/v2/torrents/pause', body);
+    }
+  }
+  if (res.status === 200) {
+    stateModule.qbCache = { value: null, time: 0 };
+    return { success: true };
+  }
+  return { success: false, error: `HTTP ${res.status}` };
+}
+
+export async function qbResume(hash: string): Promise<{ success: boolean; error?: string }> {
+  const body = `hashes=${encodeURIComponent(hash)}`;
+  let res = await qbRequest('POST', '/api/v2/torrents/start', body);
+  if (res.status === 404) {
+    res = await qbRequest('POST', '/api/v2/torrents/resume', body);
+  }
+  if (res.status === 403) {
+    const ok = await qbLogin();
+    if (!ok) return { success: false, error: 'Authentication failed' };
+    res = await qbRequest('POST', '/api/v2/torrents/start', body);
+    if (res.status === 404) {
+      res = await qbRequest('POST', '/api/v2/torrents/resume', body);
+    }
+  }
+  if (res.status === 200) {
+    stateModule.qbCache = { value: null, time: 0 };
+    return { success: true };
+  }
+  return { success: false, error: `HTTP ${res.status}` };
+}

@@ -83,15 +83,35 @@
 
       <!-- Torrents (side panel) -->
       <section class="card" id="torrent-card" role="region" aria-label="Active Downloads" data-accordion data-state="open">
-        <button class="card-header" aria-expanded="true" data-accordion-trigger>
-          Active Downloads <span id="torrent-count" class="torrent-count"></span>
-          <span class="chevron" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </span>
-        </button>
+        <div class="card-header">
+          <button class="card-header-trigger" aria-expanded="true" data-accordion-trigger>
+            Active Downloads <span id="torrent-count" class="torrent-count"></span>
+            <span class="chevron" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </span>
+          </button>
+          <div class="torrent-header-actions">
+            <button id="torrent-resume-all-btn" class="torrent-btn-hdr" title="Resume all downloads" aria-label="Resume all downloads">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <span>Resume All</span>
+            </button>
+            <button id="torrent-pause-all-btn" class="torrent-btn-hdr" title="Pause all downloads" aria-label="Pause all downloads">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="4" width="4.5" height="16" rx="0.5"/><rect x="14.5" y="4" width="4.5" height="16" rx="0.5"/></svg>
+              <span>Pause All</span>
+            </button>
+          </div>
+        </div>
         <div class="card-content">
+          <div class="torrent-toolbar">
+            <div class="torrent-filter-pills" id="torrent-filter-pills" role="group" aria-label="Filter by state">
+              <button class="filter-pill active" data-filter="all">All <span class="filter-count" id="torrent-count-all">0</span></button>
+              <button class="filter-pill" data-filter="downloading">Down <span class="filter-count" id="torrent-count-down">0</span></button>
+              <button class="filter-pill" data-filter="seeding">Seed <span class="filter-count" id="torrent-count-seed">0</span></button>
+              <button class="filter-pill" data-filter="paused">Paused <span class="filter-count" id="torrent-count-pause">0</span></button>
+            </div>
+          </div>
           <div id="torrent-list" aria-live="polite"></div>
         </div>
       </section>
