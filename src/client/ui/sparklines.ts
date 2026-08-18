@@ -8,6 +8,7 @@ interface MetricHistory {
   mem: number[];
   rx: number[];
   tx: number[];
+  ping: number[];
 }
 
 const history: MetricHistory = {
@@ -15,6 +16,7 @@ const history: MetricHistory = {
   mem: [],
   rx: [],
   tx: [],
+  ping: [],
 };
 
 function pushHistory(key: keyof MetricHistory, val: number): void {
@@ -124,6 +126,10 @@ export function renderSparklines(data?: DashboardState | null): void {
   pushHistory('rx', totalRx);
   pushHistory('tx', totalTx);
 
+  if (data.internet && data.internet.latency !== undefined) {
+    pushHistory('ping', data.internet.latency);
+  }
+
   // 2. Render CPU Sparkline
   updateSparkline(
     'cpu-sparkline',
@@ -176,5 +182,17 @@ export function renderSparklines(data?: DashboardState | null): void {
       '#net-sparklines-row',
       'Upload'
     );
+
+    // Render Ping (Latency) Sparkline
+    if (history.ping.length > 0) {
+      updateSparkline(
+        'ping-sparkline',
+        history.ping,
+        'auto',
+        '#64B5F6',
+        '#net-sparklines-row',
+        'Ping (ms)'
+      );
+    }
   }
 }

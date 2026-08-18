@@ -260,3 +260,89 @@
 .torrent-item.paused .torrent-fill {
   background: linear-gradient(90deg, #555, #777);
 }
+
+/* DNS Telemetry & Network Telemetry (Feature 5) */
+.dns-block-bar-wrapper {
+  margin-bottom: var(--space-2);
+}
+.dns-block-bar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.dns-block-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.dns-block-pct {
+  font-size: var(--text-xs);
+  color: var(--green);
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+.dns-progress-bar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.dns-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--green), #81C784);
+  border-radius: 1px;
+  transition: width 0.4s ease;
+}
+.dns-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 1px;
+  padding: var(--space-2);
+  margin-top: 6px;
+}
+.net-interfaces-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+.net-iface-item {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 1px;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.net-iface-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.net-iface-name {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-bright);
+}
+.net-iface-speeds {
+  display: flex;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.net-iface-totals {
+  display: flex;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
