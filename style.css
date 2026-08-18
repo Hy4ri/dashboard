@@ -359,10 +359,10 @@ body::after {
   background: linear-gradient(90deg, #555, #777);
 }
 
-/* Antigravity Quota Card (Minimal) */
+/* Antigravity Quota Card (Circular Progress Rings) */
 .agy-toolbar {
   display: flex;
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -370,45 +370,93 @@ body::after {
   display: flex;
   gap: 4px;
 }
-.agy-grid {
+.agy-models-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-2) var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-3);
 }
-.agy-item {
+.agy-model-group {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 1px;
+  padding: var(--space-3);
   display: flex;
   flex-direction: column;
+  gap: var(--space-2);
 }
-.agy-item .info-row {
-  padding: 2px 0;
-  border-bottom: none;
-  font-size: var(--text-sm);
-}
-.agy-win-tag {
-  font-size: 10px;
+.agy-model-title {
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.agy-gauges-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+.agy-gauge-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1px;
+  padding: 8px;
+}
+.agy-circle-wrapper {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.agy-circle-svg {
+  transform: rotate(-90deg);
+  display: block;
+}
+.agy-circle-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-width: 3.5;
+}
+.agy-circle-fill {
+  fill: none;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease, stroke 0.3s ease;
+}
+.agy-circle-text {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: baseline;
+}
+.agy-pct-sym {
+  font-size: 9px;
   opacity: 0.7;
-  margin-left: 2px;
-  font-family: var(--font-sans);
+  margin-left: 0.5px;
 }
-.agy-reset-hint {
+.agy-gauge-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.agy-gauge-window {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-bright);
+  white-space: nowrap;
+}
+.agy-gauge-reset {
   font-size: 10px;
   color: var(--text-muted);
-  font-weight: normal;
-  margin-left: 4px;
-  opacity: 0.75;
-}
-.bar-wrap.agy-bar {
-  height: 4px;
-  margin: 2px 0 6px 0;
-  background: rgba(255, 255, 255, 0.05);
-}
-.bar-fill.val-green {
-  background: var(--green);
-}
-.bar-fill.val-yellow {
-  background: var(--yellow);
-}
-.bar-fill.val-red {
-  background: var(--red);
+  font-family: var(--font-mono);
+  white-space: nowrap;
 }

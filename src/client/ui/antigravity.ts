@@ -1,7 +1,14 @@
 import { $, esc } from '../utils/dom.js';
-import { AntigravityAccountQuota } from '../../shared/types.js';
+import { AntigravityAccountQuota, AntigravityQuotaBucket } from '../../shared/types.js';
 
 let selectedAccountIndex = 0;
+const CIRCUMFERENCE = 138.23; // 2 * Math.PI * 22
+
+function getStrokeColor(pct: number): string {
+  if (pct >= 50) return 'var(--green)';
+  if (pct >= 20) return 'var(--yellow)';
+  return 'var(--red)';
+}
 
 function getStatClass(pct: number): string {
   if (pct >= 50) return 'val-green';
@@ -28,6 +35,70 @@ function formatRelativeTime(isoStr?: string): string {
     return `in ${hours}h ${remMins}m`;
   }
   return `in ${mins}m`;
+}
+
+interface NormalizedBucket {
+  displayName: string;
+  window: '5h' | 'weekly';
+  remainingPct: number;
+  resetTime?: string;
+}
+
+interface ModelQuotaPair {
+  fiveHour: NormalizedBucket;
+  weekly: NormalizedBucket;
+}
+
+function extractModelBuckets(buckets: AntigravityQuotaBucket[]): ModelQuotaPair {
+  let fiveHour: NormalizedBucket = { displayName: '5-Hour Limit', window: '5h', remainingPct: 100 };
+  let weekly: NormalizedBucket = { displayName: 'Weekly Limit', window: 'weekly', remainingPct: 100 };
+
+  for (const b of buckets) {
+    const is5h = b.window === '5h' || b.bucketId.includes('5h');
+    if (is5h) {
+      fiveHour = {
+        displayName: b.displayName || '5-Hour Limit',
+        window: '5h',
+        remainingPct: b.remainingPct,
+        resetTime: b.resetTime,
+      };
+    } else {
+      weekly = {
+        displayName: b.displayName || 'Weekly Limit',
+        window: 'weekly',
+        remainingPct: b.remainingPct,
+        resetTime: b.resetTime,
+      };
+    }
+  }
+
+  return { fiveHour, weekly };
+}
+
+function renderCircularGauge(bucket: NormalizedBucket): string {
+  const pct = Math.min(Math.max(bucket.remainingPct, 0), 100);
+  const strokeColor = getStrokeColor(pct);
+  const statCls = getStatClass(pct);
+  const offset = (CIRCUMFERENCE * (1 - pct / 100)).toFixed(2);
+  const resetTag = formatRelativeTime(bucket.resetTime);
+  const winLabel = bucket.window === '5h' ? '5h Limit' : 'Weekly';
+
+  return `
+    <div class="agy-gauge-item" title="${esc(bucket.displayName)}${resetTag ? ' (resets ' + esc(resetTag) + ')' : ''}">
+      <div class="agy-circle-wrapper">
+        <svg width="54" height="54" viewBox="0 0 54 54" class="agy-circle-svg">
+          <circle cx="27" cy="27" r="22" class="agy-circle-track" />
+          <circle cx="27" cy="27" r="22" class="agy-circle-fill" 
+            style="stroke: ${strokeColor}; stroke-dasharray: ${CIRCUMFERENCE}; stroke-dashoffset: ${offset};" />
+        </svg>
+        <span class="agy-circle-text ${statCls}">${Math.round(pct)}<span class="agy-pct-sym">%</span></span>
+      </div>
+      <div class="agy-gauge-info">
+        <span class="agy-gauge-window">${winLabel}</span>
+        <span class="agy-gauge-reset">${resetTag ? esc(resetTag) : '100%'}</span>
+      </div>
+    </div>
+  `;
 }
 
 export function renderAntigravity(data?: AntigravityAccountQuota[] | null): void {
@@ -65,44 +136,30 @@ export function renderAntigravity(data?: AntigravityAccountQuota[] | null): void
     `;
   }
 
-  let itemsHtml = '';
+  let modelsHtml = '';
   if (account.groups && account.groups.length > 0) {
-    const rows: string[] = [];
-
-    for (const group of account.groups) {
+    const groupCards = account.groups.map(group => {
       const isGemini = group.displayName.toLowerCase().includes('gemini');
-      const groupLabel = isGemini ? 'Gemini' : 'Claude / GPT';
+      const modelTitle = isGemini ? 'Gemini Models' : 'Claude & GPT Models';
+      const { fiveHour, weekly } = extractModelBuckets(group.buckets);
 
-      for (const bucket of group.buckets) {
-        const is5h = bucket.window === '5h' || bucket.bucketId.includes('5h');
-        const winLabel = is5h ? '5h' : 'Weekly';
-        const pct = bucket.remainingPct;
-        const cls = getStatClass(pct);
-        const resetTag = formatRelativeTime(bucket.resetTime);
-
-        rows.push(`
-          <div class="agy-item">
-            <div class="info-row">
-              <span class="key">${groupLabel} <span class="agy-win-tag">${winLabel}</span></span>
-              <span class="val ${cls}">
-                ${pct.toFixed(1)}%
-                ${resetTag ? `<span class="agy-reset-hint">${esc(resetTag)}</span>` : ''}
-              </span>
-            </div>
-            <div class="bar-wrap agy-bar">
-              <div class="bar-fill ${cls}" style="width: ${Math.min(Math.max(pct, 0), 100)}%"></div>
-            </div>
+      return `
+        <div class="agy-model-group">
+          <div class="agy-model-title">${esc(modelTitle)}</div>
+          <div class="agy-gauges-row">
+            ${renderCircularGauge(fiveHour)}
+            ${renderCircularGauge(weekly)}
           </div>
-        `);
-      }
-    }
+        </div>
+      `;
+    }).join('');
 
-    itemsHtml = `<div class="agy-grid">${rows.join('')}</div>`;
+    modelsHtml = `<div class="agy-models-container">${groupCards}</div>`;
   } else {
-    itemsHtml = '<div class="none">No quota data available.</div>';
+    modelsHtml = '<div class="none">No quota data available.</div>';
   }
 
-  container.innerHTML = accountSelectorHtml + itemsHtml;
+  container.innerHTML = accountSelectorHtml + modelsHtml;
 
   // Event handlers for account tabs
   const pills = container.querySelectorAll<HTMLButtonElement>('.filter-pill[data-idx]');
