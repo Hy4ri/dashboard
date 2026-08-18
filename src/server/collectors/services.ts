@@ -15,6 +15,7 @@ export const SERVICES: ServiceDef[] = [
   { name: 'Bazarr', port: 6767 },
   { name: 'Dufs', port: 5050 },
   { name: 'Technitium', port: 5380 },
+  { name: 'Hermes', port: 9119 },
 ];
 
 export function checkPort(port: number): Promise<boolean> {
