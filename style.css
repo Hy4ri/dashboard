@@ -358,3 +358,109 @@ body::after {
 .torrent-item.paused .torrent-fill {
   background: linear-gradient(90deg, #555, #777);
 }
+
+/* Antigravity Quota Card */
+.agy-account-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.agy-acc-tab {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 3px 8px;
+  border-radius: 1px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.agy-acc-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-bright);
+}
+.agy-acc-tab.active {
+  background: rgba(153, 0, 0, 0.22);
+  border-color: var(--accent);
+  color: var(--text-bright);
+  font-weight: 600;
+}
+.agy-groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+.agy-group-col {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 1px;
+  padding: var(--space-2) var(--space-3);
+}
+.agy-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: var(--space-2);
+}
+.agy-buckets-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+.agy-bucket-card {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.agy-bucket-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.agy-bucket-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.agy-reset-tag {
+  font-size: 9px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  opacity: 0.8;
+}
+.agy-bucket-num {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.agy-mini-bar {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 1px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+.agy-mini-fill {
+  height: 100%;
+  border-radius: 1px;
+  transition: width 0.4s ease;
+}
+.agy-mini-fill.val-green {
+  background: var(--green);
+}
+.agy-mini-fill.val-yellow {
+  background: var(--yellow);
+}
+.agy-mini-fill.val-red {
+  background: var(--red);
+}

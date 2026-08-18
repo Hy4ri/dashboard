@@ -13,6 +13,7 @@ import { collectQBittorrent } from './collectors/qbittorrent';
 import { collectConnectivity } from './collectors/connectivity';
 import { collectServices } from './collectors/services';
 import { collectTechnitium } from './collectors/technitium';
+import { collectAntigravity } from './collectors/antigravity';
 import { AUTH_PASS } from './config';
 import { state, prev } from './state';
 
@@ -23,7 +24,7 @@ export async function collect(): Promise<void> {
   const [
     cpuText, netText, diskText, loadText, memText,
     thermal, freq, diskUse, battery, sys, pm2List, torrents,
-    services, dnsStats
+    services, dnsStats, antigravity
   ] = await Promise.all([
     readFile('/proc/stat'),
     readFile('/proc/net/dev'),
@@ -39,6 +40,7 @@ export async function collect(): Promise<void> {
     collectQBittorrent(),
     collectServices(),
     collectTechnitium(),
+    collectAntigravity(),
   ]);
 
   const { cpuOverall, cpuCores } = collectCPU(cpuText, interval);
@@ -81,6 +83,7 @@ export async function collect(): Promise<void> {
     torrents,
     services,
     dnsStats,
+    antigravity,
     authEnabled: !!AUTH_PASS,
   });
 }
