@@ -78,6 +78,15 @@ if (logoutBtn) {
 // Initial connect
 connectWS();
 
+// Register Service Worker for PWA
+if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(err => {
+      console.warn('ServiceWorker registration error:', err);
+    });
+  });
+}
+
 // Pause WebSocket connection when tab is hidden
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {

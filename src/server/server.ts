@@ -27,7 +27,10 @@ const MIME: HeaderMap = {
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
   '.json': 'application/json',
+  '.webmanifest': 'application/manifest+json',
 };
 
 // Root of the project (parent of src/server or dist/server)
@@ -193,8 +196,9 @@ export function createServer(): http.Server {
     }
 
     // Auth gate for everything else
+    const isPublicAsset = ['/manifest.json', '/sw.js', '/icon.svg', '/icon-192.png', '/icon-512.png', '/favicon.ico'].includes(requestPath);
     const authed = isAuthenticated(req);
-    if (!authed) {
+    if (!authed && !isPublicAsset) {
       if (requestPath.startsWith('/api')) {
         res.writeHead(401, SECURITY_HEADERS);
         return res.end('Unauthorized');
@@ -258,7 +262,7 @@ export function createServer(): http.Server {
     // Static files — with gzip + caching
     const ext = path.extname(filePath);
     const contentType = MIME[ext] || 'application/octet-stream';
-    const canCache = ['.html', '.css', '.js', '.svg', '.json'].includes(ext);
+    const canCache = ['.html', '.css', '.js', '.svg', '.png', '.ico', '.json', '.webmanifest'].includes(ext);
     const rawEncoding = req.headers['accept-encoding'];
     const acceptEncoding = Array.isArray(rawEncoding) ? rawEncoding.join(',') : (rawEncoding || '');
 
