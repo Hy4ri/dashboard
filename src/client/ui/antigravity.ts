@@ -2,8 +2,8 @@ import { $, esc } from '../utils/dom.js';
 import { AntigravityAccountQuota, AntigravityQuotaBucket } from '../../shared/types.js';
 
 let selectedAccountIndex = 0;
-// Circle radius r=14, viewBox 0 0 36 36 -> circumference = 2 * PI * 14
-const CIRCUMFERENCE = 87.96;
+// Circle radius r=12.5, viewBox 0 0 32 32 -> circumference = 2 * PI * 12.5
+const CIRCUMFERENCE = 78.54;
 
 function getStrokeColor(pct: number): string {
   if (pct >= 50) return 'var(--green)';
@@ -29,13 +29,13 @@ function formatRelativeTime(isoStr?: string): string {
 
   if (days > 0) {
     const remHours = hours % 24;
-    return `${days}d ${remHours}h`;
+    return `in ${days}d ${remHours}h`;
   }
   if (hours > 0) {
     const remMins = mins % 60;
-    return `${hours}h ${remMins}m`;
+    return `in ${hours}h ${remMins}m`;
   }
-  return `${mins}m`;
+  return `in ${mins}m`;
 }
 
 interface NormalizedBucket {
@@ -87,9 +87,9 @@ function renderCircularGauge(label: string, bucket: NormalizedBucket): string {
   return `
     <div class="agy-mini-card" title="${esc(label)} ${esc(bucket.displayName)}${resetTag ? ' — resets in ' + esc(resetTag) : ''}">
       <div class="agy-circle-box">
-        <svg width="38" height="38" viewBox="0 0 36 36" class="agy-circle-svg">
-          <circle cx="18" cy="18" r="14" class="agy-circle-track" />
-          <circle cx="18" cy="18" r="14" class="agy-circle-fill" 
+        <svg width="34" height="34" viewBox="0 0 32 32" class="agy-circle-svg">
+          <circle cx="16" cy="16" r="12.5" class="agy-circle-track" />
+          <circle cx="16" cy="16" r="12.5" class="agy-circle-fill" 
             style="stroke: ${strokeColor}; stroke-dasharray: ${CIRCUMFERENCE}; stroke-dashoffset: ${offset};" />
         </svg>
         <span class="agy-circle-num ${statCls}">${Math.round(pct)}</span>

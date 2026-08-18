@@ -359,14 +359,14 @@ body::after {
   background: linear-gradient(90deg, #555, #777);
 }
 
-/* Antigravity Quota Card (Ultra-Compact Adaptive Circular Design) */
+/* Antigravity Quota Card (Ultra-Compact Adaptive 4-in-a-Row) */
 #antigravity-card .card-content {
-  padding: var(--space-2) var(--space-3);
+  padding: 6px 10px;
 }
 .agy-toolbar {
   display: flex;
-  margin-bottom: var(--space-2);
-  padding-bottom: var(--space-1);
+  margin-bottom: 6px;
+  padding-bottom: 4px;
   border-bottom: 1px solid var(--border-subtle);
 }
 .agy-filter-pills {
@@ -375,17 +375,23 @@ body::after {
 }
 .agy-mini-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: var(--space-2);
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+@media (max-width: 540px) {
+  .agy-mini-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 .agy-mini-card {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   border-radius: 1px;
-  padding: 5px 8px;
+  padding: 4px 6px;
+  min-width: 0;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 .agy-mini-card:hover {
@@ -394,8 +400,8 @@ body::after {
 }
 .agy-circle-box {
   position: relative;
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -408,35 +414,36 @@ body::after {
 .agy-circle-track {
   fill: none;
   stroke: rgba(255, 255, 255, 0.08);
-  stroke-width: 3;
+  stroke-width: 2.8;
 }
 .agy-circle-fill {
   fill: none;
-  stroke-width: 3;
+  stroke-width: 2.8;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.4s ease, stroke 0.2s ease;
 }
 .agy-circle-num {
   position: absolute;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: -0.5px;
 }
 .agy-meta {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0px;
   min-width: 0;
   overflow: hidden;
 }
 .agy-meta-title {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--text-bright);
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
+  line-height: 1.2;
 }
 .agy-meta-win {
   font-size: 9px;
@@ -446,10 +453,11 @@ body::after {
   font-weight: normal;
 }
 .agy-meta-time {
-  font-size: 10px;
+  font-size: 9.5px;
   color: var(--text-muted);
   font-family: var(--font-mono);
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
+  line-height: 1.2;
 }
