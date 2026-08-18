@@ -139,7 +139,7 @@ export function renderSparklines(data?: DashboardState | null): void {
     'mem-sparkline',
     history.mem,
     100,
-    '#64B5F6',
+    '#CC3333',
     '#mem-sparkline-container',
     '30s RAM'
   );
