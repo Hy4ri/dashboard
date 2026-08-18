@@ -15,6 +15,7 @@ import { renderTorrents } from './ui/torrents.js';
 import { renderThermal } from './ui/thermal.js';
 import { renderSystem } from './ui/system.js';
 import { renderSparklines } from './ui/sparklines.js';
+import { renderAntigravity } from './ui/antigravity.js';
 import { checkAlerts, initNotifications } from './ui/alerts.js';
 import { updateServiceHealth } from './service-bar.js';
 import { updateCPULoad } from './particles.js';
@@ -60,6 +61,7 @@ export function updateUI(data?: DashboardState | null): void {
 
   // New modules
   renderSparklines(data);
+  renderAntigravity(data.antigravity);
   checkAlerts(data);
   updateServiceHealth(data.services);
   updateCPULoad(data.cpu);
