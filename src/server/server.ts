@@ -135,7 +135,7 @@ const handleAPI = createHandleAPI({
 });
 const handlePM2Control = createPM2Route({ collect });
 const handlePM2Logs = createPM2LogsRoute();
-const handleQBDelete = createQBittorrentRoute();
+const handleQBAction = createQBittorrentRoute();
 
 export function createServer(): http.Server {
   const server = http.createServer((req: http.IncomingMessage, res: http.ServerResponse) => {
@@ -233,10 +233,10 @@ export function createServer(): http.Server {
         return handlePM2Logs(req, res, pm2LogsMatch[1], linesParam);
       }
 
-      // qBittorrent delete endpoint (POST only)
-      const qbDeleteMatch = requestPath.match(/^\/api\/qbittorrent\/delete\/([a-fA-F0-9]{40})$/);
-      if (qbDeleteMatch && req.method === 'POST') {
-        return handleQBDelete(req, res, qbDeleteMatch[1]);
+      // qBittorrent action endpoint (POST only: delete, pause, resume)
+      const qbActionMatch = requestPath.match(/^\/api\/qbittorrent\/(delete|pause|resume)\/([a-fA-F0-9]{40}|all)$/);
+      if (qbActionMatch && req.method === 'POST') {
+        return handleQBAction(req, res, qbActionMatch[1], qbActionMatch[2]);
       }
 
       // API status endpoint
