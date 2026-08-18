@@ -2,10 +2,11 @@ import http from 'http';
 import { execFile } from 'child_process';
 import { getPM2Process } from '../collectors/pm2';
 
-function runTail(filePath: string | null | undefined): Promise<string> {
+function runTail(filePath: string | null | undefined, lines: number = 100): Promise<string> {
   return new Promise((resolve) => {
     if (!filePath) return resolve('');
-    execFile('tail', ['-n', '100', filePath], { timeout: 1000 }, (err, stdout, stderr) => {
+    const lineCount = Math.min(Math.max(lines, 10), 1000);
+    execFile('tail', ['-n', String(lineCount), filePath], { timeout: 1000 }, (err, stdout, stderr) => {
       if (err) return resolve(`[Error reading log: ${err.message}]`);
       const output = stdout || stderr || '';
       // Prepend single ISO timestamp header instead of per-line
@@ -16,7 +17,7 @@ function runTail(filePath: string | null | undefined): Promise<string> {
         String(now.getHours()).padStart(2, '0') + ':' +
         String(now.getMinutes()).padStart(2, '0') + ':' +
         String(now.getSeconds()).padStart(2, '0');
-      resolve(`[${ts}] (last 100 lines)\n${output}`);
+      resolve(`[${ts}] (last ${lineCount} lines)\n${output}`);
     });
   });
 }
@@ -25,7 +26,8 @@ export function createPM2LogsRoute() {
   return async function handlePM2Logs(
     req: http.IncomingMessage,
     res: http.ServerResponse,
-    name: string
+    name: string,
+    linesCount: number = 100
   ): Promise<void> {
     if (!name || /[;|&$`()<>]/.test(name)) {
       res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -46,8 +48,8 @@ export function createPM2LogsRoute() {
       const errLogPath = proc._full && proc._full.pm2_env ? proc._full.pm2_env.pm_err_log_path : null;
 
       const [outLogs, errLogs] = await Promise.all([
-        runTail(outLogPath),
-        runTail(errLogPath),
+        runTail(outLogPath, linesCount),
+        runTail(errLogPath, linesCount),
       ]);
 
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });

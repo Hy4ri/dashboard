@@ -6,9 +6,12 @@ import { PM2Process } from '../../shared/types.js';
 
 let eventsRegistered = false;
 let headersRegistered = false;
+let filtersRegistered = false;
 let currentSortBy: keyof PM2Process | null = 'name'; // default sort by name
 let currentSortOrder: 'asc' | 'desc' = 'asc'; // asc or desc
 let lastPM2Data: PM2Process[] | null = null; // cached copy of last data payload for immediate resort
+let searchQuery = '';
+let statusFilter = 'all';
 
 const COLS = 4; // Name+Status, CPU, Memory, Actions
 
@@ -99,6 +102,30 @@ function updateHeaderIndicators(): void {
   }
 }
 
+function setupPM2Filters(): void {
+  if (filtersRegistered) return;
+
+  const searchInput = $<HTMLInputElement>('pm2-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      searchQuery = searchInput.value.trim().toLowerCase();
+      if (lastPM2Data) renderPM2(lastPM2Data);
+    });
+  }
+
+  const pills = document.querySelectorAll<HTMLElement>('#pm2-filter-pills .filter-pill');
+  pills.forEach((pill) => {
+    pill.addEventListener('click', () => {
+      pills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      statusFilter = pill.getAttribute('data-filter') || 'all';
+      if (lastPM2Data) renderPM2(lastPM2Data);
+    });
+  });
+
+  filtersRegistered = true;
+}
+
 function buildActionsHTML(name: string, status: string): string {
   return '<div class="pm2-actions-cell">' +
     (status === 'stopped'
@@ -123,10 +150,25 @@ export function renderPM2(data?: PM2Process[] | null): void {
 
   setupPM2Actions();
   setupPM2Headers();
+  setupPM2Filters();
   updateHeaderIndicators();
 
+  // Apply search & status filters
+  let filteredData = [...data];
+  if (searchQuery) {
+    filteredData = filteredData.filter(p => p.name.toLowerCase().includes(searchQuery));
+  }
+  if (statusFilter !== 'all') {
+    filteredData = filteredData.filter(p => p.status === statusFilter);
+  }
+
+  if (filteredData.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="' + COLS + '" class="none">No matching processes found</td></tr>';
+    return;
+  }
+
   // Sort data copy
-  const sortedData = [...data];
+  const sortedData = filteredData;
   if (currentSortBy) {
     const field = currentSortBy;
     sortedData.sort((a, b) => {
@@ -149,7 +191,8 @@ export function renderPM2(data?: PM2Process[] | null): void {
     // Rebuild all rows
     tbody.innerHTML = sortedData.map(p => {
       const stCls = p.status === 'online' ? 'online' : p.status === 'errored' ? 'errored' : 'stopped';
-      const nameSuffix = p.restarts > 0 ? ' <span class="restart-count">• ' + p.restarts + '</span>' : '';
+      const restartWarnCls = p.restarts >= 5 ? ' restart-high' : '';
+      const nameSuffix = p.restarts > 0 ? ' <span class="restart-count' + restartWarnCls + '" title="' + p.restarts + ' restarts">• ' + p.restarts + '</span>' : '';
       return '<tr data-pm-id="' + p.id + '">' +
         '<td><span class="status-indicator ' + stCls + '"></span><strong>' + esc(p.name) + '</strong>' + nameSuffix + '</td>' +
         '<td>' + p.cpu.toFixed(1) + '%</td>' +
@@ -182,10 +225,12 @@ export function renderPM2(data?: PM2Process[] | null): void {
     if (targetProcess.restarts > 0) {
       if (!restSpan) {
         restSpan = document.createElement('span');
-        restSpan.className = 'restart-count';
         cells[0].appendChild(restSpan);
       }
+      const restartWarnCls = targetProcess.restarts >= 5 ? ' restart-high' : '';
+      restSpan.className = 'restart-count' + restartWarnCls;
       restSpan.textContent = '• ' + targetProcess.restarts;
+      restSpan.setAttribute('title', targetProcess.restarts + ' restarts');
     } else {
       if (restSpan) restSpan.remove();
     }
