@@ -238,48 +238,51 @@
       </div>
     </section>
 
-    <!-- Network -->
-    <section class="card" id="net-card" role="region" aria-label="Network traffic" data-accordion data-state="open">
-      <button class="card-header" aria-expanded="true" data-accordion-trigger>
-        Network
-        <span class="net-rate" id="net-rate-indicator" style="display:none">
-          <span class="net-rate-down">↓ —</span>
-          <span class="net-rate-up">↑ —</span>
-        </span>
-        <span class="chevron" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </span>
-      </button>
-      <div class="card-content">
-        <div id="net-connectivity" class="connectivity-row" aria-live="polite">
-          <div class="connectivity-item">
-            <span class="connectivity-label">Internet</span>
-            <span class="connectivity-status" id="net-internet-status">—</span>
-          </div>
-          <div class="connectivity-item">
-            <span class="connectivity-label">Technitium DNS</span>
-            <span class="connectivity-status" id="net-dns-status">—</span>
+    <!-- Network & Antigravity Column -->
+    <div class="card-col">
+      <!-- Network -->
+      <section class="card" id="net-card" role="region" aria-label="Network traffic" data-accordion data-state="open">
+        <button class="card-header" aria-expanded="true" data-accordion-trigger>
+          Network
+          <span class="net-rate" id="net-rate-indicator" style="display:none">
+            <span class="net-rate-down">↓ —</span>
+            <span class="net-rate-up">↑ —</span>
+          </span>
+          <span class="chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </span>
+        </button>
+        <div class="card-content">
+          <div id="net-connectivity" class="connectivity-row" aria-live="polite">
+            <div class="connectivity-item">
+              <span class="connectivity-label">Internet</span>
+              <span class="connectivity-status" id="net-internet-status">—</span>
+            </div>
+            <div class="connectivity-item">
+              <span class="connectivity-label">Technitium DNS</span>
+              <span class="connectivity-status" id="net-dns-status">—</span>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Antigravity Quota -->
-    <section class="card" id="antigravity-card" role="region" aria-label="Antigravity Quota" data-accordion data-state="open" style="display:none">
-      <button class="card-header" aria-expanded="true" data-accordion-trigger>
-        Antigravity Quota
-        <span class="chevron" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </span>
-      </button>
-      <div class="card-content" id="antigravity-content" aria-live="polite">
-        <div class="none">Loading Antigravity quota...</div>
-      </div>
-    </section>
+      <!-- Antigravity Quota -->
+      <section class="card" id="antigravity-card" role="region" aria-label="Antigravity Quota" data-accordion data-state="open" style="display:none">
+        <button class="card-header" aria-expanded="true" data-accordion-trigger>
+          Antigravity Quota
+          <span class="chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </span>
+        </button>
+        <div class="card-content" id="antigravity-content" aria-live="polite">
+          <div class="none">Loading Antigravity quota...</div>
+        </div>
+      </section>
+    </div>
 
     <!-- Web Terminal -->
     <section class="card" id="terminal-card" role="region" aria-label="Terminal" data-accordion data-state="open">
