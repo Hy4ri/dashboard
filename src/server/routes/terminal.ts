@@ -1,4 +1,4 @@
-import pty from 'node-pty';
+import * as pty from 'node-pty';
 import os from 'os';
 import fs from 'fs';
 import { WebSocketServer, WebSocket } from 'ws';
@@ -22,15 +22,24 @@ export function createTerminalRoute(wss: WebSocketServer): void {
     const rows = parseInt(url.searchParams.get('rows') || '', 10) || 30;
 
     const shell = resolveShell();
-    const term = pty.spawn(shell, [], {
-      name: 'xterm-256color',
-      cols,
-      rows,
-      cwd: process.env.HOME || '/',
-      env: Object.assign({}, process.env, { TERM: 'xterm-256color', COLORTERM: 'truecolor' }),
-    });
-
-    console.log(`[Terminal] PTY started: pid=${term.pid} cols=${term.cols} rows=${term.rows}`);
+    let term: any;
+    try {
+      term = pty.spawn(shell, [], {
+        name: 'xterm-256color',
+        cols,
+        rows,
+        cwd: process.env.HOME || '/',
+        env: Object.assign({}, process.env, { TERM: 'xterm-256color', COLORTERM: 'truecolor' }),
+      });
+      console.log(`[Terminal] PTY started: pid=${term.pid} cols=${term.cols} rows=${term.rows}`);
+    } catch (err: any) {
+      console.warn(`[Terminal] Failed to spawn PTY: ${err?.message || err}`);
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'output', data: `\r\n\x1b[31mFailed to spawn terminal: ${err?.message || err}\x1b[0m\r\n` }));
+        ws.close();
+      }
+      return;
+    }
 
     // Send PTY output to WebSocket client
     term.onData((data: string) => {
@@ -43,7 +52,7 @@ export function createTerminalRoute(wss: WebSocketServer): void {
       }
     });
 
-    term.onExit(({ exitCode }) => {
+    term.onExit(({ exitCode }: { exitCode: number }) => {
       console.log(`[Terminal] PTY exited: code=${exitCode}`);
       if (ws.readyState === 1) {
         try {
