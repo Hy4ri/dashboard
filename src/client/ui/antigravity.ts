@@ -2,7 +2,8 @@ import { $, esc } from '../utils/dom.js';
 import { AntigravityAccountQuota, AntigravityQuotaBucket } from '../../shared/types.js';
 
 let selectedAccountIndex = 0;
-const CIRCUMFERENCE = 138.23; // 2 * Math.PI * 22
+// Circle radius r=14, viewBox 0 0 36 36 -> circumference = 2 * PI * 14
+const CIRCUMFERENCE = 87.96;
 
 function getStrokeColor(pct: number): string {
   if (pct >= 50) return 'var(--green)';
@@ -28,13 +29,13 @@ function formatRelativeTime(isoStr?: string): string {
 
   if (days > 0) {
     const remHours = hours % 24;
-    return `in ${days}d ${remHours}h`;
+    return `${days}d ${remHours}h`;
   }
   if (hours > 0) {
     const remMins = mins % 60;
-    return `in ${hours}h ${remMins}m`;
+    return `${hours}h ${remMins}m`;
   }
-  return `in ${mins}m`;
+  return `${mins}m`;
 }
 
 interface NormalizedBucket {
@@ -75,27 +76,27 @@ function extractModelBuckets(buckets: AntigravityQuotaBucket[]): ModelQuotaPair 
   return { fiveHour, weekly };
 }
 
-function renderCircularGauge(bucket: NormalizedBucket): string {
+function renderCircularGauge(label: string, bucket: NormalizedBucket): string {
   const pct = Math.min(Math.max(bucket.remainingPct, 0), 100);
   const strokeColor = getStrokeColor(pct);
   const statCls = getStatClass(pct);
   const offset = (CIRCUMFERENCE * (1 - pct / 100)).toFixed(2);
   const resetTag = formatRelativeTime(bucket.resetTime);
-  const winLabel = bucket.window === '5h' ? '5h Limit' : 'Weekly';
+  const win = bucket.window === '5h' ? '5h' : 'Wk';
 
   return `
-    <div class="agy-gauge-item" title="${esc(bucket.displayName)}${resetTag ? ' (resets ' + esc(resetTag) + ')' : ''}">
-      <div class="agy-circle-wrapper">
-        <svg width="54" height="54" viewBox="0 0 54 54" class="agy-circle-svg">
-          <circle cx="27" cy="27" r="22" class="agy-circle-track" />
-          <circle cx="27" cy="27" r="22" class="agy-circle-fill" 
+    <div class="agy-mini-card" title="${esc(label)} ${esc(bucket.displayName)}${resetTag ? ' — resets in ' + esc(resetTag) : ''}">
+      <div class="agy-circle-box">
+        <svg width="38" height="38" viewBox="0 0 36 36" class="agy-circle-svg">
+          <circle cx="18" cy="18" r="14" class="agy-circle-track" />
+          <circle cx="18" cy="18" r="14" class="agy-circle-fill" 
             style="stroke: ${strokeColor}; stroke-dasharray: ${CIRCUMFERENCE}; stroke-dashoffset: ${offset};" />
         </svg>
-        <span class="agy-circle-text ${statCls}">${Math.round(pct)}<span class="agy-pct-sym">%</span></span>
+        <span class="agy-circle-num ${statCls}">${Math.round(pct)}</span>
       </div>
-      <div class="agy-gauge-info">
-        <span class="agy-gauge-window">${winLabel}</span>
-        <span class="agy-gauge-reset">${resetTag ? esc(resetTag) : '100%'}</span>
+      <div class="agy-meta">
+        <span class="agy-meta-title">${esc(label)} <span class="agy-meta-win">${win}</span></span>
+        <span class="agy-meta-time">${resetTag ? esc(resetTag) : '100%'}</span>
       </div>
     </div>
   `;
@@ -120,7 +121,7 @@ export function renderAntigravity(data?: AntigravityAccountQuota[] | null): void
   const account = data[selectedAccountIndex];
   if (!account) return;
 
-  // Account selector pills
+  // Compact account tabs
   let accountSelectorHtml = '';
   if (data.length > 1) {
     accountSelectorHtml = `
@@ -136,30 +137,25 @@ export function renderAntigravity(data?: AntigravityAccountQuota[] | null): void
     `;
   }
 
-  let modelsHtml = '';
+  let gaugesHtml = '';
   if (account.groups && account.groups.length > 0) {
-    const groupCards = account.groups.map(group => {
+    const gaugeItems: string[] = [];
+
+    for (const group of account.groups) {
       const isGemini = group.displayName.toLowerCase().includes('gemini');
-      const modelTitle = isGemini ? 'Gemini Models' : 'Claude & GPT Models';
+      const shortName = isGemini ? 'Gemini' : 'Claude';
       const { fiveHour, weekly } = extractModelBuckets(group.buckets);
 
-      return `
-        <div class="agy-model-group">
-          <div class="agy-model-title">${esc(modelTitle)}</div>
-          <div class="agy-gauges-row">
-            ${renderCircularGauge(fiveHour)}
-            ${renderCircularGauge(weekly)}
-          </div>
-        </div>
-      `;
-    }).join('');
+      gaugeItems.push(renderCircularGauge(shortName, fiveHour));
+      gaugeItems.push(renderCircularGauge(shortName, weekly));
+    }
 
-    modelsHtml = `<div class="agy-models-container">${groupCards}</div>`;
+    gaugesHtml = `<div class="agy-mini-grid">${gaugeItems.join('')}</div>`;
   } else {
-    modelsHtml = '<div class="none">No quota data available.</div>';
+    gaugesHtml = '<div class="none">No quota data available.</div>';
   }
 
-  container.innerHTML = accountSelectorHtml + modelsHtml;
+  container.innerHTML = accountSelectorHtml + gaugesHtml;
 
   // Event handlers for account tabs
   const pills = container.querySelectorAll<HTMLButtonElement>('.filter-pill[data-idx]');

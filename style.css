@@ -359,56 +359,43 @@ body::after {
   background: linear-gradient(90deg, #555, #777);
 }
 
-/* Antigravity Quota Card (Circular Progress Rings) */
+/* Antigravity Quota Card (Ultra-Compact Adaptive Circular Design) */
+#antigravity-card .card-content {
+  padding: var(--space-2) var(--space-3);
+}
 .agy-toolbar {
   display: flex;
-  margin-bottom: var(--space-3);
-  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-1);
   border-bottom: 1px solid var(--border-subtle);
 }
 .agy-filter-pills {
   display: flex;
-  gap: 4px;
+  gap: 3px;
 }
-.agy-models-container {
+.agy-mini-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--space-2);
 }
-.agy-model-group {
+.agy-mini-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   border-radius: 1px;
-  padding: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  padding: 5px 8px;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
-.agy-model-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.agy-mini-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
 }
-.agy-gauges-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-2);
-}
-.agy-gauge-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--border-subtle);
-  border-radius: 1px;
-  padding: 8px;
-}
-.agy-circle-wrapper {
+.agy-circle-box {
   position: relative;
-  width: 54px;
-  height: 54px;
+  width: 38px;
+  height: 38px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -420,43 +407,49 @@ body::after {
 }
 .agy-circle-track {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.07);
-  stroke-width: 3.5;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 3;
 }
 .agy-circle-fill {
   fill: none;
-  stroke-width: 3.5;
+  stroke-width: 3;
   stroke-linecap: round;
-  transition: stroke-dashoffset 0.5s ease, stroke 0.3s ease;
+  transition: stroke-dashoffset 0.4s ease, stroke 0.2s ease;
 }
-.agy-circle-text {
+.agy-circle-num {
   position: absolute;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  display: flex;
-  align-items: baseline;
+  letter-spacing: -0.5px;
 }
-.agy-pct-sym {
-  font-size: 9px;
-  opacity: 0.7;
-  margin-left: 0.5px;
-}
-.agy-gauge-info {
+.agy-meta {
   display: flex;
   flex-direction: column;
   gap: 1px;
   min-width: 0;
+  overflow: hidden;
 }
-.agy-gauge-window {
+.agy-meta-title {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-bright);
   white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
-.agy-gauge-reset {
+.agy-meta-win {
+  font-size: 9px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  opacity: 0.8;
+  font-weight: normal;
+}
+.agy-meta-time {
   font-size: 10px;
   color: var(--text-muted);
   font-family: var(--font-mono);
   white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
