@@ -5,14 +5,12 @@ const HISTORY_LIMIT = 30;
 
 interface MetricHistory {
   cpu: number[];
-  mem: number[];
   rx: number[];
   tx: number[];
 }
 
 const history: MetricHistory = {
   cpu: [],
-  mem: [],
   rx: [],
   tx: [],
 };
@@ -109,9 +107,6 @@ export function renderSparklines(data?: DashboardState | null): void {
   if (data.cpu !== undefined && data.cpu !== null) {
     pushHistory('cpu', data.cpu);
   }
-  if (data.memory && data.memory.used_pct !== undefined) {
-    pushHistory('mem', data.memory.used_pct);
-  }
 
   let totalRx = 0;
   let totalTx = 0;
@@ -134,17 +129,7 @@ export function renderSparklines(data?: DashboardState | null): void {
     '30s Load'
   );
 
-  // 3. Render Memory Sparkline
-  updateSparkline(
-    'mem-sparkline',
-    history.mem,
-    100,
-    '#CC3333',
-    '#mem-sparkline-container',
-    '30s RAM'
-  );
-
-  // 4. Create Network Sparkline container in card if not exists
+  // 3. Create Network Sparkline container in card if not exists
   let netWrapper = $('net-sparklines-row');
   if (!netWrapper) {
     const connectivity = $('net-connectivity');
