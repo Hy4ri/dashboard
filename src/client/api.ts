@@ -144,7 +144,14 @@ export function disconnectWS(): void {
   }
 }
 
-export function fetchStatus(): void {
-  // Legacy fallback or WS trigger
-  if (!socket) connectWS();
+export async function fetchStatus(): Promise<void> {
+  try {
+    const res = await fetch('/api/status');
+    if (res.ok) {
+      const data: DashboardState = await res.json();
+      updateUI(data);
+    }
+  } catch (err) {
+    console.warn('fetchStatus failed:', err);
+  }
 }

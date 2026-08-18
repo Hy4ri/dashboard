@@ -229,7 +229,8 @@ export function createServer(): http.Server {
       // PM2 logs endpoint (GET only)
       const pm2LogsMatch = requestPath.match(/^\/api\/pm2\/logs\/(.+)$/);
       if (pm2LogsMatch && req.method === 'GET') {
-        return handlePM2Logs(req, res, pm2LogsMatch[1]);
+        const linesParam = parseInt(url.searchParams.get('lines') || '100', 10) || 100;
+        return handlePM2Logs(req, res, pm2LogsMatch[1], linesParam);
       }
 
       // qBittorrent delete endpoint (POST only)
