@@ -5,6 +5,7 @@ import { connectWS, disconnectWS } from './api.js';
 import { initServiceBar } from './service-bar.js';
 import { setupPM2Menu } from './pm2-menu.js';
 import { initPM2UI } from './ui/pm2.js';
+import { initTorrentsUI } from './ui/torrents.js';
 import { setupTorrentDelete } from './events.js';
 import { initTerminal } from './ui/terminal.js';
 import './particles.js';
@@ -55,6 +56,7 @@ initAccordions();
 // Setup event handlers
 setupPM2Menu();
 initPM2UI();
+initTorrentsUI();
 setupTorrentDelete();
 initTerminal();
 

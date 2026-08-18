@@ -2,22 +2,72 @@ import { $, esc } from '../utils/dom.js';
 import { fmtBytesRate, fmtBytes } from '../utils/format.js';
 import { TorrentItem } from '../../shared/types.js';
 
+let torrentFilter = 'all';
+let filtersRegistered = false;
+let lastTorrentData: TorrentItem[] | null = null;
+
+function isTorrentPaused(state: string | null | undefined): boolean {
+  if (!state) return false;
+  const s = state.toLowerCase();
+  return s.includes('pause') || s.includes('stop');
+}
+
+function setupTorrentFilters(): void {
+  if (filtersRegistered) return;
+
+  const pills = document.querySelectorAll<HTMLElement>('#torrent-filter-pills .filter-pill');
+  pills.forEach((pill) => {
+    pill.addEventListener('click', (e) => {
+      e.preventDefault();
+      pills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      torrentFilter = pill.getAttribute('data-filter') || 'all';
+      if (lastTorrentData) renderTorrents(lastTorrentData);
+    });
+  });
+
+  filtersRegistered = true;
+}
+
+function updateTorrentCounts(torrents: TorrentItem[]): void {
+  const total = torrents.length;
+  const down = torrents.filter(t => t.progress < 1 && !isTorrentPaused(t.state)).length;
+  const seed = torrents.filter(t => t.progress >= 1 || (t.ratio != null && t.ratio > 0)).length;
+  const paused = torrents.filter(t => isTorrentPaused(t.state)).length;
+
+  const setCnt = (id: string, val: number) => {
+    const el = $(id);
+    if (el) el.textContent = String(val);
+  };
+
+  setCnt('torrent-count-all', total);
+  setCnt('torrent-count-down', down);
+  setCnt('torrent-count-seed', seed);
+  setCnt('torrent-count-pause', paused);
+}
+
+export function initTorrentsUI(): void {
+  setupTorrentFilters();
+}
+
 export function renderTorrents(torrents?: TorrentItem[] | null): void {
   const card = $('torrent-card');
   const list = $('torrent-list');
   const countEl = $('torrent-count');
   if (!card || !list) return;
 
+  setupTorrentFilters();
+
   if (!torrents || torrents.length === 0) {
     list.innerHTML = '<div class="none">No active downloads. Torrents will appear here when downloading.</div>';
     if (countEl) countEl.textContent = '';
+    updateTorrentCounts([]);
+    lastTorrentData = null;
     return;
   }
 
-  // Skip rebuild if data hasn't changed
-  const serialized = JSON.stringify(torrents);
-  if (list.dataset.lastTorrents === serialized) return;
-  list.dataset.lastTorrents = serialized;
+  lastTorrentData = torrents;
+  updateTorrentCounts(torrents);
 
   const total = torrents.length;
   const done = torrents.filter(t => t.progress >= 1).length;
@@ -28,28 +78,45 @@ export function renderTorrents(torrents?: TorrentItem[] | null): void {
     countEl.innerHTML = parts.join(' ');
   }
 
-  list.innerHTML = torrents.map(t => {
-    const pct = t.progress * 100;
+  // Filter torrents
+  let filtered = torrents;
+  if (torrentFilter === 'downloading') {
+    filtered = torrents.filter(t => t.progress < 1 && !isTorrentPaused(t.state));
+  } else if (torrentFilter === 'seeding') {
+    filtered = torrents.filter(t => t.progress >= 1 || (t.ratio != null && t.ratio > 0));
+  } else if (torrentFilter === 'paused') {
+    filtered = torrents.filter(t => isTorrentPaused(t.state));
+  }
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="none">No torrents matching filter "' + esc(torrentFilter) + '"</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(t => {
+    const pct = (t.progress * 100).toFixed(1);
+    const paused = isTorrentPaused(t.state);
     const stateLabel = t.state ? t.state.charAt(0).toUpperCase() + t.state.slice(1) : 'Unknown';
     const ratioClass = t.ratio > 1 ? 'ratio-good' : '';
     const ratio = t.ratio != null
       ? '<span class="' + ratioClass + '">' + t.ratio.toFixed(2) + ' ratio</span>'
       : '';
-    return '<div class="torrent-item">' +
+
+    const pauseResumeBtn = paused
+      ? '<button class="torrent-action-btn resume" data-action="resume" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Resume torrent" aria-label="Resume ' + esc(t.name) + '">▶</button>'
+      : '<button class="torrent-action-btn pause" data-action="pause" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Pause torrent" aria-label="Pause ' + esc(t.name) + '">⏸</button>';
+
+    return '<div class="torrent-item' + (paused ? ' paused' : '') + '">' +
       '<div class="torrent-header">' +
         '<span class="torrent-name" title="' + esc(t.name) + '">' + esc(t.name) + '</span>' +
-        '<button class="torrent-delete" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Delete torrent and remove files" aria-label="Delete ' + esc(t.name) + '">' +
-          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-            '<polyline points="3 6 5 6 21 6"/>' +
-            '<path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>' +
-            '<line x1="10" y1="11" x2="10" y2="17"/>' +
-            '<line x1="14" y1="11" x2="14" y2="17"/>' +
-          '</svg>' +
-        '</button>' +
+        '<div class="torrent-actions">' +
+          pauseResumeBtn +
+          '<button class="torrent-action-btn delete" data-action="delete" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Delete torrent and remove files" aria-label="Delete ' + esc(t.name) + '">✕</button>' +
+        '</div>' +
       '</div>' +
       '<div class="torrent-bar"><div class="torrent-fill" style="width:' + pct + '%"></div></div>' +
       '<div class="torrent-stats">' +
-        '<span>' + stateLabel + '</span>' +
+        '<span class="torrent-state-pill ' + (paused ? 'paused' : 'active') + '">' + stateLabel + ' (' + pct + '%)</span>' +
         '<span>↓ ' + fmtBytesRate(t.dlspeed) + '</span>' +
         '<span>↑ ' + fmtBytesRate(t.upspeed) + '</span>' +
         '<span>' + fmtBytes(t.size) + '</span>' +
