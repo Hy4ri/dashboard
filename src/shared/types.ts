@@ -101,6 +101,11 @@ export interface SystemData {
   arch: string | null;
 }
 
+export interface ActionResult {
+  success: boolean;
+  error?: string;
+}
+
 export interface TorrentItem {
   hash: string;
   name: string;
