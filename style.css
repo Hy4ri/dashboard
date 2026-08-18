@@ -108,3 +108,57 @@
   background: #111;
   color: #fff;
 }
+
+/* Telemetry & Thermals (Feature 3) */
+.sparkline-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+.sparkline-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  justify-content: space-between;
+}
+.sparkline-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-weight: 500;
+  font-family: var(--font-sans);
+}
+.sparkline-svg {
+  display: block;
+}
+.sparkline-path {
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.15));
+}
+.thermal-item .temp.temp-cool {
+  color: var(--green);
+  background: rgba(76, 175, 80, 0.08);
+  border: 1px solid rgba(76, 175, 80, 0.2);
+  padding: 1px 6px;
+  border-radius: 1px;
+  font-size: var(--text-xs);
+}
+.thermal-item .temp.temp-warm {
+  color: var(--yellow);
+  background: rgba(255, 183, 77, 0.1);
+  border: 1px solid rgba(255, 183, 77, 0.25);
+  padding: 1px 6px;
+  border-radius: 1px;
+  font-size: var(--text-xs);
+}
+.thermal-item .temp.temp-critical {
+  color: var(--red);
+  background: rgba(239, 83, 80, 0.15);
+  border: 1px solid rgba(239, 83, 80, 0.35);
+  padding: 1px 6px;
+  border-radius: 1px;
+  font-size: var(--text-xs);
+  font-weight: 700;
+}

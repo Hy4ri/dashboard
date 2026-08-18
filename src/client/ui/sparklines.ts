@@ -43,6 +43,22 @@ function generatePath(data: number[], maxVal: number | 'auto' = 100): string {
   return `M ${points.join(' L ')}`;
 }
 
+function generateAreaPath(data: number[], maxVal: number | 'auto' = 100): string {
+  if (data.length < 2) return '';
+  const width = 120;
+  const height = 24;
+  const max = maxVal === 'auto' ? Math.max(...data, 1) : maxVal;
+
+  const points = data.map((val, idx) => {
+    const x = idx * (width / (HISTORY_LIMIT - 1));
+    const y = height - ((val / max) * (height - 6)) - 3;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+
+  const lastX = ((data.length - 1) * (width / (HISTORY_LIMIT - 1))).toFixed(1);
+  return `M ${points.join(' L ')} L ${lastX},${height} L 0,${height} Z`;
+}
+
 function updateSparkline(
   id: string,
   data: number[],
@@ -63,6 +79,7 @@ function updateSparkline(
     wrapper.innerHTML = `
       ${labelText ? `<span class="sparkline-label">${labelText}</span>` : ''}
       <svg width="120" height="24" viewBox="0 0 120 24" class="sparkline-svg">
+        <path class="sparkline-area" fill="${color}" fill-opacity="0.15" />
         <path class="sparkline-path" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
     `;
@@ -78,6 +95,10 @@ function updateSparkline(
   const path = wrapper.querySelector('.sparkline-path');
   if (path) {
     path.setAttribute('d', generatePath(data, maxVal));
+  }
+  const area = wrapper.querySelector('.sparkline-area');
+  if (area) {
+    area.setAttribute('d', generateAreaPath(data, maxVal));
   }
 }
 
@@ -108,9 +129,9 @@ export function renderSparklines(data?: DashboardState | null): void {
     'cpu-sparkline',
     history.cpu,
     100,
-    'var(--primary-color, #ff3333)',
+    '#CC3333',
     '#cpu-sparkline-container',
-    ''
+    '30s Load'
   );
 
   // 3. Render Memory Sparkline
@@ -118,9 +139,9 @@ export function renderSparklines(data?: DashboardState | null): void {
     'mem-sparkline',
     history.mem,
     100,
-    'var(--accent-color, #33ccff)',
-    '#mem-bar .bar-label',
-    ''
+    '#CC3333',
+    '#mem-sparkline-container',
+    '30s RAM'
   );
 
   // 4. Create Network Sparkline container in card if not exists
@@ -141,7 +162,7 @@ export function renderSparklines(data?: DashboardState | null): void {
       'rx-sparkline',
       history.rx,
       'auto',
-      '#22c55e', // Green
+      '#4CAF50',
       '#net-sparklines-row',
       'Download'
     );
@@ -151,7 +172,7 @@ export function renderSparklines(data?: DashboardState | null): void {
       'tx-sparkline',
       history.tx,
       'auto',
-      '#eab308', // Yellow
+      '#FFB74D',
       '#net-sparklines-row',
       'Upload'
     );

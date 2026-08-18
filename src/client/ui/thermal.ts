@@ -3,6 +3,12 @@ import { $, esc, setTextOf } from '../utils/dom.js';
 import { THERMAL_MAP } from '../config.js';
 import { ThermalSensor } from '../../shared/types.js';
 
+function getTempClass(temp: number): string {
+  if (temp >= 75) return 'temp-critical';
+  if (temp >= 60) return 'temp-warm';
+  return 'temp-cool';
+}
+
 export function renderThermal(data?: ThermalSensor[] | null): void {
   const container = $('thermal-grid');
   if (!container) return;
@@ -20,11 +26,11 @@ export function renderThermal(data?: ThermalSensor[] | null): void {
 
   if (existing.length !== sorted.length) {
     container.innerHTML = sorted.map(t => {
-      const hot = t.temp > 70 ? 'very-hot' : t.temp > 55 ? 'hot' : '';
+      const cls = getTempClass(t.temp);
       const label = THERMAL_MAP[t.name] || t.name;
       return '<div class="thermal-item" data-zone="' + esc(t.name) + '">' +
         '<span class="label">' + esc(label) + '</span>' +
-        '<span class="temp ' + hot + '">' + fmtTemp(t.temp) + '</span></div>';
+        '<span class="temp ' + cls + '">' + fmtTemp(t.temp) + '</span></div>';
     }).join('');
     return;
   }
@@ -36,8 +42,8 @@ export function renderThermal(data?: ThermalSensor[] | null): void {
     if (!item) continue;
     const tempEl = item.querySelector<HTMLElement>('.temp');
     if (tempEl) {
-      const hot = t.temp > 70 ? 'very-hot' : t.temp > 55 ? 'hot' : '';
-      tempEl.className = 'temp' + (hot ? ' ' + hot : '');
+      const cls = getTempClass(t.temp);
+      tempEl.className = 'temp ' + cls;
       setTextOf(tempEl, fmtTemp(t.temp));
     }
   }
