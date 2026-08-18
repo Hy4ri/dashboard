@@ -115,7 +115,7 @@ export function setupPM2Menu(): void {
         // Get all PM2 processes from the table
         const rows = document.querySelectorAll('#pm2-body tr[data-pm-id]');
         const names = Array.from(rows).map(row => {
-          const nameEl = row.querySelector('td:nth-child(2) strong');
+          const nameEl = row.querySelector('td strong');
           return nameEl ? nameEl.textContent?.trim() : null;
         }).filter(Boolean);
 
