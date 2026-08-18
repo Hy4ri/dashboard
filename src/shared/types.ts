@@ -120,6 +120,26 @@ export interface TorrentItem {
   ratio: number;
 }
 
+export interface AntigravityQuotaBucket {
+  bucketId: string;
+  displayName: string;
+  window: string;
+  resetTime?: string;
+  remainingFraction: number;
+  remainingPct: number;
+}
+
+export interface AntigravityQuotaGroup {
+  displayName: string;
+  buckets: AntigravityQuotaBucket[];
+}
+
+export interface AntigravityAccountQuota {
+  email: string;
+  project?: string;
+  groups: AntigravityQuotaGroup[];
+}
+
 export interface DashboardState {
   timestamp?: number;
   pm2?: PM2Process[];
@@ -139,5 +159,6 @@ export interface DashboardState {
   torrents?: TorrentItem[];
   services?: Record<string, boolean>;
   dnsStats?: TechnitiumStats;
+  antigravity?: AntigravityAccountQuota[];
   authEnabled?: boolean;
 }
