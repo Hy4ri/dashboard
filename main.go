@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -1067,7 +1068,12 @@ func collectTechnitium() *TechnitiumStats {
 	}
 	u := fmt.Sprintf("%s/api/dashboard/stats/get?token=%s&type=LastDay",
 		strings.TrimRight(cfg.TechnitiumURL, "/"), url.QueryEscape(cfg.TechnitiumToken))
-	client := &http.Client{Timeout: 3 * time.Second}
+	client := &http.Client{
+		Timeout: 3 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
 	resp, err := client.Get(u)
 	if err != nil {
 		errStr := err.Error()
