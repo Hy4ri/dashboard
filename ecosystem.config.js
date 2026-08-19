@@ -1,7 +1,8 @@
 module.exports = {
   apps: [{
     name: 'dashboard',
-    script: './dist/server/index.js',
+    script: 'bun',
+    args: 'dist/server/index.js',
     instances: 1,
     exec_mode: 'fork',
     env: {

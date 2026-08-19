@@ -11,8 +11,8 @@
     "build:server": "tsc -p tsconfig.server.json",
     "build:client": "tsc -p tsconfig.client.json",
     "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.client.json --noEmit",
-    "start": "node dist/server/index.js",
-    "dev": "tsx src/server/index.ts",
+    "start": "bun dist/server/index.js",
+    "dev": "bun --watch src/server/index.ts",
     "pm2:start": "pm2 start ecosystem.config.js",
     "pm2:stop": "pm2 stop ecosystem.config.js",
     "pm2:restart": "pm2 restart ecosystem.config.js"
