@@ -1,13 +1,11 @@
 module.exports = {
   apps: [{
     name: 'dashboard',
-    script: 'bun',
-    args: 'dist/server/index.js',
+    script: './monit-server',
     instances: 1,
     exec_mode: 'fork',
     env: {
       PORT: 8080,
-      NODE_ENV: 'production',
     },
     watch: false,
     max_memory_restart: '100M',

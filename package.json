@@ -7,11 +7,11 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.server.json && tsc -p tsconfig.client.json",
-    "build:server": "tsc -p tsconfig.server.json",
+    "build": "go build -mod=mod -o monit-server . && tsc -p tsconfig.client.json",
+    "build:server": "go build -mod=mod -o monit-server .",
     "build:client": "tsc -p tsconfig.client.json",
-    "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.client.json --noEmit",
-    "start": "bun dist/server/index.js",
+    "typecheck": "tsc -p tsconfig.client.json --noEmit",
+    "start": "./monit-server",
     "dev": "bun --watch src/server/index.ts",
     "pm2:start": "pm2 start ecosystem.config.js",
     "pm2:stop": "pm2 stop ecosystem.config.js",
