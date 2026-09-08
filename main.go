@@ -1247,7 +1247,7 @@ func collectAntigravity() []AntigravityAccountQuota {
 			project, _ := authMap["project_id"].(string)
 
 			payload := []byte(fmt.Sprintf(`{"project":"%s"}`, project))
-			req, _ := http.NewRequest("POST", "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary", bytes.NewReader(payload))
+			req, _ := http.NewRequest("POST", "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary", bytes.NewReader(payload))
 			req.Header.Set("Authorization", "Bearer "+token)
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("User-Agent", "Antigravity/1.0")
@@ -1257,7 +1257,18 @@ func collectAntigravity() []AntigravityAccountQuota {
 				if resp != nil {
 					resp.Body.Close()
 				}
-				continue
+				// Fallback to standard cloudcode-pa if daily is unreachable
+				fallbackReq, _ := http.NewRequest("POST", "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary", bytes.NewReader(payload))
+				fallbackReq.Header.Set("Authorization", "Bearer "+token)
+				fallbackReq.Header.Set("Content-Type", "application/json")
+				fallbackReq.Header.Set("User-Agent", "Antigravity/1.0")
+				resp, err = client.Do(fallbackReq)
+				if err != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {
+					if resp != nil {
+						resp.Body.Close()
+					}
+					continue
+				}
 			}
 			var quotaResp struct {
 				Groups []struct {
