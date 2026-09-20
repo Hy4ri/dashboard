@@ -1191,12 +1191,13 @@ func collectQBittorrent() []TorrentItem {
 		}
 		defer resp.Body.Close()
 		for _, c := range resp.Cookies() {
-			if c.Name == "SID" {
+			// qBittorrent 5.x scopes the session cookie to the WebUI port (for example, QBT_SID_7777); older versions used SID.
+			if c.Name == "SID" || strings.HasPrefix(c.Name, "QBT_SID_") {
 				qbCookie = c.String()
 				return true
 			}
 		}
-		return resp.StatusCode == 200
+		return resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent
 	}
 
 	list, code, err := fetchTorrents()
@@ -1688,12 +1689,13 @@ func handleQBAction(w http.ResponseWriter, r *http.Request, action, hash string)
 		}
 		defer resp.Body.Close()
 		for _, c := range resp.Cookies() {
-			if c.Name == "SID" {
+			// qBittorrent 5.x scopes the session cookie to the WebUI port (for example, QBT_SID_7777); older versions used SID.
+			if c.Name == "SID" || strings.HasPrefix(c.Name, "QBT_SID_") {
 				qbCookie = c.String()
 				return true
 			}
 		}
-		return resp.StatusCode == 200
+		return resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent
 	}
 
 	doAction := func(act, h string) (bool, string) {
