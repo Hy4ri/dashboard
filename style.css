@@ -472,3 +472,27 @@ body::after {
   overflow: hidden;
   line-height: 1.2;
 }
+
+/* PM2 Process List Scroll & Max-Height */
+#pm2-card .table-wrap {
+  display: block;
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) rgba(0, 0, 0, 0.2);
+}
+#pm2-card .table-wrap::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+#pm2-card .table-wrap::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+#pm2-card .table-wrap::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+#pm2-card .table-wrap::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
