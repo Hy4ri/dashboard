@@ -7,7 +7,6 @@ import { setupPM2Menu } from './pm2-menu.js';
 import { initPM2UI } from './ui/pm2.js';
 import { initTorrentsUI } from './ui/torrents.js';
 import { setupTorrentDelete } from './events.js';
-import { initTerminal } from './ui/terminal.js';
 import './particles.js';
 
 document.title = 'Server Dashboard — Loading...';
@@ -58,7 +57,6 @@ setupPM2Menu();
 initPM2UI();
 initTorrentsUI();
 setupTorrentDelete();
-initTerminal();
 
 // Logout Button handler
 const logoutBtn = $('logout-btn');
