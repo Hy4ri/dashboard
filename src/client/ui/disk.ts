@@ -8,8 +8,6 @@ export function renderDisk(disk?: DiskData | null): void {
     if (fill) fill.style.width = '0%';
     setText('disk-used-label', NONE);
     setText('disk-pct', NONE);
-    setText('disk-total', NONE);
-    setText('disk-used', NONE);
     setText('disk-avail', NONE);
     return;
   }
@@ -22,7 +20,5 @@ export function renderDisk(disk?: DiskData | null): void {
   }
   updateBar('disk-bar-fill', pct, (pct * 100).toFixed(1) + '%');
   setText('disk-used-label', fmtBytes(used) + ' / ' + fmtBytes(total));
-  setText('disk-total', fmtBytes(total));
-  setText('disk-used', fmtBytes(used));
   setText('disk-avail', fmtBytes(disk.available));
 }

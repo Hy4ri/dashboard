@@ -140,6 +140,32 @@ export interface AntigravityAccountQuota {
   groups: AntigravityQuotaGroup[];
 }
 
+export interface ClaudeUsageWindow {
+  utilization: number;
+  resetsAt?: string;
+}
+
+export interface ClaudeUsageData {
+  email?: string;
+  planType?: string;
+  fiveHour?: ClaudeUsageWindow;
+  sevenDay?: ClaudeUsageWindow;
+  breakdown?: Record<string, number>;
+}
+
+export interface CodexUsageWindow {
+  usedPercent: number;
+  windowDurationMins?: number;
+  resetsAt: number;
+}
+
+export interface CodexUsageData {
+  email?: string;
+  planType?: string;
+  primaryWindow?: CodexUsageWindow;
+  secondaryWindow?: CodexUsageWindow;
+}
+
 export interface DashboardState {
   timestamp?: number;
   pm2?: PM2Process[];
@@ -160,5 +186,7 @@ export interface DashboardState {
   services?: Record<string, boolean>;
   dnsStats?: TechnitiumStats;
   antigravity?: AntigravityAccountQuota[];
+  claudeUsage?: ClaudeUsageData;
+  codexUsage?: CodexUsageData;
   authEnabled?: boolean;
 }

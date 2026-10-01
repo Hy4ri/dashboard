@@ -61,7 +61,7 @@ export function updateUI(data?: DashboardState | null): void {
 
   // New modules
   renderSparklines(data);
-  renderAntigravity(data.antigravity);
+  renderAntigravity(data.antigravity, data.claudeUsage, data.codexUsage);
   checkAlerts(data);
   updateServiceHealth(data.services);
   updateCPULoad(data.cpu);

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -9,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"net"
@@ -276,6 +278,32 @@ type AntigravityAccountQuota struct {
 	Groups  []AntigravityQuotaGroup `json:"groups"`
 }
 
+type ClaudeUsageWindow struct {
+	Utilization float64 `json:"utilization"`
+	ResetsAt    string  `json:"resetsAt,omitempty"`
+}
+
+type ClaudeUsageData struct {
+	Email     string             `json:"email,omitempty"`
+	PlanType  string             `json:"planType,omitempty"`
+	FiveHour  *ClaudeUsageWindow `json:"fiveHour,omitempty"`
+	SevenDay  *ClaudeUsageWindow `json:"sevenDay,omitempty"`
+	Breakdown map[string]int     `json:"breakdown,omitempty"`
+}
+
+type CodexUsageWindow struct {
+	UsedPercent        float64 `json:"usedPercent"`
+	WindowDurationMins int64   `json:"windowDurationMins,omitempty"`
+	ResetsAt           int64   `json:"resetsAt"`
+}
+
+type CodexUsageData struct {
+	Email           string            `json:"email,omitempty"`
+	PlanType        string            `json:"planType,omitempty"`
+	PrimaryWindow   *CodexUsageWindow `json:"primaryWindow,omitempty"`
+	SecondaryWindow *CodexUsageWindow `json:"secondaryWindow,omitempty"`
+}
+
 type DashboardState struct {
 	Timestamp   int64                              `json:"timestamp,omitempty"`
 	PM2         []PM2Process                       `json:"pm2,omitempty"`
@@ -296,6 +324,8 @@ type DashboardState struct {
 	Services    map[string]bool                    `json:"services,omitempty"`
 	DNSStats    *TechnitiumStats                   `json:"dnsStats,omitempty"`
 	Antigravity []AntigravityAccountQuota          `json:"antigravity,omitempty"`
+	ClaudeUsage *ClaudeUsageData                   `json:"claudeUsage,omitempty"`
+	CodexUsage  *CodexUsageData                    `json:"codexUsage,omitempty"`
 	AuthEnabled bool                               `json:"authEnabled"`
 }
 
@@ -357,6 +387,8 @@ var (
 	qbCache          Cache[[]TorrentItem]
 	connCache        Cache[struct{ Internet, DNS ConnectivityStatus }]
 	antiGravCache    Cache[[]AntigravityAccountQuota]
+	claudeCache      Cache[*ClaudeUsageData]
+	codexCache       Cache[*CodexUsageData]
 	qbCookie         string
 	wsClients        = make(map[*websocket.Conn]bool)
 	wsMu             sync.Mutex
@@ -1328,6 +1360,221 @@ func collectAntigravity() []AntigravityAccountQuota {
 	return res
 }
 
+func collectClaudeUsage() *ClaudeUsageData {
+	now := time.Now()
+	if claudeCache.Value != nil && now.Sub(claudeCache.Time) < cfg.AntiGravTTL {
+		return claudeCache.Value
+	}
+
+	credPath := "/.claude/.credentials.json"
+	raw, err := os.ReadFile(credPath)
+	if err != nil {
+		log.Printf("Claude read error: %v", err)
+		return claudeCache.Value
+	}
+
+	var credMap map[string]interface{}
+	if err := json.Unmarshal(raw, &credMap); err != nil {
+		log.Printf("Claude json error: %v", err)
+		return claudeCache.Value
+	}
+	oauth, _ := credMap["claudeAiOauth"].(map[string]interface{})
+	if oauth == nil {
+		log.Printf("Claude oauth nil")
+		return claudeCache.Value
+	}
+	token, _ := oauth["accessToken"].(string)
+	if token == "" {
+		log.Printf("Claude token empty")
+		return claudeCache.Value
+	}
+
+	client := &http.Client{Timeout: 4 * time.Second}
+	req, err := http.NewRequest("GET", "https://api.anthropic.com/api/oauth/usage", nil)
+	if err != nil {
+		log.Printf("Claude new request err: %v", err)
+		return claudeCache.Value
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("User-Agent", "claude-code/2.1.283")
+
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if resp != nil {
+			log.Printf("Claude request failed with status: %d", resp.StatusCode)
+			resp.Body.Close()
+		} else {
+			log.Printf("Claude request err: %v", err)
+		}
+		return claudeCache.Value
+	}
+	defer resp.Body.Close()
+
+	var apiResp struct {
+		FiveHour struct {
+			Utilization float64 `json:"utilization"`
+			ResetsAt    string  `json:"resets_at"`
+		} `json:"five_hour"`
+		SevenDay struct {
+			Utilization float64 `json:"utilization"`
+			ResetsAt    string  `json:"resets_at"`
+		} `json:"seven_day"`
+		SevenDayBreakdown struct {
+			Rows []struct {
+				Key     string `json:"key"`
+				Percent int    `json:"percent"`
+			} `json:"rows"`
+		} `json:"seven_day_breakdown"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		log.Printf("Claude decode error: %v", err)
+		return claudeCache.Value
+	}
+
+	breakdown := make(map[string]int)
+	for _, row := range apiResp.SevenDayBreakdown.Rows {
+		breakdown[row.Key] = row.Percent
+	}
+
+	result := &ClaudeUsageData{
+		Email:    "hiari45@gmail.com",
+		PlanType: "pro",
+		FiveHour: &ClaudeUsageWindow{
+			Utilization: apiResp.FiveHour.Utilization,
+			ResetsAt:    apiResp.FiveHour.ResetsAt,
+		},
+		SevenDay: &ClaudeUsageWindow{
+			Utilization: apiResp.SevenDay.Utilization,
+			ResetsAt:    apiResp.SevenDay.ResetsAt,
+		},
+		Breakdown: breakdown,
+	}
+
+	claudeCache = Cache[*ClaudeUsageData]{Value: result, Time: now}
+	return result
+}
+
+func collectCodexUsage() *CodexUsageData {
+	now := time.Now()
+	if codexCache.Value != nil && now.Sub(codexCache.Time) < cfg.AntiGravTTL {
+		return codexCache.Value
+	}
+
+	cmd := exec.Command("codex", "app-server", "--stdio")
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return codexCache.Value
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		stdin.Close()
+		return codexCache.Value
+	}
+
+	if err := cmd.Start(); err != nil {
+		stdin.Close()
+		return codexCache.Value
+	}
+
+	done := make(chan struct{})
+	var result *CodexUsageData
+
+	go func() {
+		defer close(done)
+		defer stdin.Close()
+		defer cmd.Process.Kill()
+
+		scanner := bufio.NewScanner(stdout)
+
+		// 1. Send initialize
+		initReq := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"monit","title":"monit","version":"1.0.0"},"capabilities":{}}}` + "\n"
+		if _, err := io.WriteString(stdin, initReq); err != nil {
+			return
+		}
+
+		for scanner.Scan() {
+			line := scanner.Bytes()
+			var msg map[string]interface{}
+			if err := json.Unmarshal(line, &msg); err != nil {
+				continue
+			}
+			if id, ok := msg["id"].(float64); ok && id == 1 {
+				break
+			}
+		}
+
+		// 2. Send initialized notification
+		initNotif := `{"jsonrpc":"2.0","method":"initialized","params":{}}` + "\n"
+		if _, err := io.WriteString(stdin, initNotif); err != nil {
+			return
+		}
+
+		// 3. Request account/rateLimits/read
+		rlReq := `{"jsonrpc":"2.0","id":2,"method":"account/rateLimits/read","params":{}}` + "\n"
+		if _, err := io.WriteString(stdin, rlReq); err != nil {
+			return
+		}
+
+		for scanner.Scan() {
+			line := scanner.Bytes()
+			var msg struct {
+				ID     int `json:"id"`
+				Result struct {
+					RateLimits struct {
+						PlanType string `json:"planType"`
+						Primary  struct {
+							UsedPercent        float64 `json:"usedPercent"`
+							WindowDurationMins int64   `json:"windowDurationMins"`
+							ResetsAt           int64   `json:"resetsAt"`
+						} `json:"primary"`
+						Secondary struct {
+							UsedPercent        float64 `json:"usedPercent"`
+							WindowDurationMins int64   `json:"windowDurationMins"`
+							ResetsAt           int64   `json:"resetsAt"`
+						} `json:"secondary"`
+					} `json:"rateLimits"`
+				} `json:"result"`
+			}
+			if err := json.Unmarshal(line, &msg); err != nil {
+				continue
+			}
+			if msg.ID == 2 {
+				plan := msg.Result.RateLimits.PlanType
+				if plan == "" {
+					plan = "plus"
+				}
+				result = &CodexUsageData{
+					Email:    "m57.steam@gmail.com",
+					PlanType: plan,
+					PrimaryWindow: &CodexUsageWindow{
+						UsedPercent:        msg.Result.RateLimits.Primary.UsedPercent,
+						WindowDurationMins: msg.Result.RateLimits.Primary.WindowDurationMins,
+						ResetsAt:           msg.Result.RateLimits.Primary.ResetsAt,
+					},
+					SecondaryWindow: &CodexUsageWindow{
+						UsedPercent:        msg.Result.RateLimits.Secondary.UsedPercent,
+						WindowDurationMins: msg.Result.RateLimits.Secondary.WindowDurationMins,
+						ResetsAt:           msg.Result.RateLimits.Secondary.ResetsAt,
+					},
+				}
+				return
+			}
+		}
+	}()
+
+	select {
+	case <-done:
+		if result != nil {
+			codexCache = Cache[*CodexUsageData]{Value: result, Time: now}
+		}
+	case <-time.After(3 * time.Second):
+		cmd.Process.Kill()
+	}
+
+	return codexCache.Value
+}
+
 func collectAll() {
 	now := time.Now()
 	interval := now.Sub(prevState.Time).Seconds()
@@ -1396,6 +1643,8 @@ func collectAll() {
 	internet, dnsStat := collectConnectivity()
 	dnsStats := collectTechnitium()
 	antiGrav := collectAntigravity()
+	claudeUsage := collectClaudeUsage()
+	codexUsage := collectCodexUsage()
 
 	newState := DashboardState{
 		Timestamp:   now.UnixMilli(),
@@ -1417,6 +1666,8 @@ func collectAll() {
 		Services:    services,
 		DNSStats:    dnsStats,
 		Antigravity: antiGrav,
+		ClaudeUsage: claudeUsage,
+		CodexUsage:  codexUsage,
 		AuthEnabled: cfg.AuthPass != "",
 	}
 
