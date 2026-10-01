@@ -359,49 +359,93 @@ body::after {
   background: linear-gradient(90deg, #555, #777);
 }
 
-/* Antigravity Quota Card (Adaptive 4-in-a-Row) */
+/* Antigravity Quota Card */
 #antigravity-card[data-state="open"] {
-  flex: 1;
   display: flex;
   flex-direction: column;
 }
 #antigravity-card .card-content {
-  padding: 10px 12px;
+  padding: 12px 14px;
 }
 #antigravity-card[data-state="open"] .card-content {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  gap: 10px;
 }
 .agy-toolbar {
   display: flex;
-  margin-bottom: 8px;
-  padding-bottom: 6px;
+  margin-bottom: 2px;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--border-subtle);
+}
+.agy-account-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+.ai-info-bar {
+  padding: 2px 0 6px;
+}
+.ai-account-badge {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-bright);
+}
+.ai-meta-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 8px;
+  border-radius: 2px;
+  border: 1px solid var(--border-subtle);
 }
 .agy-filter-pills {
   display: flex;
   gap: 4px;
 }
+.ai-card-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ai-model-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ai-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-bottom: 2px;
+}
 .agy-mini-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
-@media (max-width: 540px) {
+@media (max-width: 480px) {
   .agy-mini-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
   }
 }
 .agy-mini-card {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   border-radius: 1px;
-  padding: 8px 8px;
+  padding: 10px 12px;
   min-width: 0;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
@@ -411,8 +455,8 @@ body::after {
 }
 .agy-circle-box {
   position: relative;
-  width: 34px;
-  height: 34px;
+  width: 42px;
+  height: 42px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -425,30 +469,30 @@ body::after {
 .agy-circle-track {
   fill: none;
   stroke: rgba(255, 255, 255, 0.08);
-  stroke-width: 2.8;
+  stroke-width: 3;
 }
 .agy-circle-fill {
   fill: none;
-  stroke-width: 2.8;
+  stroke-width: 3;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.4s ease, stroke 0.2s ease;
 }
 .agy-circle-num {
   position: absolute;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 700;
   letter-spacing: -0.5px;
 }
 .agy-meta {
   display: flex;
   flex-direction: column;
-  gap: 0px;
+  gap: 2px;
   min-width: 0;
   overflow: hidden;
 }
 .agy-meta-title {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-bright);
   white-space: nowrap;
@@ -457,20 +501,35 @@ body::after {
   line-height: 1.2;
 }
 .agy-meta-win {
-  font-size: 9px;
+  font-size: 9.5px;
   color: var(--text-muted);
   font-family: var(--font-mono);
   opacity: 0.8;
   font-weight: normal;
+  margin-left: 2px;
 }
 .agy-meta-time {
-  font-size: 9.5px;
+  font-size: 10px;
   color: var(--text-muted);
   font-family: var(--font-mono);
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
   line-height: 1.2;
+}
+.ai-meta-pills {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.ai-meta-pill {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 3px 8px;
+  border-radius: 1px;
+  border: 1px solid var(--border);
 }
 
 /* PM2 Process List Scroll & Max-Height */
