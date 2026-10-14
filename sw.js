@@ -1,15 +1,10 @@
-const CACHE_NAME = 'monit-shell-v1';
+const CACHE_NAME = 'monit-assets-v2';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
   '/style.css',
   '/manifest.json',
   '/icon.svg',
   '/icon-192.png',
-  '/icon-512.png',
-  '/vendor/xterm.min.css',
-  '/vendor/xterm.min.js',
-  '/vendor/addon-fit.min.js'
+  '/icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -28,21 +23,21 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
+          if (key.startsWith('monit-') && key !== CACHE_NAME) {
             return caches.delete(key);
           }
         })
       );
     })
   );
-  self.clients.claim();
+  event.waitUntil(self.clients.claim());
 });
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // Skip API, WS, and non-GET requests
-  if (event.request.method !== 'GET' || url.pathname.startsWith('/api') || url.pathname.startsWith('/ws')) {
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin || event.request.mode === 'navigate' || (!STATIC_ASSETS.includes(url.pathname) && !url.pathname.startsWith('/dist/'))) {
     return;
   }
 
@@ -50,14 +45,13 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        if (response.status === 200) {
+        const type = response.headers.get('Content-Type') || '';
+        if (response.status === 200 && !type.includes('text/html') && !response.headers.get('Cache-Control')?.includes('no-store')) {
           const resClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, resClone);
-          });
+          event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.put(event.request, resClone)).catch(err => console.warn('Asset cache write failed:', err)));
         }
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(async () => (await caches.match(event.request)) || Response.error())
   );
 });

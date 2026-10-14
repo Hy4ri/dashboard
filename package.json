@@ -1,16 +1,17 @@
 {
   "name": "server-dashboard",
   "version": "1.0.0",
-  "description": "Lightweight server status dashboard — zero dependencies",
-  "main": "dist/server/index.js",
+  "description": "Lightweight Go server dashboard with a TypeScript frontend",
   "engines": {
     "node": ">=18"
   },
   "scripts": {
-    "build": "go build -mod=mod -o monit-server . && tsc -p tsconfig.client.json",
-    "build:server": "go build -mod=mod -o monit-server .",
+    "build": "node scripts/build.cjs",
+    "build:server": "go build -o monit-server .",
     "build:client": "tsc -p tsconfig.client.json",
     "typecheck": "tsc -p tsconfig.client.json --noEmit",
+    "test": "node tests/run.cjs",
+    "test:browser": "node tests/run.cjs --browser",
     "start": "./monit-server",
     "dev": "go run main.go",
     "pm2:start": "pm2 start ecosystem.config.js",

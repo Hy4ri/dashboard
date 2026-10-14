@@ -27,7 +27,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/creack/pty"
 	"github.com/gorilla/websocket"
 )
 
@@ -146,7 +145,7 @@ type PM2Process struct {
 	Uptime   *int64      `json:"uptime"`
 	Restarts int         `json:"restarts"`
 	PID      int         `json:"pid"`
-	Full     interface{} `json:"_full,omitempty"`
+	Full     interface{} `json:"-"`
 }
 
 type ThermalSensor struct {
@@ -305,28 +304,28 @@ type CodexUsageData struct {
 }
 
 type DashboardState struct {
-	Timestamp   int64                              `json:"timestamp,omitempty"`
-	PM2         []PM2Process                       `json:"pm2,omitempty"`
-	CPU         *float64                           `json:"cpu"`
-	CPUCores    []*float64                         `json:"cpuCores,omitempty"`
-	Thermal     []ThermalSensor                    `json:"thermal,omitempty"`
-	Frequency   []CpuFrequency                     `json:"frequency,omitempty"`
-	LoadAvg     []float64                          `json:"loadavg"`
-	Memory      *MemoryData                        `json:"memory"`
-	Swap        *SwapData                          `json:"swap"`
-	Disk        *DiskData                          `json:"disk,omitempty"`
-	Network     map[string]NetworkInterface        `json:"network,omitempty"`
-	Internet    *ConnectivityStatus                `json:"internet,omitempty"`
-	DNS         *ConnectivityStatus                `json:"dns,omitempty"`
-	Battery     *BatteryData                       `json:"battery,omitempty"`
-	System      *SystemData                        `json:"system,omitempty"`
-	Torrents    []TorrentItem                      `json:"torrents,omitempty"`
-	Services    map[string]bool                    `json:"services,omitempty"`
-	DNSStats    *TechnitiumStats                   `json:"dnsStats,omitempty"`
-	Antigravity []AntigravityAccountQuota          `json:"antigravity,omitempty"`
-	ClaudeUsage *ClaudeUsageData                   `json:"claudeUsage,omitempty"`
-	CodexUsage  *CodexUsageData                    `json:"codexUsage,omitempty"`
-	AuthEnabled bool                               `json:"authEnabled"`
+	Timestamp   int64                       `json:"timestamp,omitempty"`
+	PM2         []PM2Process                `json:"pm2"`
+	CPU         *float64                    `json:"cpu"`
+	CPUCores    []*float64                  `json:"cpuCores,omitempty"`
+	Thermal     []ThermalSensor             `json:"thermal,omitempty"`
+	Frequency   []CpuFrequency              `json:"frequency,omitempty"`
+	LoadAvg     []float64                   `json:"loadavg"`
+	Memory      *MemoryData                 `json:"memory"`
+	Swap        *SwapData                   `json:"swap"`
+	Disk        *DiskData                   `json:"disk,omitempty"`
+	Network     map[string]NetworkInterface `json:"network,omitempty"`
+	Internet    *ConnectivityStatus         `json:"internet,omitempty"`
+	DNS         *ConnectivityStatus         `json:"dns,omitempty"`
+	Battery     *BatteryData                `json:"battery,omitempty"`
+	System      *SystemData                 `json:"system,omitempty"`
+	Torrents    []TorrentItem               `json:"torrents"`
+	Services    map[string]bool             `json:"services,omitempty"`
+	DNSStats    *TechnitiumStats            `json:"dnsStats,omitempty"`
+	Antigravity []AntigravityAccountQuota   `json:"antigravity,omitempty"`
+	ClaudeUsage *ClaudeUsageData            `json:"claudeUsage,omitempty"`
+	CodexUsage  *CodexUsageData             `json:"codexUsage,omitempty"`
+	AuthEnabled bool                        `json:"authEnabled"`
 }
 
 // --- State and Cache ---
@@ -390,12 +389,19 @@ var (
 	claudeCache      Cache[*ClaudeUsageData]
 	codexCache       Cache[*CodexUsageData]
 	qbCookie         string
-	wsClients        = make(map[*websocket.Conn]bool)
+	wsClients        = make(map[*websocket.Conn]*statsClient)
 	wsMu             sync.Mutex
 	sessions         = make(map[string]time.Time)
 	sessionsMu       sync.RWMutex
 	rateLimiterMap   = make(map[string][]time.Time)
 	rateLimiterMu    sync.Mutex
+	lastLimiterSweep time.Time
+	collectMu        sync.Mutex
+	pm2Mu            sync.Mutex
+	qbMu             sync.Mutex
+	slowMu           sync.Mutex
+	slowState        DashboardState
+	slowInFlight     = make(map[string]bool)
 )
 
 // --- Helper Utilities ---
@@ -463,6 +469,21 @@ func checkRateLimit(ip string) bool {
 	rateLimiterMu.Lock()
 	defer rateLimiterMu.Unlock()
 	now := time.Now()
+	if now.Sub(lastLimiterSweep) > time.Minute {
+		for key, times := range rateLimiterMap {
+			if len(times) == 0 || now.Sub(times[len(times)-1]) > time.Minute {
+				delete(rateLimiterMap, key)
+			}
+		}
+		sessionsMu.Lock()
+		for token, expiry := range sessions {
+			if now.After(expiry) {
+				delete(sessions, token)
+			}
+		}
+		sessionsMu.Unlock()
+		lastLimiterSweep = now
+	}
 	cutoff := now.Add(-1 * time.Second)
 	times := rateLimiterMap[ip]
 	valid := make([]time.Time, 0, len(times))
@@ -591,12 +612,12 @@ func initStaticData() {
 
 	// 3. Thermal Paths
 	wantedZones := map[string]bool{
-		"cpu-1-6-step":        true,
-		"battery":             true,
-		"gpuss-0-step":        true,
-		"ddr-usr":             true,
-		"modem-lte-sub6-pa1":  true,
-		"pmr735a_tz":          true,
+		"cpu-1-6-step":       true,
+		"battery":            true,
+		"gpuss-0-step":       true,
+		"ddr-usr":            true,
+		"modem-lte-sub6-pa1": true,
+		"pmr735a_tz":         true,
 	}
 	if zones, err := readDirNames("/sys/class/thermal"); err == nil {
 		for _, z := range zones {
@@ -641,8 +662,10 @@ func collectCPU(statText string, interval float64) (*float64, []*float64) {
 			continue
 		}
 		total := 0.0
-		for _, v := range nums {
-			total += v
+		for i, v := range nums {
+			if i < 8 {
+				total += v
+			} // guest counters are already included in user/nice
 		}
 		idle := nums[3]
 		if len(nums) > 4 {
@@ -878,7 +901,7 @@ func collectDiskUsage() *DiskUsage {
 		bsize := uint64(stat.Bsize)
 		total := stat.Blocks * bsize
 		avail := stat.Bavail * bsize
-		used := total - avail
+		used := total - stat.Bfree*bsize
 		usedPct := 0.0
 		if total > 0 {
 			usedPct = math.Round((float64(used)/float64(total))*1000) / 10
@@ -948,11 +971,18 @@ func collectSystem() *SystemData {
 }
 
 func collectPM2() []PM2Process {
+	pm2Mu.Lock()
+	defer pm2Mu.Unlock()
 	now := time.Now()
-	if pm2Cache.Value != nil && now.Sub(pm2Cache.Time) < cfg.PM2CacheTTL {
+	if !pm2Cache.Time.IsZero() && now.Sub(pm2Cache.Time) < cfg.PM2CacheTTL {
 		return pm2Cache.Value
 	}
-	out, err := exec.Command("pm2", "jlist").Output()
+	// A failed refresh must not keep old measurements looking current.
+	pm2Cache.Value = nil
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	defer func() { pm2Cache.Time = now }()
+	out, err := exec.CommandContext(ctx, "pm2", "jlist").Output()
 	if err != nil {
 		return pm2Cache.Value
 	}
@@ -960,7 +990,7 @@ func collectPM2() []PM2Process {
 	if err := json.Unmarshal(out, &raw); err != nil {
 		return pm2Cache.Value
 	}
-	var res []PM2Process
+	res := make([]PM2Process, 0, len(raw))
 	for _, p := range raw {
 		pmId := 0
 		if idVal, ok := p["pm_id"].(float64); ok {
@@ -1052,7 +1082,7 @@ func collectServices() map[string]bool {
 
 func collectConnectivity() (ConnectivityStatus, ConnectivityStatus) {
 	now := time.Now()
-	if connCache.Value.Internet.Ok && now.Sub(connCache.Time) < cfg.ConnCacheTTL {
+	if !connCache.Time.IsZero() && now.Sub(connCache.Time) < cfg.ConnCacheTTL {
 		return connCache.Value.Internet, connCache.Value.DNS
 	}
 	var internet, dnsStatus ConnectivityStatus
@@ -1094,19 +1124,15 @@ func collectConnectivity() (ConnectivityStatus, ConnectivityStatus) {
 	return internet, dnsStatus
 }
 
+var technitiumClient = &http.Client{Timeout: 3 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, MaxIdleConnsPerHost: 2, IdleConnTimeout: 30 * time.Second}}
+
 func collectTechnitium() *TechnitiumStats {
 	if cfg.TechnitiumToken == "" {
 		return &TechnitiumStats{Configured: false}
 	}
 	u := fmt.Sprintf("%s/api/dashboard/stats/get?token=%s&type=LastDay",
 		strings.TrimRight(cfg.TechnitiumURL, "/"), url.QueryEscape(cfg.TechnitiumToken))
-	client := &http.Client{
-		Timeout: 3 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
-	resp, err := client.Get(u)
+	resp, err := technitiumClient.Get(u)
 	if err != nil {
 		errStr := err.Error()
 		f := false
@@ -1157,10 +1183,15 @@ func collectTechnitium() *TechnitiumStats {
 }
 
 func collectQBittorrent() []TorrentItem {
+	qbMu.Lock()
+	defer qbMu.Unlock()
 	now := time.Now()
-	if qbCache.Value != nil && now.Sub(qbCache.Time) < cfg.QBCacheTTL {
+	if !qbCache.Time.IsZero() && now.Sub(qbCache.Time) < cfg.QBCacheTTL {
 		return qbCache.Value
 	}
+	// A failed refresh must not keep old measurements looking current.
+	qbCache.Value = nil
+	defer func() { qbCache.Time = now }()
 	fetchTorrents := func() ([]TorrentItem, int, error) {
 		u := fmt.Sprintf("http://%s:%d/api/v2/torrents/info", cfg.QBHost, cfg.QBPort)
 		req, _ := http.NewRequest("GET", u, nil)
@@ -1180,7 +1211,7 @@ func collectQBittorrent() []TorrentItem {
 		if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 			return nil, resp.StatusCode, err
 		}
-		var res []TorrentItem
+		res := make([]TorrentItem, 0, len(raw))
 		for _, t := range raw {
 			hash, _ := t["hash"].(string)
 			name, _ := t["name"].(string)
@@ -1225,7 +1256,7 @@ func collectQBittorrent() []TorrentItem {
 		for _, c := range resp.Cookies() {
 			// qBittorrent 5.x scopes the session cookie to the WebUI port (for example, QBT_SID_7777); older versions used SID.
 			if c.Name == "SID" || strings.HasPrefix(c.Name, "QBT_SID_") {
-				qbCookie = c.String()
+				qbCookie = c.Name + "=" + c.Value
 				return true
 			}
 		}
@@ -1235,7 +1266,7 @@ func collectQBittorrent() []TorrentItem {
 	list, code, err := fetchTorrents()
 	if (code == 403 || qbCookie == "") && cfg.QBPass != "" {
 		if qbLogin() {
-			list, _, _ = fetchTorrents()
+			list, code, err = fetchTorrents()
 		}
 	}
 	if err == nil && list != nil {
@@ -1247,9 +1278,12 @@ func collectQBittorrent() []TorrentItem {
 
 func collectAntigravity() []AntigravityAccountQuota {
 	now := time.Now()
-	if antiGravCache.Value != nil && now.Sub(antiGravCache.Time) < cfg.AntiGravTTL {
+	if !antiGravCache.Time.IsZero() && now.Sub(antiGravCache.Time) < cfg.AntiGravTTL {
 		return antiGravCache.Value
 	}
+	// A failed refresh must not keep old measurements looking current.
+	antiGravCache.Value = nil
+	defer func() { antiGravCache.Time = now }()
 	authsDir := "/opt/cliproxyapi/auths"
 	entries, err := os.ReadDir(authsDir)
 	if err != nil {
@@ -1362,9 +1396,12 @@ func collectAntigravity() []AntigravityAccountQuota {
 
 func collectClaudeUsage() *ClaudeUsageData {
 	now := time.Now()
-	if claudeCache.Value != nil && now.Sub(claudeCache.Time) < cfg.AntiGravTTL {
+	if !claudeCache.Time.IsZero() && now.Sub(claudeCache.Time) < cfg.AntiGravTTL {
 		return claudeCache.Value
 	}
+	// A failed refresh must not keep old measurements looking current.
+	claudeCache.Value = nil
+	defer func() { claudeCache.Time = now }()
 
 	credPath := "/.claude/.credentials.json"
 	raw, err := os.ReadFile(credPath)
@@ -1411,11 +1448,11 @@ func collectClaudeUsage() *ClaudeUsageData {
 	defer resp.Body.Close()
 
 	var apiResp struct {
-		FiveHour struct {
+		FiveHour *struct {
 			Utilization float64 `json:"utilization"`
 			ResetsAt    string  `json:"resets_at"`
 		} `json:"five_hour"`
-		SevenDay struct {
+		SevenDay *struct {
 			Utilization float64 `json:"utilization"`
 			ResetsAt    string  `json:"resets_at"`
 		} `json:"seven_day"`
@@ -1437,18 +1474,12 @@ func collectClaudeUsage() *ClaudeUsageData {
 		breakdown[row.Key] = row.Percent
 	}
 
-	result := &ClaudeUsageData{
-		Email:    "",
-		PlanType: "pro",
-		FiveHour: &ClaudeUsageWindow{
-			Utilization: apiResp.FiveHour.Utilization,
-			ResetsAt:    apiResp.FiveHour.ResetsAt,
-		},
-		SevenDay: &ClaudeUsageWindow{
-			Utilization: apiResp.SevenDay.Utilization,
-			ResetsAt:    apiResp.SevenDay.ResetsAt,
-		},
-		Breakdown: breakdown,
+	result := &ClaudeUsageData{Breakdown: breakdown}
+	if apiResp.FiveHour != nil {
+		result.FiveHour = &ClaudeUsageWindow{Utilization: apiResp.FiveHour.Utilization, ResetsAt: apiResp.FiveHour.ResetsAt}
+	}
+	if apiResp.SevenDay != nil {
+		result.SevenDay = &ClaudeUsageWindow{Utilization: apiResp.SevenDay.Utilization, ResetsAt: apiResp.SevenDay.ResetsAt}
 	}
 
 	claudeCache = Cache[*ClaudeUsageData]{Value: result, Time: now}
@@ -1457,125 +1488,130 @@ func collectClaudeUsage() *ClaudeUsageData {
 
 func collectCodexUsage() *CodexUsageData {
 	now := time.Now()
-	if codexCache.Value != nil && now.Sub(codexCache.Time) < cfg.AntiGravTTL {
+	if !codexCache.Time.IsZero() && now.Sub(codexCache.Time) < cfg.AntiGravTTL {
 		return codexCache.Value
 	}
-
-	cmd := exec.Command("codex", "app-server", "--stdio")
+	// A failed refresh must not keep old measurements looking current.
+	codexCache.Value = nil
+	defer func() { codexCache.Time = now }()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "codex", "app-server", "--stdio")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return codexCache.Value
 	}
+	defer stdin.Close()
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		stdin.Close()
 		return codexCache.Value
 	}
-
-	if err := cmd.Start(); err != nil {
-		stdin.Close()
+	if err = cmd.Start(); err != nil {
 		return codexCache.Value
 	}
-
-	done := make(chan struct{})
-	var result *CodexUsageData
-
-	go func() {
-		defer close(done)
-		defer stdin.Close()
-		defer cmd.Process.Kill()
-
-		scanner := bufio.NewScanner(stdout)
-
-		// 1. Send initialize
-		initReq := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"monit","title":"monit","version":"1.0.0"},"capabilities":{}}}` + "\n"
-		if _, err := io.WriteString(stdin, initReq); err != nil {
-			return
-		}
-
+	defer func() { stdin.Close(); cmd.Process.Kill(); cmd.Wait() }()
+	scanner := bufio.NewScanner(stdout)
+	scanner.Buffer(make([]byte, 4096), 1024*1024)
+	send := func(message string) bool { _, err := io.WriteString(stdin, message+"\n"); return err == nil }
+	read := func(id int) (json.RawMessage, bool) {
 		for scanner.Scan() {
-			line := scanner.Bytes()
-			var msg map[string]interface{}
-			if err := json.Unmarshal(line, &msg); err != nil {
-				continue
-			}
-			if id, ok := msg["id"].(float64); ok && id == 1 {
-				break
-			}
-		}
-
-		// 2. Send initialized notification
-		initNotif := `{"jsonrpc":"2.0","method":"initialized","params":{}}` + "\n"
-		if _, err := io.WriteString(stdin, initNotif); err != nil {
-			return
-		}
-
-		// 3. Request account/rateLimits/read
-		rlReq := `{"jsonrpc":"2.0","id":2,"method":"account/rateLimits/read","params":{}}` + "\n"
-		if _, err := io.WriteString(stdin, rlReq); err != nil {
-			return
-		}
-
-		for scanner.Scan() {
-			line := scanner.Bytes()
 			var msg struct {
-				ID     int `json:"id"`
-				Result struct {
-					RateLimits struct {
-						PlanType string `json:"planType"`
-						Primary  struct {
-							UsedPercent        float64 `json:"usedPercent"`
-							WindowDurationMins int64   `json:"windowDurationMins"`
-							ResetsAt           int64   `json:"resetsAt"`
-						} `json:"primary"`
-						Secondary struct {
-							UsedPercent        float64 `json:"usedPercent"`
-							WindowDurationMins int64   `json:"windowDurationMins"`
-							ResetsAt           int64   `json:"resetsAt"`
-						} `json:"secondary"`
-					} `json:"rateLimits"`
-				} `json:"result"`
+				ID     int             `json:"id"`
+				Result json.RawMessage `json:"result"`
+				Error  json.RawMessage `json:"error"`
 			}
-			if err := json.Unmarshal(line, &msg); err != nil {
+			if json.Unmarshal(scanner.Bytes(), &msg) != nil || msg.ID != id {
 				continue
 			}
-			if msg.ID == 2 {
-				plan := msg.Result.RateLimits.PlanType
-				if plan == "" {
-					plan = "plus"
-				}
-				result = &CodexUsageData{
-					Email:    "",
-					PlanType: plan,
-					PrimaryWindow: &CodexUsageWindow{
-						UsedPercent:        msg.Result.RateLimits.Primary.UsedPercent,
-						WindowDurationMins: msg.Result.RateLimits.Primary.WindowDurationMins,
-						ResetsAt:           msg.Result.RateLimits.Primary.ResetsAt,
-					},
-					SecondaryWindow: &CodexUsageWindow{
-						UsedPercent:        msg.Result.RateLimits.Secondary.UsedPercent,
-						WindowDurationMins: msg.Result.RateLimits.Secondary.WindowDurationMins,
-						ResetsAt:           msg.Result.RateLimits.Secondary.ResetsAt,
-					},
-				}
-				return
+			if len(msg.Error) > 0 && string(msg.Error) != "null" {
+				return nil, false
 			}
+			return msg.Result, len(msg.Result) > 0 && string(msg.Result) != "null"
 		}
-	}()
-
-	select {
-	case <-done:
-		if result != nil {
-			codexCache = Cache[*CodexUsageData]{Value: result, Time: now}
-		}
-	case <-time.After(3 * time.Second):
-		cmd.Process.Kill()
+		return nil, false
 	}
+	if !send(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"monit","title":"monit","version":"1.0.0"},"capabilities":{}}}`) {
+		return codexCache.Value
+	}
+	if _, ok := read(1); !ok {
+		return codexCache.Value
+	}
+	if !send(`{"jsonrpc":"2.0","method":"initialized","params":{}}`) || !send(`{"jsonrpc":"2.0","id":2,"method":"account/rateLimits/read","params":{}}`) {
+		return codexCache.Value
+	}
+	raw, ok := read(2)
+	if !ok {
+		return codexCache.Value
+	}
+	var response struct {
+		RateLimits *struct {
+			PlanType  string            `json:"planType"`
+			Primary   *CodexUsageWindow `json:"primary"`
+			Secondary *CodexUsageWindow `json:"secondary"`
+		} `json:"rateLimits"`
+	}
+	if json.Unmarshal(raw, &response) != nil || response.RateLimits == nil {
+		return codexCache.Value
+	}
+	limits := response.RateLimits
+	result := &CodexUsageData{PlanType: limits.PlanType, PrimaryWindow: limits.Primary, SecondaryWindow: limits.Secondary}
+	codexCache = Cache[*CodexUsageData]{Value: result, Time: now}
+	return result
+}
 
-	return codexCache.Value
+// Slow collectors publish independently; only one refresh per source may run.
+func refreshSlow(name string, collect func() func(*DashboardState)) {
+	slowMu.Lock()
+	if slowInFlight[name] {
+		slowMu.Unlock()
+		return
+	}
+	slowInFlight[name] = true
+	slowMu.Unlock()
+	go func() {
+		update := collect()
+		slowMu.Lock()
+		update(&slowState)
+		delete(slowInFlight, name)
+		slowMu.Unlock()
+	}()
+}
+
+func refreshSlowCollectors() {
+	refreshSlow("pm2", func() func(*DashboardState) { v := collectPM2(); return func(s *DashboardState) { s.PM2 = v } })
+	refreshSlow("qb", func() func(*DashboardState) {
+		v := collectQBittorrent()
+		return func(s *DashboardState) { s.Torrents = v }
+	})
+	refreshSlow("services", func() func(*DashboardState) {
+		v := collectServices()
+		return func(s *DashboardState) { s.Services = v }
+	})
+	refreshSlow("connectivity", func() func(*DashboardState) {
+		i, d := collectConnectivity()
+		return func(s *DashboardState) { s.Internet = &i; s.DNS = &d }
+	})
+	refreshSlow("dns", func() func(*DashboardState) {
+		v := collectTechnitium()
+		return func(s *DashboardState) { s.DNSStats = v }
+	})
+	refreshSlow("antigravity", func() func(*DashboardState) {
+		v := collectAntigravity()
+		return func(s *DashboardState) { s.Antigravity = v }
+	})
+	refreshSlow("claude", func() func(*DashboardState) {
+		v := collectClaudeUsage()
+		return func(s *DashboardState) { s.ClaudeUsage = v }
+	})
+	refreshSlow("codex", func() func(*DashboardState) {
+		v := collectCodexUsage()
+		return func(s *DashboardState) { s.CodexUsage = v }
+	})
 }
 
 func collectAll() {
+	collectMu.Lock()
+	defer collectMu.Unlock()
 	now := time.Now()
 	interval := now.Sub(prevState.Time).Seconds()
 
@@ -1637,14 +1673,13 @@ func collectAll() {
 	freq := collectFreq()
 	battery := collectBattery()
 	sysData := collectSystem()
-	pm2List := collectPM2()
-	torrents := collectQBittorrent()
-	services := collectServices()
-	internet, dnsStat := collectConnectivity()
-	dnsStats := collectTechnitium()
-	antiGrav := collectAntigravity()
-	claudeUsage := collectClaudeUsage()
-	codexUsage := collectCodexUsage()
+	refreshSlowCollectors()
+	slowMu.Lock()
+	slow := slowState
+	slowMu.Unlock()
+	pm2List, torrents, services := slow.PM2, slow.Torrents, slow.Services
+	internet, dnsStat := slow.Internet, slow.DNS
+	dnsStats, antiGrav, claudeUsage, codexUsage := slow.DNSStats, slow.Antigravity, slow.ClaudeUsage, slow.CodexUsage
 
 	newState := DashboardState{
 		Timestamp:   now.UnixMilli(),
@@ -1658,8 +1693,8 @@ func collectAll() {
 		Swap:        swapData,
 		Disk:        diskData,
 		Network:     network,
-		Internet:    &internet,
-		DNS:         &dnsStat,
+		Internet:    internet,
+		DNS:         dnsStat,
 		Battery:     battery,
 		System:      sysData,
 		Torrents:    torrents,
@@ -1681,8 +1716,8 @@ func collectAll() {
 }
 
 func ensureActivePolling() {
-	lastRequestTime = time.Now()
 	pollingMu.Lock()
+	lastRequestTime = time.Now()
 	defer pollingMu.Unlock()
 	if isPollingActive {
 		return
@@ -1702,22 +1737,40 @@ func ensureActivePolling() {
 			hasWs := len(wsClients) > 0
 			wsMu.Unlock()
 
+			pollingMu.Lock()
 			isHttpActive := time.Since(lastRequestTime) <= cfg.IdleTimeout
 
 			if !hasWs && !isHttpActive {
-				pollingMu.Lock()
 				isPollingActive = false
 				pollingMu.Unlock()
 				log.Println("Polling stopped (idle)")
 				return
 			}
 
+			pollingMu.Unlock()
 			collectAll()
 			if hasWs {
 				broadcastState()
 			}
 		}
 	}()
+}
+
+type statsClient struct {
+	conn    *websocket.Conn
+	request *http.Request
+	send    chan []byte
+}
+
+func (client *statsClient) write(payload []byte) {
+	if !isAuthenticated(client.request) {
+		client.conn.Close()
+		return
+	}
+	client.conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	if err := client.conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+		client.conn.Close()
+	}
 }
 
 func broadcastState() {
@@ -1727,24 +1780,35 @@ func broadcastState() {
 	if len(payload) == 0 {
 		return
 	}
-
 	wsMu.Lock()
-	defer wsMu.Unlock()
-	for client := range wsClients {
-		if err := client.WriteMessage(websocket.TextMessage, payload); err != nil {
-			client.Close()
-			delete(wsClients, client)
+	clients := make([]*statsClient, 0, len(wsClients))
+	for _, client := range wsClients {
+		clients = append(clients, client)
+	}
+	wsMu.Unlock()
+	for _, client := range clients {
+		select {
+		case client.send <- payload:
+		default:
+			// Keep only the newest waiting sample; never block the collector on a browser.
+			select {
+			case <-client.send:
+			default:
+			}
+			select {
+			case client.send <- payload:
+			default:
+			}
 		}
 	}
 }
 
 // --- HTTP Handlers ---
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
-}
+var upgrader = websocket.Upgrader{}
 
 func setSecurityHeaders(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Referrer-Policy", "no-referrer")
@@ -1753,6 +1817,15 @@ func setSecurityHeaders(w http.ResponseWriter) {
 
 func handleLogin(w http.ResponseWriter, r *http.Request) {
 	setSecurityHeaders(w)
+	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+	if ip == "" {
+		ip = r.RemoteAddr
+	}
+	if !checkRateLimit(ip) {
+		http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
 	if r.Method != "POST" {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
@@ -1770,7 +1843,10 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	if creds.Username == cfg.AuthUser && creds.Password == cfg.AuthPass {
 		b := make([]byte, 32)
-		rand.Read(b)
+		if _, err := rand.Read(b); err != nil {
+			http.Error(w, "Session creation failed", http.StatusInternalServerError)
+			return
+		}
 		token := hex.EncodeToString(b)
 		duration := 2 * time.Hour
 		if creds.Remember {
@@ -1785,6 +1861,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 			Value:    token,
 			Path:     "/",
 			HttpOnly: true,
+			Secure:   r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https",
 			SameSite: http.SameSiteStrictMode,
 			MaxAge:   int(duration.Seconds()),
 		}
@@ -1800,6 +1877,10 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 
 func handleLogout(w http.ResponseWriter, r *http.Request) {
 	setSecurityHeaders(w)
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	cookies := parseCookies(r.Header.Get("Cookie"))
 	if token := cookies["session_token"]; token != "" {
 		sessionsMu.Lock()
@@ -1820,16 +1901,33 @@ func handleLogout(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
 }
 
+func findPM2Process(name string) *PM2Process {
+	procs := collectPM2()
+	for i := range procs {
+		if strconv.Itoa(procs[i].ID) == name {
+			return &procs[i]
+		}
+	}
+	for i := range procs {
+		if procs[i].Name == name {
+			return &procs[i]
+		}
+	}
+	return nil
+}
+
 func handlePM2Control(w http.ResponseWriter, r *http.Request, action, name string) {
 	setSecurityHeaders(w)
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	if name == "" || regexp.MustCompile(`[;|&$`+"`"+`()<>]`).MatchString(name) {
-		w.WriteHeader(400)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request"})
+	target := findPM2Process(name)
+	if target == nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]any{"success": false, "error": "Process not found"})
 		return
 	}
-	if err := exec.Command("pm2", action, name).Run(); err != nil {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	if err := exec.CommandContext(ctx, "pm2", action, strconv.Itoa(target.ID)).Run(); err != nil {
 		w.WriteHeader(500)
 		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
 		return
@@ -1838,30 +1936,16 @@ func handlePM2Control(w http.ResponseWriter, r *http.Request, action, name strin
 		"success": true,
 		"message": fmt.Sprintf("Process %s %sed", name, action),
 	})
-	go func() {
-		time.Sleep(300 * time.Millisecond)
-		collectPM2()
-		collectAll()
-	}()
+	pm2Mu.Lock()
+	pm2Cache.Time = time.Time{}
+	pm2Mu.Unlock()
+	ensureActivePolling()
 }
 
 func handlePM2Logs(w http.ResponseWriter, r *http.Request, name string, lines int) {
 	setSecurityHeaders(w)
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	if name == "" || regexp.MustCompile(`[;|&$`+"`"+`()<>]`).MatchString(name) {
-		w.WriteHeader(400)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid process name"})
-		return
-	}
-	procs := collectPM2()
-	var target *PM2Process
-	for _, p := range procs {
-		if p.Name == name {
-			target = &p
-			break
-		}
-	}
+	target := findPM2Process(name)
 	if target == nil {
 		w.WriteHeader(404)
 		json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Process '%s' not found", name)})
@@ -1888,7 +1972,9 @@ func handlePM2Logs(w http.ResponseWriter, r *http.Request, name string, lines in
 		if count > 1000 {
 			count = 1000
 		}
-		out, err := exec.Command("tail", "-n", strconv.Itoa(count), path).Output()
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+		out, err := exec.CommandContext(ctx, "tail", "-n", strconv.Itoa(count), "--", path).Output()
 		if err != nil {
 			return fmt.Sprintf("[Error reading log: %s]", err.Error())
 		}
@@ -1908,6 +1994,8 @@ func handlePM2Logs(w http.ResponseWriter, r *http.Request, name string, lines in
 }
 
 func handleQBAction(w http.ResponseWriter, r *http.Request, action, hash string) {
+	qbMu.Lock()
+	defer qbMu.Unlock()
 	setSecurityHeaders(w)
 	w.Header().Set("Content-Type", "application/json")
 	qbRequest := func(method, path string, data url.Values) (int, error) {
@@ -1942,7 +2030,7 @@ func handleQBAction(w http.ResponseWriter, r *http.Request, action, hash string)
 		for _, c := range resp.Cookies() {
 			// qBittorrent 5.x scopes the session cookie to the WebUI port (for example, QBT_SID_7777); older versions used SID.
 			if c.Name == "SID" || strings.HasPrefix(c.Name, "QBT_SID_") {
-				qbCookie = c.String()
+				qbCookie = c.Name + "=" + c.Value
 				return true
 			}
 		}
@@ -1982,6 +2070,7 @@ func handleQBAction(w http.ResponseWriter, r *http.Request, action, hash string)
 		}
 		if code == 200 {
 			qbCache = Cache[[]TorrentItem]{}
+			ensureActivePolling()
 			return true, ""
 		}
 		return false, fmt.Sprintf("HTTP %d", code)
@@ -1995,95 +2084,6 @@ func handleQBAction(w http.ResponseWriter, r *http.Request, action, hash string)
 	}
 }
 
-func handleTerminalWS(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println("Terminal WS upgrade error:", err)
-		return
-	}
-	defer conn.Close()
-
-	cols := 120
-	rows := 30
-	if c, err := strconv.Atoi(r.URL.Query().Get("cols")); err == nil && c > 0 {
-		cols = c
-	}
-	if rowsVal, err := strconv.Atoi(r.URL.Query().Get("rows")); err == nil && rowsVal > 0 {
-		rows = rowsVal
-	}
-
-	shell := os.Getenv("SHELL")
-	if shell == "" {
-		shell = "/bin/bash"
-	}
-	cmd := exec.Command(shell)
-	cmd.Env = append(os.Environ(), "TERM=xterm-256color", "COLORTERM=truecolor")
-	cmd.Dir = os.Getenv("HOME")
-	if cmd.Dir == "" {
-		cmd.Dir = "/"
-	}
-
-	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{
-		Rows: uint16(rows),
-		Cols: uint16(cols),
-	})
-	if err != nil {
-		errMsg := fmt.Sprintf("\r\n\x1b[31mFailed to spawn terminal: %s\x1b[0m\r\n", err.Error())
-		out, _ := json.Marshal(map[string]string{"type": "output", "data": errMsg})
-		conn.WriteMessage(websocket.TextMessage, out)
-		return
-	}
-	defer func() {
-		ptmx.Close()
-		cmd.Process.Kill()
-	}()
-
-	conn.WriteJSON(map[string]interface{}{"type": "connected", "pid": cmd.Process.Pid})
-
-	// PTY stdout -> WS client
-	go func() {
-		buf := make([]byte, 4096)
-		for {
-			n, err := ptmx.Read(buf)
-			if err != nil {
-				conn.WriteJSON(map[string]interface{}{"type": "exit", "code": 0})
-				return
-			}
-			msg, _ := json.Marshal(map[string]string{
-				"type": "output",
-				"data": string(buf[:n]),
-			})
-			if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
-				return
-			}
-		}
-	}()
-
-	// WS client -> PTY stdin
-	for {
-		_, msgBytes, err := conn.ReadMessage()
-		if err != nil {
-			break
-		}
-		var msg struct {
-			Type string `json:"type"`
-			Data string `json:"data"`
-			Cols uint16 `json:"cols"`
-			Rows uint16 `json:"rows"`
-		}
-		if err := json.Unmarshal(msgBytes, &msg); err == nil {
-			switch msg.Type {
-			case "input":
-				ptmx.Write([]byte(msg.Data))
-			case "resize":
-				if msg.Cols > 0 && msg.Rows > 0 {
-					pty.Setsize(ptmx, &pty.Winsize{Rows: msg.Rows, Cols: msg.Cols})
-				}
-			}
-		}
-	}
-}
-
 func handleWS(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -2091,23 +2091,48 @@ func handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	wsMu.Lock()
-	wsClients[conn] = true
-	wsMu.Unlock()
-
-	ensureActivePolling()
-
+	client := &statsClient{conn: conn, request: r, send: make(chan []byte, 1)}
+	conn.SetReadLimit(4096)
+	conn.SetReadDeadline(time.Now().Add(75 * time.Second))
+	conn.SetPongHandler(func(string) error { return conn.SetReadDeadline(time.Now().Add(75 * time.Second)) })
 	stateMu.RLock()
-	if len(lastStateJSON) > 0 {
-		conn.WriteMessage(websocket.TextMessage, lastStateJSON)
-	}
+	payload := lastStateJSON
 	stateMu.RUnlock()
+	if len(payload) > 0 {
+		client.write(payload)
+	}
+	wsMu.Lock()
+	wsClients[conn] = client
+	wsMu.Unlock()
+	ensureActivePolling()
+	done := make(chan struct{})
+	writerDone := make(chan struct{})
+	go func() {
+		defer close(writerDone)
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case payload := <-client.send:
+				client.write(payload)
+			case <-ticker.C:
+				if !isAuthenticated(r) || conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(5*time.Second)) != nil {
+					conn.Close()
+					return
+				}
+			}
+		}
+	}()
 
 	defer func() {
 		wsMu.Lock()
 		delete(wsClients, conn)
 		wsMu.Unlock()
+		close(done)
 		conn.Close()
+		<-writerDone
 	}()
 
 	for {
@@ -2119,70 +2144,109 @@ func handleWS(w http.ResponseWriter, r *http.Request) {
 
 // --- Static File Server ---
 
-func serveStaticFile(w http.ResponseWriter, r *http.Request, relPath string) {
-	setSecurityHeaders(w)
-	root := "/opt/monit"
-	fullPath := filepath.Join(root, relPath)
-	cleanPath := filepath.Clean(fullPath)
-	if !strings.HasPrefix(cleanPath, root) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
+var staticAssets = func() map[string]bool {
+	assets := map[string]bool{"index.html": true, "login.html": true, "style.css": true, "sw.js": true, "manifest.json": true, "icon.svg": true, "icon-192.png": true, "icon-512.png": true}
+	for _, name := range strings.Fields("main api config events particles pm2-menu service-bar ui/alerts ui/antigravity ui/battery ui/cpu ui/disk ui/logs-modal ui/memory ui/network ui/pm2 ui/sparklines ui/system ui/thermal ui/torrents utils/dom utils/format") {
+		assets["dist/client/"+name+".js"] = true
 	}
-	data, err := os.ReadFile(cleanPath)
-	if err != nil {
-		http.Error(w, "Not Found", http.StatusNotFound)
-		return
-	}
+	assets["dist/shared/types.js"] = true
+	return assets
+}()
 
-	ext := strings.ToLower(filepath.Ext(cleanPath))
-	mimeMap := map[string]string{
-		".html":        "text/html; charset=utf-8",
-		".css":         "text/css; charset=utf-8",
-		".js":          "text/javascript; charset=utf-8",
-		".svg":         "image/svg+xml",
-		".png":         "image/png",
-		".ico":         "image/x-icon",
-		".json":        "application/json",
-		".webmanifest": "application/manifest+json",
-	}
-	cType := mimeMap[ext]
-	if cType == "" {
-		cType = "application/octet-stream"
-	}
-	w.Header().Set("Content-Type", cType)
-
-	canCache := mimeMap[ext] != ""
-	if canCache {
-		w.Header().Set("Cache-Control", "public, max-age=3600")
-	}
-
-	acceptEncoding := r.Header.Get("Accept-Encoding")
-	if canCache && strings.Contains(acceptEncoding, "gzip") && len(data) > 1024 {
-		var gzBuf bytes.Buffer
-		gw := gzip.NewWriter(&gzBuf)
-		gw.Write(data)
-		gw.Close()
-		if gzBuf.Len() < len(data) {
-			w.Header().Set("Content-Encoding", "gzip")
-			w.Write(gzBuf.Bytes())
-			return
-		}
-	}
-	w.Write(data)
+type staticAsset struct {
+	modTime        time.Time
+	size           int64
+	data, gzipData []byte
 }
 
-func main() {
-	initConfig()
-	initStaticData()
+var assetMu sync.Mutex
+var assetCache = make(map[string]staticAsset)
 
-	log.Printf("Starting monit Go server on port %d...", cfg.Port)
+func serveStaticFile(w http.ResponseWriter, r *http.Request, relPath string) {
+	setSecurityHeaders(w)
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !staticAssets[relPath] {
+		http.NotFound(w, r)
+		return
+	}
+	root := "/opt/monit"
+	fullPath, err := filepath.EvalSymlinks(filepath.Join(root, relPath))
+	if err != nil || !strings.HasPrefix(fullPath, root+string(os.PathSeparator)) {
+		http.NotFound(w, r)
+		return
+	}
+	info, err := os.Stat(fullPath)
+	if err != nil || !info.Mode().IsRegular() {
+		http.NotFound(w, r)
+		return
+	}
+	assetMu.Lock()
+	asset, ok := assetCache[relPath]
+	if !ok || asset.modTime != info.ModTime() || asset.size != info.Size() {
+		data, readErr := os.ReadFile(fullPath)
+		if readErr != nil {
+			assetMu.Unlock()
+			http.NotFound(w, r)
+			return
+		}
+		asset = staticAsset{modTime: info.ModTime(), size: info.Size(), data: data}
+		if len(data) > 1024 {
+			var buf bytes.Buffer
+			gz := gzip.NewWriter(&buf)
+			gz.Write(data)
+			gz.Close()
+			if buf.Len() < len(data) {
+				asset.gzipData = buf.Bytes()
+			}
+		}
+		assetCache[relPath] = asset
+	}
+	assetMu.Unlock()
+	ext := strings.ToLower(filepath.Ext(relPath))
+	mimeMap := map[string]string{".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json"}
+	w.Header().Set("Content-Type", mimeMap[ext])
+	w.Header().Set("Vary", "Accept-Encoding")
+	w.Header().Set("Cache-Control", "private, no-cache")
+	if ext == ".html" || relPath == "sw.js" {
+		w.Header().Set("Cache-Control", "no-store")
+	}
+	data := asset.data
+	for _, encoding := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
+		fields := strings.Split(strings.TrimSpace(encoding), ";")
+		if fields[0] == "gzip" && len(asset.gzipData) > 0 {
+			disabled := false
+			for _, param := range fields[1:] {
+				pair := strings.SplitN(strings.TrimSpace(param), "=", 2)
+				if len(pair) == 2 && pair[0] == "q" {
+					q, e := strconv.ParseFloat(pair[1], 64)
+					disabled = e != nil || q <= 0
+				}
+			}
+			if !disabled {
+				w.Header().Set("Content-Encoding", "gzip")
+				data = asset.gzipData
+			}
+		}
+	}
+	http.ServeContent(w, r, relPath, asset.modTime, bytes.NewReader(data))
+}
 
-	// Single baseline collect
-	collectAll()
-	log.Printf("Initial collection done, idle until first request")
-
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+func dashboardHandler() http.Handler {
+	pm2ControlRe := regexp.MustCompile(`^/api/pm2/(stop|start|restart|delete)/(.+)$`)
+	pm2LogsRe := regexp.MustCompile(`^/api/pm2/logs/(.+)$`)
+	qbRe := regexp.MustCompile(`^/api/qbittorrent/(delete|pause|resume)/([a-fA-F0-9]{40}|all)$`)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
+		if r.Method == http.MethodPost && r.Header.Get("Origin") != "" {
+			origin, err := url.Parse(r.Header.Get("Origin"))
+			if err != nil || origin.Host != r.Host || (origin.Scheme != "http" && origin.Scheme != "https") {
+				http.Error(w, "Forbidden origin", http.StatusForbidden)
+				return
+			}
+		}
 
 		// Public assets
 		isPublic := path == "/manifest.json" || path == "/sw.js" || strings.HasPrefix(path, "/icon") || path == "/favicon.ico"
@@ -2198,7 +2262,7 @@ func main() {
 		}
 
 		if !authed && !isPublic {
-			if strings.HasPrefix(path, "/api") {
+			if path != "/" && path != "/index.html" && path != "/login.html" {
 				setSecurityHeaders(w)
 				w.WriteHeader(401)
 				w.Write([]byte("Unauthorized"))
@@ -2227,13 +2291,13 @@ func main() {
 			handleWS(w, r)
 			return
 		}
-		if path == "/ws/terminal" {
-			handleTerminalWS(w, r)
-			return
-		}
 
 		// API routes
 		if path == "/api/status" {
+			if r.Method != http.MethodGet {
+				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+				return
+			}
 			ensureActivePolling()
 			setSecurityHeaders(w)
 			w.Header().Set("Content-Type", "application/json")
@@ -2244,14 +2308,12 @@ func main() {
 		}
 
 		// PM2 control: /api/pm2/:action/:name
-		pm2ControlRe := regexp.MustCompile(`^/api/pm2/(stop|start|restart|delete)/(.+)$`)
 		if m := pm2ControlRe.FindStringSubmatch(path); len(m) == 3 && r.Method == "POST" {
 			handlePM2Control(w, r, m[1], m[2])
 			return
 		}
 
 		// PM2 logs: /api/pm2/logs/:name
-		pm2LogsRe := regexp.MustCompile(`^/api/pm2/logs/(.+)$`)
 		if m := pm2LogsRe.FindStringSubmatch(path); len(m) == 2 && r.Method == "GET" {
 			lines := 100
 			if l, err := strconv.Atoi(r.URL.Query().Get("lines")); err == nil && l > 0 {
@@ -2262,7 +2324,6 @@ func main() {
 		}
 
 		// qBittorrent: /api/qbittorrent/:action/:hash
-		qbRe := regexp.MustCompile(`^/api/qbittorrent/(delete|pause|resume)/([a-fA-F0-9]{40}|all)$`)
 		if m := qbRe.FindStringSubmatch(path); len(m) == 3 && r.Method == "POST" {
 			handleQBAction(w, r, m[1], m[2])
 			return
@@ -2274,8 +2335,15 @@ func main() {
 		}
 		serveStaticFile(w, r, strings.TrimPrefix(path, "/"))
 	})
+}
 
+func main() {
+	initConfig()
+	initStaticData()
+	log.Printf("Starting monit Go server on port %d...", cfg.Port)
+	collectAll()
 	server := &http.Server{
+		Handler:      dashboardHandler(),
 		Addr:         fmt.Sprintf(":%d", cfg.Port),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,

@@ -53,7 +53,7 @@ function formatRelativeTime(isoOrTimestamp?: string | number): string {
 interface NormalizedBucket {
   displayName: string;
   window: '5h' | 'weekly';
-  remainingPct: number;
+  remainingPct: number | null;
   resetTime?: string | number;
 }
 
@@ -63,23 +63,26 @@ interface ModelQuotaPair {
 }
 
 function extractModelBuckets(buckets: AntigravityQuotaBucket[]): ModelQuotaPair {
-  let fiveHour: NormalizedBucket = { displayName: '5-Hour Limit', window: '5h', remainingPct: 100 };
-  let weekly: NormalizedBucket = { displayName: 'Weekly Limit', window: 'weekly', remainingPct: 100 };
+  let fiveHour: NormalizedBucket = { displayName: '5-Hour Limit', window: '5h', remainingPct: null };
+  let weekly: NormalizedBucket = { displayName: 'Weekly Limit', window: 'weekly', remainingPct: null };
 
   for (const b of buckets) {
     const is5h = b.window === '5h' || b.bucketId.includes('5h');
+    const remaining = (b.remainingPct != null && !isNaN(b.remainingPct))
+      ? b.remainingPct
+      : (b.remainingFraction != null && !isNaN(b.remainingFraction) ? b.remainingFraction * 100 : null);
     if (is5h) {
       fiveHour = {
         displayName: b.displayName || '5-Hour Limit',
         window: '5h',
-        remainingPct: b.remainingPct,
+        remainingPct: remaining,
         resetTime: b.resetTime,
       };
     } else {
       weekly = {
         displayName: b.displayName || 'Weekly Limit',
         window: 'weekly',
-        remainingPct: b.remainingPct,
+        remainingPct: remaining,
         resetTime: b.resetTime,
       };
     }
@@ -89,12 +92,15 @@ function extractModelBuckets(buckets: AntigravityQuotaBucket[]): ModelQuotaPair 
 }
 
 function renderCircularGauge(label: string, bucket: NormalizedBucket): string {
-  const pct = Math.min(Math.max(bucket.remainingPct, 0), 100);
-  const strokeColor = getStrokeColor(pct);
-  const statCls = getStatClass(pct);
-  const offset = (CIRCUMFERENCE * (1 - pct / 100)).toFixed(2);
+  const isKnown = bucket.remainingPct != null && !isNaN(bucket.remainingPct);
+  const pct = isKnown ? Math.min(Math.max(bucket.remainingPct as number, 0), 100) : 0;
+  const strokeColor = isKnown ? getStrokeColor(pct) : 'var(--muted, #666)';
+  const statCls = isKnown ? getStatClass(pct) : 'val-muted';
+  const offset = isKnown ? (CIRCUMFERENCE * (1 - pct / 100)).toFixed(2) : CIRCUMFERENCE.toFixed(2);
   const resetTag = formatRelativeTime(bucket.resetTime);
   const win = bucket.window === '5h' ? '5-Hour' : 'Weekly';
+  const displayNum = isKnown ? `${Math.round(pct)}%` : 'Unknown';
+  const timeText = resetTag ? 'Resets ' + esc(resetTag) : (isKnown ? `${Math.round(pct)}% available` : 'Unknown');
 
   return `
     <div class="agy-mini-card" title="${esc(label)} ${esc(bucket.displayName)}${resetTag ? ' — resets in ' + esc(resetTag) : ''}">
@@ -104,14 +110,51 @@ function renderCircularGauge(label: string, bucket: NormalizedBucket): string {
           <circle cx="16" cy="16" r="12.5" class="agy-circle-fill" 
             style="stroke: ${strokeColor}; stroke-dasharray: ${CIRCUMFERENCE}; stroke-dashoffset: ${offset};" />
         </svg>
-        <span class="agy-circle-num ${statCls}">${Math.round(pct)}%</span>
+        <span class="agy-circle-num ${statCls}">${displayNum}</span>
       </div>
       <div class="agy-meta">
         <span class="agy-meta-title">${esc(label)} <span class="agy-meta-win">${win}</span></span>
-        <span class="agy-meta-time">${resetTag ? 'Resets ' + esc(resetTag) : '100% available'}</span>
+        <span class="agy-meta-time">${timeText}</span>
       </div>
     </div>
   `;
+}
+
+let lastAgyData: AntigravityAccountQuota[] | null | undefined = undefined;
+let lastClaudeData: ClaudeUsageData | null | undefined = undefined;
+let lastCodexData: CodexUsageData | null | undefined = undefined;
+let lastRenderedHtml = '';
+let delegationInitialized = false;
+
+function setupAntigravityDelegation(container: HTMLElement): void {
+  if (delegationInitialized) return;
+  delegationInitialized = true;
+
+  container.addEventListener('click', (e) => {
+    if (!(e.target instanceof Element)) return;
+
+    // Provider pill click
+    const provBtn = e.target.closest<HTMLButtonElement>('.ai-provider-pill[data-provider]');
+    if (provBtn) {
+      e.preventDefault();
+      const prov = provBtn.dataset.provider as ProviderTab;
+      if (prov && prov !== activeProvider) {
+        activeProvider = prov;
+        renderAntigravity(lastAgyData, lastClaudeData, lastCodexData);
+      }
+      return;
+    }
+
+    // Account pill click
+    const accBtn = e.target.closest<HTMLButtonElement>('.agy-acc-pill[data-idx]');
+    if (accBtn) {
+      e.preventDefault();
+      const idx = parseInt(accBtn.dataset.idx || '0', 10);
+      selectedAccountIndex = idx;
+      renderAntigravity(lastAgyData, lastClaudeData, lastCodexData);
+      return;
+    }
+  });
 }
 
 export function renderAntigravity(
@@ -123,12 +166,19 @@ export function renderAntigravity(
   const container = $('antigravity-content');
   if (!card || !container) return;
 
+  lastAgyData = agyData;
+  lastClaudeData = claudeData;
+  lastCodexData = codexData;
+
+  setupAntigravityDelegation(container);
+
   const hasAgy = !!(agyData && agyData.length > 0);
   const hasClaude = !!claudeData;
   const hasCodex = !!codexData;
 
   if (!hasAgy && !hasClaude && !hasCodex) {
     card.style.display = 'none';
+    lastRenderedHtml = '';
     return;
   }
 
@@ -219,13 +269,17 @@ export function renderAntigravity(
     const fiveHourBucket: NormalizedBucket = {
       displayName: '5-Hour Window',
       window: '5h',
-      remainingPct: Math.round(100 - (claudeData.fiveHour?.utilization || 0)),
+      remainingPct: claudeData.fiveHour?.utilization != null
+        ? Math.round(100 - (claudeData.fiveHour.utilization || 0))
+        : null,
       resetTime: claudeData.fiveHour?.resetsAt,
     };
     const weeklyBucket: NormalizedBucket = {
       displayName: '7-Day Window',
       window: 'weekly',
-      remainingPct: Math.round(100 - (claudeData.sevenDay?.utilization || 0)),
+      remainingPct: claudeData.sevenDay?.utilization != null
+        ? Math.round(100 - (claudeData.sevenDay.utilization || 0))
+        : null,
       resetTime: claudeData.sevenDay?.resetsAt,
     };
 
@@ -246,22 +300,22 @@ export function renderAntigravity(
           ${renderCircularGauge('Weekly', weeklyBucket)}
         </div>
       </div>
-      <div class="ai-meta-pills">
-        <span class="ai-meta-pill">Traffic: 100% Claude Code</span>
-        <span class="ai-meta-pill">Active Pro Plan</span>
-      </div>
     `;
   } else if (activeProvider === 'codex' && codexData) {
     const fiveHourBucket: NormalizedBucket = {
       displayName: '5-Hour Window',
       window: '5h',
-      remainingPct: Math.round(100 - (codexData.primaryWindow?.usedPercent || 0)),
+      remainingPct: codexData.primaryWindow?.usedPercent != null
+        ? Math.round(100 - (codexData.primaryWindow.usedPercent || 0))
+        : null,
       resetTime: codexData.primaryWindow?.resetsAt,
     };
     const weeklyBucket: NormalizedBucket = {
       displayName: 'Weekly Window',
       window: 'weekly',
-      remainingPct: Math.round(100 - (codexData.secondaryWindow?.usedPercent || 0)),
+      remainingPct: codexData.secondaryWindow?.usedPercent != null
+        ? Math.round(100 - (codexData.secondaryWindow.usedPercent || 0))
+        : null,
       resetTime: codexData.secondaryWindow?.resetsAt,
     };
 
@@ -271,7 +325,7 @@ export function renderAntigravity(
     bodyHtml = `
       <div class="agy-account-bar ai-info-bar">
         <span class="ai-account-badge">${esc(userEmail)}${esc(plan)}</span>
-        <span class="ai-meta-badge">ChatGPT Plus</span>
+        <span class="ai-meta-badge">Codex</span>
       </div>
       <div class="ai-model-group">
         <div class="ai-group-header">
@@ -282,36 +336,13 @@ export function renderAntigravity(
           ${renderCircularGauge('Secondary', weeklyBucket)}
         </div>
       </div>
-      <div class="ai-meta-pills">
-        <span class="ai-meta-pill">Model: gpt-6-astra</span>
-        <span class="ai-meta-pill">Credits: Standard</span>
-      </div>
     `;
   }
 
-  container.innerHTML = providerToolbarHtml + bodyHtml;
-
-  // Event handlers for provider tabs
-  const providerButtons = container.querySelectorAll<HTMLButtonElement>('.ai-provider-pill[data-provider]');
-  providerButtons.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const prov = btn.dataset.provider as ProviderTab;
-      if (prov && prov !== activeProvider) {
-        activeProvider = prov;
-        renderAntigravity(agyData, claudeData, codexData);
-      }
-    });
-  });
-
-  // Event handlers for Antigravity account tabs
-  const pills = container.querySelectorAll<HTMLButtonElement>('.agy-acc-pill[data-idx]');
-  pills.forEach(pill => {
-    pill.addEventListener('click', (e) => {
-      e.preventDefault();
-      const idx = parseInt(pill.dataset.idx || '0', 10);
-      selectedAccountIndex = idx;
-      renderAntigravity(agyData, claudeData, codexData);
-    });
-  });
+  const nextHtml = providerToolbarHtml + bodyHtml;
+  if (nextHtml === lastRenderedHtml) {
+    return;
+  }
+  lastRenderedHtml = nextHtml;
+  container.innerHTML = nextHtml;
 }

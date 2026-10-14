@@ -73,8 +73,10 @@ if (logoutBtn) {
   });
 }
 
-// Initial connect
-connectWS();
+// Initial connect (only if page is visible)
+if (typeof document === 'undefined' || !document.hidden) {
+  connectWS();
+}
 
 // Register Service Worker for PWA
 if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {

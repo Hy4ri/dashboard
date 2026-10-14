@@ -24,9 +24,18 @@ import { DashboardState } from '../shared/types.js';
 let staleTimer: any = null;
 let socket: WebSocket | null = null;
 let reconnectTimeout: any = null;
+let lastTimestamp: number = 0;
+let isIntentionallyDisconnected: boolean = false;
 
 export function updateUI(data?: DashboardState | null): void {
   if (!data) return;
+
+  if (typeof data.timestamp === 'number') {
+    if (data.timestamp < lastTimestamp) {
+      return;
+    }
+    lastTimestamp = data.timestamp;
+  }
 
   // Timestamp & status
   const lastUpdate = $('last-update');
@@ -81,6 +90,8 @@ export function updateUI(data?: DashboardState | null): void {
 }
 
 export function setErrorState(msg: string): void {
+  clearTimeout(staleTimer);
+  staleTimer = null;
   const dot = $('status-dot');
   if (dot) dot.className = 'status-dot off';
   const lastUpdate = $('last-update');
@@ -90,14 +101,22 @@ export function setErrorState(msg: string): void {
 }
 
 export function connectWS(): void {
+  if (typeof document !== 'undefined' && document.hidden) {
+    return;
+  }
   if (socket) return;
+
+  isIntentionallyDisconnected = false;
 
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${protocol}//${window.location.host}/ws`;
 
-  socket = new WebSocket(wsUrl);
+  const ws = new WebSocket(wsUrl);
+  socket = ws;
 
-  socket.onopen = () => {
+  ws.onopen = () => {
+    if (socket !== ws) return;
+    lastTimestamp = 0;
     console.log('WebSocket connected');
     document.title = 'Server Dashboard';
     const dot = $('status-dot');
@@ -111,38 +130,69 @@ export function connectWS(): void {
     }
   };
 
-  socket.onmessage = (event) => {
+  ws.onmessage = (event) => {
+    if (socket !== ws) return;
+    let data: DashboardState;
     try {
-      const data: DashboardState = JSON.parse(event.data);
-      updateUI(data);
+      data = JSON.parse(event.data);
     } catch (err) {
       console.error('Failed to parse WS packet:', err);
+      return;
+    }
+
+    try {
+      updateUI(data);
+    } catch (err) {
+      console.error('Failed to render WS update:', err);
     }
   };
 
-  socket.onclose = () => {
-    socket = null;
+  ws.onclose = () => {
+    if (socket === ws) {
+      socket = null;
+    } else {
+      return;
+    }
+
+    if (isIntentionallyDisconnected) {
+      return;
+    }
+
     setErrorState('WS connection closed');
     // Reconnect in 5s if page is active
     if (!document.hidden && !reconnectTimeout) {
-      reconnectTimeout = setTimeout(connectWS, 5000);
+      reconnectTimeout = setTimeout(() => {
+        reconnectTimeout = null;
+        connectWS();
+      }, 5000);
     }
   };
 
-  socket.onerror = (err) => {
+  ws.onerror = (err) => {
+    if (socket !== ws) return;
     console.error('WS error:', err);
-    socket?.close();
+    ws.close();
   };
 }
 
 export function disconnectWS(): void {
+  isIntentionallyDisconnected = true;
+  if (staleTimer) {
+    clearTimeout(staleTimer);
+    staleTimer = null;
+  }
   if (reconnectTimeout) {
     clearTimeout(reconnectTimeout);
     reconnectTimeout = null;
   }
   if (socket) {
-    socket.close();
+    const wsToClose = socket;
     socket = null;
+    wsToClose.onopen = null;
+    wsToClose.onmessage = null;
+    wsToClose.onerror = null;
+    wsToClose.onclose = null;
+    wsToClose.close();
   }
 }
 

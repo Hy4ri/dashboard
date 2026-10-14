@@ -8,6 +8,9 @@ let autoScroll = true;
 let lastFetchedAt = '';
 let selectedLines = 100;
 let autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
+let currentAbortController: AbortController | null = null;
+let currentGeneration = 0;
+let isFetching = false;
 
 function esc(text: string | null | undefined): string {
   if (!text) return '';
@@ -23,13 +26,33 @@ async function fetchLogs(silent: boolean = false): Promise<void> {
   const codeEl = $('pm2-log-content');
   if (!codeEl || !currentProcessName) return;
 
+  if (isFetching) {
+    return;
+  }
+
+  isFetching = true;
+  const generation = currentGeneration;
+
+  if (currentAbortController) {
+    currentAbortController.abort();
+  }
+  const controller = new AbortController();
+  currentAbortController = controller;
+
   if (!silent) {
     codeEl.textContent = 'Loading logs...';
   }
 
   try {
-    const res = await fetch(`/api/pm2/logs/${encodeURIComponent(currentProcessName)}?lines=${selectedLines}`);
+    const res = await fetch(`/api/pm2/logs/${encodeURIComponent(currentProcessName)}?lines=${selectedLines}`, {
+      signal: controller.signal
+    });
     const data = await res.json();
+
+    if (generation !== currentGeneration || !modalEl) {
+      return;
+    }
+
     if (data.success) {
       logData.out = data.out || 'No stdout logs.';
       logData.err = data.err || 'No stderr logs.';
@@ -42,7 +65,18 @@ async function fetchLogs(silent: boolean = false): Promise<void> {
       codeEl.textContent = 'Error: ' + (data.error || 'Unknown error');
     }
   } catch (err: any) {
+    if (generation !== currentGeneration || !modalEl) {
+      return;
+    }
+    if (err?.name === 'AbortError') {
+      return;
+    }
     codeEl.textContent = 'Failed to load logs: ' + err.message;
+  } finally {
+    if (currentAbortController === controller) {
+      currentAbortController = null;
+      isFetching = false;
+    }
   }
 }
 
@@ -67,6 +101,12 @@ function renderLogContent(): void {
 }
 
 export function closeLogsModal(): void {
+  currentGeneration++;
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
+  }
+  isFetching = false;
   if (autoRefreshTimer) {
     clearInterval(autoRefreshTimer);
     autoRefreshTimer = null;
@@ -76,14 +116,21 @@ export function closeLogsModal(): void {
     modalEl = null;
   }
   currentProcessName = null;
+  logData.out = '';
+  logData.err = '';
+  lastFetchedAt = '';
 }
 
 export function showLogsModal(processName: string): void {
   closeLogsModal();
+  currentGeneration++;
   currentProcessName = processName;
   activeLogTab = 'out';
   autoScroll = true;
   selectedLines = 100;
+  logData.out = '';
+  logData.err = '';
+  lastFetchedAt = '';
 
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
@@ -172,6 +219,10 @@ export function showLogsModal(processName: string): void {
   const linesSelect = $<HTMLSelectElement>('pm2-log-lines');
   linesSelect?.addEventListener('change', () => {
     selectedLines = parseInt(linesSelect.value, 10) || 100;
+    currentGeneration++;
+    currentAbortController?.abort();
+    currentAbortController = null;
+    isFetching = false;
     fetchLogs();
   });
 

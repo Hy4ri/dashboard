@@ -194,22 +194,44 @@ function renderAlertsList(alerts: AlertItem[]): void {
     }
   });
 
-  // Add banners for new alerts (ones not already in the DOM)
-  const existingKeys = new Set(
-    Array.from(container.querySelectorAll<HTMLElement>('.alert-banner')).map(b => b.dataset.alertKey)
-  );
+  // Map of currently present banners in DOM
+  const existingBanners = new Map<string, HTMLElement>();
+  container.querySelectorAll<HTMLElement>('.alert-banner').forEach(b => {
+    const key = b.dataset.alertKey;
+    if (key) {
+      existingBanners.set(key, b);
+    }
+  });
 
   alerts.forEach(a => {
-    if (!existingKeys.has(a.key)) {
+    const existing = existingBanners.get(a.key);
+    if (existing) {
+      // Update existing banner safely with textContent
+      existing.className = `alert-banner ${a.type}`;
+      const msgEl = existing.querySelector('.alert-message');
+      if (msgEl) {
+        msgEl.textContent = a.message;
+      }
+      const iconEl = existing.querySelector('.alert-icon');
+      if (iconEl) {
+        iconEl.textContent = a.type === 'danger' ? '⚠️' : '🔔';
+      }
+    } else {
+      // Create new banner safely
       const banner = document.createElement('div');
       banner.className = `alert-banner ${a.type} entering`;
       banner.dataset.alertKey = a.key;
-      banner.innerHTML = `
-        <span class="alert-icon">
-          ${a.type === 'danger' ? '⚠️' : '🔔'}
-        </span>
-        <span class="alert-message">${a.message}</span>
-      `;
+
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'alert-icon';
+      iconSpan.textContent = a.type === 'danger' ? '⚠️' : '🔔';
+
+      const msgSpan = document.createElement('span');
+      msgSpan.className = 'alert-message';
+      msgSpan.textContent = a.message;
+
+      banner.appendChild(iconSpan);
+      banner.appendChild(msgSpan);
       container?.appendChild(banner);
 
       // Remove the 'entering' class after animation completes

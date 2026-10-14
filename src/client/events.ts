@@ -3,6 +3,10 @@
 import { $ } from './utils/dom.js';
 import { fetchStatus } from './api.js';
 
+// Guard sets to prevent duplicate mutations across renders
+const pendingTorrentHashes = new Set<string>();
+let isTorrentBulkPending = false;
+
 export function setupTorrentEvents(): void {
   const torrentList = $('torrent-list');
   if (torrentList) {
@@ -18,10 +22,15 @@ export function setupTorrentEvents(): void {
       const name = btn.dataset.name || 'torrent';
       if (!action || !hash) return;
 
+      if (isTorrentBulkPending || pendingTorrentHashes.has(hash)) {
+        return;
+      }
+
       if (action === 'delete') {
         if (!confirm(`Delete "${name}" and remove downloaded files?`)) return;
       }
 
+      pendingTorrentHashes.add(hash);
       btn.disabled = true;
       btn.setAttribute('aria-disabled', 'true');
       const originalHTML = btn.innerHTML;
@@ -29,17 +38,28 @@ export function setupTorrentEvents(): void {
 
       try {
         const res = await fetch(`/api/qbittorrent/${action}/${hash}`, { method: 'POST' });
-        const data = await res.json();
-        if (data.success) {
+        let data: any = null;
+        try {
+          data = await res.json();
+        } catch {
+          // data stays null
+        }
+        if (res.ok && data?.success) {
           setTimeout(() => fetchStatus(), 300);
         } else {
-          alert(`Failed to ${action}: ` + (data.error || 'Unknown error'));
+          const errDetail = data?.error || (res.status ? `HTTP ${res.status}` : 'Unknown error');
+          alert(`Failed to ${action}: ` + errDetail);
           btn.disabled = false;
           btn.removeAttribute('aria-disabled');
           btn.innerHTML = originalHTML;
         }
       } catch (err: any) {
-        alert('Request failed: ' + err.message);
+        alert('Request failed: ' + (err?.message || 'Network error'));
+        btn.disabled = false;
+        btn.removeAttribute('aria-disabled');
+        btn.innerHTML = originalHTML;
+      } finally {
+        pendingTorrentHashes.delete(hash);
         btn.disabled = false;
         btn.removeAttribute('aria-disabled');
         btn.innerHTML = originalHTML;
@@ -52,11 +72,24 @@ export function setupTorrentEvents(): void {
   if (resumeAllBtn) {
     resumeAllBtn.addEventListener('click', async (e) => {
       e.preventDefault();
+      if (isTorrentBulkPending || pendingTorrentHashes.size > 0) return;
+      isTorrentBulkPending = true;
       try {
-        await fetch('/api/qbittorrent/resume/all', { method: 'POST' });
-        setTimeout(() => fetchStatus(), 300);
+        const res = await fetch('/api/qbittorrent/resume/all', { method: 'POST' });
+        let data: any = null;
+        try {
+          data = await res.json();
+        } catch {}
+        if (res.ok && data?.success) {
+          setTimeout(() => fetchStatus(), 300);
+        } else {
+          const errDetail = data?.error || (res.status ? `HTTP ${res.status}` : 'Unknown error');
+          alert('Resume all failed: ' + errDetail);
+        }
       } catch (err: any) {
-        alert('Resume all failed: ' + err.message);
+        alert('Resume all failed: ' + (err?.message || 'Network error'));
+      } finally {
+        isTorrentBulkPending = false;
       }
     });
   }
@@ -65,11 +98,24 @@ export function setupTorrentEvents(): void {
   if (pauseAllBtn) {
     pauseAllBtn.addEventListener('click', async (e) => {
       e.preventDefault();
+      if (isTorrentBulkPending || pendingTorrentHashes.size > 0) return;
+      isTorrentBulkPending = true;
       try {
-        await fetch('/api/qbittorrent/pause/all', { method: 'POST' });
-        setTimeout(() => fetchStatus(), 300);
+        const res = await fetch('/api/qbittorrent/pause/all', { method: 'POST' });
+        let data: any = null;
+        try {
+          data = await res.json();
+        } catch {}
+        if (res.ok && data?.success) {
+          setTimeout(() => fetchStatus(), 300);
+        } else {
+          const errDetail = data?.error || (res.status ? `HTTP ${res.status}` : 'Unknown error');
+          alert('Pause all failed: ' + errDetail);
+        }
       } catch (err: any) {
-        alert('Pause all failed: ' + err.message);
+        alert('Pause all failed: ' + (err?.message || 'Network error'));
+      } finally {
+        isTorrentBulkPending = false;
       }
     });
   }

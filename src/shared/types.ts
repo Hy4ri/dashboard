@@ -7,7 +7,6 @@ export interface PM2Process {
   uptime: number | null;
   restarts: number;
   pid: number;
-  _full?: any;
 }
 
 export interface ThermalSensor {
@@ -168,7 +167,7 @@ export interface CodexUsageData {
 
 export interface DashboardState {
   timestamp?: number;
-  pm2?: PM2Process[];
+  pm2?: PM2Process[] | null;
   cpu?: number | null;
   cpuCores?: (number | null)[];
   thermal?: ThermalSensor[];
@@ -182,7 +181,7 @@ export interface DashboardState {
   dns?: ConnectivityStatus;
   battery?: BatteryData;
   system?: SystemData;
-  torrents?: TorrentItem[];
+  torrents?: TorrentItem[] | null;
   services?: Record<string, boolean>;
   dnsStats?: TechnitiumStats;
   antigravity?: AntigravityAccountQuota[];

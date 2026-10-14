@@ -161,11 +161,105 @@ function buildActionsHTML(name: string, status: string): string {
   '</div>';
 }
 
+function updateActionsCell(cell: HTMLElement, name: string, status: string): void {
+  const desiredSig = `${name}::${status}`;
+  if (cell.dataset.actionSig === desiredSig) {
+    return;
+  }
+  cell.dataset.actionSig = desiredSig;
+  cell.innerHTML = buildActionsHTML(name, status);
+}
+
+function createRowElement(p: PM2Process): HTMLTableRowElement {
+  const tr = document.createElement('tr');
+  tr.setAttribute('data-pm-id', String(p.id));
+
+  // Cell 0: Name + Status
+  const td0 = document.createElement('td');
+  const indicator = document.createElement('span');
+  const stCls = p.status === 'online' ? 'online' : p.status === 'errored' ? 'errored' : 'stopped';
+  indicator.className = 'status-indicator ' + stCls;
+  const strong = document.createElement('strong');
+  strong.textContent = p.name;
+  td0.appendChild(indicator);
+  td0.appendChild(strong);
+
+  if (p.restarts > 0) {
+    const restartSpan = document.createElement('span');
+    const restartWarnCls = p.restarts >= 5 ? ' restart-high' : '';
+    restartSpan.className = 'restart-count' + restartWarnCls;
+    restartSpan.textContent = '• ' + p.restarts;
+    restartSpan.setAttribute('title', p.restarts + ' restarts');
+    td0.appendChild(document.createTextNode(' '));
+    td0.appendChild(restartSpan);
+  }
+  tr.appendChild(td0);
+
+  // Cell 1: CPU
+  const td1 = document.createElement('td');
+  td1.textContent = p.cpu.toFixed(1) + '%';
+  tr.appendChild(td1);
+
+  // Cell 2: Memory
+  const td2 = document.createElement('td');
+  td2.textContent = fmtBytes(p.memory);
+  tr.appendChild(td2);
+
+  // Cell 3: Actions
+  const td3 = document.createElement('td');
+  updateActionsCell(td3, p.name, p.status);
+  tr.appendChild(td3);
+
+  return tr;
+}
+
+function updateRowElement(row: HTMLTableRowElement, p: PM2Process): void {
+  row.setAttribute('data-pm-id', String(p.id));
+  const cells = row.querySelectorAll('td');
+  if (cells.length < COLS) return;
+
+  const stCls = p.status === 'online' ? 'online' : p.status === 'errored' ? 'errored' : 'stopped';
+
+  // Cell 0: Name + Status
+  const indicator = cells[0].querySelector('.status-indicator');
+  if (indicator) indicator.className = 'status-indicator ' + stCls;
+
+  const nameStrong = cells[0].querySelector('strong');
+  if (nameStrong) setTextOf(nameStrong, p.name);
+
+  let restSpan = cells[0].querySelector('.restart-count');
+  if (p.restarts > 0) {
+    if (!restSpan) {
+      restSpan = document.createElement('span');
+      cells[0].appendChild(document.createTextNode(' '));
+      cells[0].appendChild(restSpan);
+    }
+    const restartWarnCls = p.restarts >= 5 ? ' restart-high' : '';
+    restSpan.className = 'restart-count' + restartWarnCls;
+    restSpan.textContent = '• ' + p.restarts;
+    restSpan.setAttribute('title', p.restarts + ' restarts');
+  } else if (restSpan) {
+    restSpan.remove();
+  }
+
+  // Cell 1: CPU
+  setTextOf(cells[1], p.cpu.toFixed(1) + '%');
+
+  // Cell 2: Memory
+  setTextOf(cells[2], fmtBytes(p.memory));
+
+  // Cell 3: Actions - preserve buttons if signature identical
+  updateActionsCell(cells[3], p.name, p.status);
+}
+
 export function renderPM2(data?: PM2Process[] | null): void {
   const tbody = $('pm2-body');
   if (!tbody) return;
   if (!data || data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="' + COLS + '" class="none">No processes monitored. Is PM2 running?</td></tr>';
+    const message = data == null ? 'PM2 data unavailable.' : 'No processes monitored. Is PM2 running?';
+    tbody.innerHTML = '<tr><td colspan="' + COLS + '" class="none">' + message + '</td></tr>';
+    updateFilterCounts([]);
+    lastPM2Data = null;
     return;
   }
 
@@ -210,65 +304,47 @@ export function renderPM2(data?: PM2Process[] | null): void {
     });
   }
 
-  // Check if row count changed (full rebuild needed)
-  const existing = tbody.querySelectorAll('tr[data-pm-id]');
-  if (existing.length !== sortedData.length) {
-    // Rebuild all rows
-    tbody.innerHTML = sortedData.map(p => {
-      const stCls = p.status === 'online' ? 'online' : p.status === 'errored' ? 'errored' : 'stopped';
-      const restartWarnCls = p.restarts >= 5 ? ' restart-high' : '';
-      const nameSuffix = p.restarts > 0 ? ' <span class="restart-count' + restartWarnCls + '" title="' + p.restarts + ' restarts">• ' + p.restarts + '</span>' : '';
-      return '<tr data-pm-id="' + p.id + '">' +
-        '<td><span class="status-indicator ' + stCls + '"></span><strong>' + esc(p.name) + '</strong>' + nameSuffix + '</td>' +
-        '<td>' + p.cpu.toFixed(1) + '%</td>' +
-        '<td>' + fmtBytes(p.memory) + '</td>' +
-        '<td>' + buildActionsHTML(p.name, p.status) + '</td>' +
-        '</tr>';
-    }).join('');
-    return;
+  // Keyed row reconciliation by stable key (process id)
+  const existingRows = Array.from(tbody.querySelectorAll<HTMLTableRowElement>('tr[data-pm-id]'));
+  const existingMap = new Map<string, HTMLTableRowElement>();
+  for (const row of existingRows) {
+    const key = row.getAttribute('data-pm-id');
+    if (key) existingMap.set(key, row);
   }
 
-  // Patch existing rows in-place
-  const rows = tbody.querySelectorAll('tr[data-pm-id]');
+  // Clear none/empty message if present
+  const nonDataRows = tbody.querySelectorAll('tr:not([data-pm-id])');
+  nonDataRows.forEach(r => r.remove());
 
-  for (let idx = 0; idx < rows.length; idx++) {
-    const row = rows[idx];
-    const targetProcess = sortedData[idx];
+  const targetKeys = new Set<string>();
+  let position = 0;
+  const active = document.activeElement as HTMLElement | null;
+  const restoreFocus = active && tbody.contains(active);
 
-    row.setAttribute('data-pm-id', targetProcess.id.toString());
-
-    const cells = row.querySelectorAll('td');
-    if (cells.length < COLS) continue;
-
-    const stCls = targetProcess.status === 'online' ? 'online' : targetProcess.status === 'errored' ? 'errored' : 'stopped';
-
-    // Name + Status (cell 0)
-    const nameStrong = cells[0].querySelector('strong');
-    if (nameStrong) setTextOf(nameStrong, esc(targetProcess.name));
-    // Update restart count suffix
-    let restSpan = cells[0].querySelector('.restart-count');
-    if (targetProcess.restarts > 0) {
-      if (!restSpan) {
-        restSpan = document.createElement('span');
-        cells[0].appendChild(restSpan);
-      }
-      const restartWarnCls = targetProcess.restarts >= 5 ? ' restart-high' : '';
-      restSpan.className = 'restart-count' + restartWarnCls;
-      restSpan.textContent = '• ' + targetProcess.restarts;
-      restSpan.setAttribute('title', targetProcess.restarts + ' restarts');
+  for (const p of sortedData) {
+    const key = String(p.id);
+    targetKeys.add(key);
+    let row = existingMap.get(key);
+    if (row) {
+      updateRowElement(row, p);
     } else {
-      if (restSpan) restSpan.remove();
+      row = createRowElement(p);
     }
-    const indicator = cells[0].querySelector('.status-indicator');
-    if (indicator) indicator.className = 'status-indicator ' + stCls;
+    if (tbody.children[position] !== row) {
+      tbody.insertBefore(row, tbody.children[position] || null);
+    }
+    position++;
+  }
 
-    // CPU (cell 1)
-    setTextOf(cells[1], targetProcess.cpu.toFixed(1) + '%');
+  // Remove rows that no longer exist in sortedData
+  for (const [key, row] of existingMap.entries()) {
+    if (!targetKeys.has(key)) {
+      row.remove();
+    }
+  }
 
-    // Memory (cell 2)
-    setTextOf(cells[2], fmtBytes(targetProcess.memory));
-
-    // Actions (cell 3)
-    cells[3].innerHTML = buildActionsHTML(targetProcess.name, targetProcess.status);
+  // Re-append rows in sorted order
+  if (restoreFocus && active.isConnected && document.activeElement !== active) {
+    active.focus({ preventScroll: true });
   }
 }
