@@ -161,6 +161,53 @@ func TestHTTPRoutesAndWebsocket(t *testing.T) {
 	conn.Close()
 }
 
+func TestRefreshEndpointInvalidatesCachesAndReturnsState(t *testing.T) {
+	oldCfg := cfg
+	defer func() {
+		cfg = oldCfg
+		pollingMu.Lock()
+		isPollingActive = false
+		pollingMu.Unlock()
+	}()
+	cfg.AuthPass = ""
+	cfg.CollectMS = 100 * time.Millisecond
+	cfg.IdleTimeout = 100 * time.Millisecond
+
+	// Seed cache with dummy data
+	antiGravCache = Cache[[]AntigravityAccountQuota]{
+		Value: []AntigravityAccountQuota{{Email: "dummy@test.com"}},
+		Time:  time.Now(),
+	}
+
+	// Fence slow sources to prevent external network calls
+	slowMu.Lock()
+	for _, name := range []string{"pm2", "qb", "services", "connectivity", "dns", "antigravity", "claude", "codex"} {
+		slowInFlight[name] = true
+	}
+	slowMu.Unlock()
+	defer func() { slowMu.Lock(); slowInFlight = make(map[string]bool); slowMu.Unlock() }()
+
+	handler := dashboardHandler()
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/refresh", nil)
+	req.RemoteAddr = "192.0.2.10:1234"
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var res DashboardState
+	if err := json.Unmarshal(w.Body.Bytes(), &res); err != nil {
+		t.Fatalf("failed to decode JSON: %v", err)
+	}
+
+	// Verify cache was invalidated
+	if len(antiGravCache.Value) != 0 {
+		t.Fatalf("expected antiGravCache to be cleared, got %v", antiGravCache.Value)
+	}
+}
+
 func TestAuthRejectsAPIsAndAssetsWithoutServingLoginHTML(t *testing.T) {
 	old := cfg
 	defer func() { cfg = old }()

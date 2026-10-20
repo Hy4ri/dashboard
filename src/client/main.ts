@@ -1,7 +1,7 @@
 /* ── Dashboard Entry Point ──────────────────────────────────────── */
 
 import { $ } from './utils/dom.js';
-import { connectWS, disconnectWS } from './api.js';
+import { connectWS, disconnectWS, forceRefresh } from './api.js';
 import { initServiceBar } from './service-bar.js';
 import { setupPM2Menu } from './pm2-menu.js';
 import { initPM2UI } from './ui/pm2.js';
@@ -57,6 +57,24 @@ setupPM2Menu();
 initPM2UI();
 initTorrentsUI();
 setupTorrentDelete();
+
+// Refresh Button handler
+const refreshBtn = $('refresh-btn');
+if (refreshBtn) {
+  refreshBtn.addEventListener('click', async () => {
+    if (refreshBtn.hasAttribute('disabled')) return;
+    refreshBtn.setAttribute('disabled', 'true');
+    refreshBtn.classList.add('spinning');
+    try {
+      await forceRefresh();
+    } finally {
+      setTimeout(() => {
+        refreshBtn.removeAttribute('disabled');
+        refreshBtn.classList.remove('spinning');
+      }, 400);
+    }
+  });
+}
 
 // Logout Button handler
 const logoutBtn = $('logout-btn');

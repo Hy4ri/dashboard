@@ -207,3 +207,18 @@ export async function fetchStatus(): Promise<void> {
     console.warn('fetchStatus failed:', err);
   }
 }
+
+export async function forceRefresh(): Promise<void> {
+  try {
+    const res = await fetch('/api/refresh', { method: 'POST' });
+    if (res.ok) {
+      const data: DashboardState = await res.json();
+      updateUI(data);
+    } else {
+      await fetchStatus();
+    }
+  } catch (err) {
+    console.warn('forceRefresh failed, falling back to fetchStatus:', err);
+    await fetchStatus();
+  }
+}

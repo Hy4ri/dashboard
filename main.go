@@ -1645,6 +1645,20 @@ func refreshSlowCollectors() {
 	})
 }
 
+func invalidateAllCaches() {
+	collectMu.Lock()
+	defer collectMu.Unlock()
+	diskCache = Cache[*DiskUsage]{}
+	pm2Cache = Cache[[]PM2Process]{}
+	freqCache = Cache[[]CpuFrequency]{}
+	thermalCache = Cache[[]ThermalSensor]{}
+	qbCache = Cache[[]TorrentItem]{}
+	connCache = Cache[struct{ Internet, DNS ConnectivityStatus }]{}
+	antiGravCache = Cache[[]AntigravityAccountQuota]{}
+	claudeCache = Cache[*ClaudeUsageData]{}
+	codexCache = Cache[*CodexUsageData]{}
+}
+
 func collectAll() {
 	collectMu.Lock()
 	defer collectMu.Unlock()
@@ -1758,6 +1772,10 @@ func ensureActivePolling() {
 	if isPollingActive {
 		return
 	}
+	interval := cfg.CollectMS
+	if interval <= 0 {
+		interval = 2 * time.Second
+	}
 	isPollingActive = true
 	log.Println("Polling started (active client/WS connection)")
 
@@ -1765,7 +1783,7 @@ func ensureActivePolling() {
 		collectAll()
 		broadcastState()
 
-		ticker := time.NewTicker(cfg.CollectMS)
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
 		for range ticker.C {
@@ -2329,6 +2347,23 @@ func dashboardHandler() http.Handler {
 		}
 
 		// API routes
+		if path == "/api/refresh" {
+			if r.Method != http.MethodPost {
+				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			ensureActivePolling()
+			invalidateAllCaches()
+			collectAll()
+			broadcastState()
+			setSecurityHeaders(w)
+			w.Header().Set("Content-Type", "application/json")
+			stateMu.RLock()
+			w.Write(lastStateJSON)
+			stateMu.RUnlock()
+			return
+		}
+
 		if path == "/api/status" {
 			if r.Method != http.MethodGet {
 				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
