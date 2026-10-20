@@ -242,19 +242,35 @@ export function renderAntigravity(
       if (account.groups && account.groups.length > 0) {
         const sections: string[] = [];
         for (const group of account.groups) {
-          const isGemini = group.displayName.toLowerCase().includes('gemini');
-          const groupTitle = isGemini ? 'Gemini Models' : 'Claude Models';
-          const shortName = isGemini ? 'Gemini' : 'Claude';
+          const lowerName = group.displayName.toLowerCase();
+          const isArgon = lowerName.includes('argon') || (group.buckets && group.buckets.some(b => b.bucketId.includes('argon')));
+          const isGemini = !isArgon && lowerName.includes('gemini');
+
+          let groupTitle = 'Claude Models';
+          let shortName = 'Claude';
+          if (isArgon) {
+            groupTitle = 'Gemini 4 Argon';
+            shortName = 'Argon';
+          } else if (isGemini) {
+            groupTitle = 'Gemini Models';
+            shortName = 'Gemini';
+          }
+
+          const has5h = group.buckets && group.buckets.some(b => b.window === '5h' || b.bucketId.includes('5h'));
           const { fiveHour, weekly } = extractModelBuckets(group.buckets);
+          const isSingleGauge = isArgon && !has5h;
+          const gridClass = isSingleGauge ? 'agy-mini-grid single-gauge' : 'agy-mini-grid';
+          const gaugesHtml = isSingleGauge
+            ? renderCircularGauge(shortName, weekly)
+            : `${renderCircularGauge(shortName, fiveHour)}${renderCircularGauge(shortName, weekly)}`;
 
           sections.push(`
             <div class="ai-model-group">
               <div class="ai-group-header">
                 <span>${esc(groupTitle)}</span>
               </div>
-              <div class="agy-mini-grid">
-                ${renderCircularGauge(shortName, fiveHour)}
-                ${renderCircularGauge(shortName, weekly)}
+              <div class="${gridClass}">
+                ${gaugesHtml}
               </div>
             </div>
           `);

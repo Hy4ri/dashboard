@@ -879,6 +879,49 @@ async function run() {
       `Absent quota windows should show "Unknown" or indeterminate symbol, not 100%. Got: ${content}`);
   });
 
+  await testAsync('AI Antigravity renders Argon separately from Gemini with single weekly gauge', async () => {
+    const { document, window } = createMinimalDOM(BASE_HTML);
+    const agyModule = await loadModule(antigravityModulePath, window);
+
+    const agyData = [
+      {
+        email: 'test@example.com',
+        groups: [
+          {
+            displayName: 'Gemini Models',
+            buckets: [
+              { bucketId: 'gemini-weekly', displayName: 'Weekly', window: 'weekly', remainingPct: 100 },
+              { bucketId: 'gemini-5h', displayName: '5-Hour', window: '5h', remainingPct: 80 }
+            ]
+          },
+          {
+            displayName: 'Claude and GPT models',
+            buckets: [
+              { bucketId: '3p-weekly', displayName: 'Weekly', window: 'weekly', remainingPct: 50 }
+            ]
+          },
+          {
+            displayName: 'Gemini 4 Argon',
+            buckets: [
+              { bucketId: 'gemini-argon-wtu-weekly', displayName: 'Weekly', window: 'weekly', remainingPct: 90 }
+            ]
+          }
+        ]
+      }
+    ];
+
+    agyModule.renderAntigravity(agyData, null, null);
+
+    const container = document.getElementById('antigravity-content');
+    const content = container.innerHTML;
+
+    assert(content.includes('Gemini Models'), 'Must render Gemini Models group');
+    assert(content.includes('Gemini 4 Argon'), 'Must render Gemini 4 Argon group');
+    assert(content.includes('Claude Models'), 'Must render Claude Models group');
+    assert(content.includes('single-gauge'), 'Argon weekly-only quota must render with single-gauge grid');
+    assert(content.includes('Argon <span class="agy-meta-win">Weekly</span>'), 'Argon bucket title must be rendered cleanly');
+  });
+
   await testAsync('Claude and Codex usage tabs do NOT display fabricated model/plan/traffic/credits labels', async () => {
     const { document, window } = createMinimalDOM(BASE_HTML);
     const agyModule = await loadModule(antigravityModulePath, window);

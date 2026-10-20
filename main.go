@@ -42,8 +42,10 @@ type Config struct {
 	ThermalCacheTTL time.Duration
 	QBCacheTTL      time.Duration
 	ConnCacheTTL    time.Duration
-	AntiGravTTL     time.Duration
-	TechnitiumToken string
+	AntiGravTTL      time.Duration
+	AntiGravAuthsDir string
+	AntiGravEndpoint string
+	TechnitiumToken  string
 	TechnitiumURL   string
 	AuthUser        string
 	AuthPass        string
@@ -122,8 +124,9 @@ func initConfig() {
 		ThermalCacheTTL: 5 * time.Second,
 		QBCacheTTL:      10 * time.Second,
 		ConnCacheTTL:    10 * time.Second,
-		AntiGravTTL:     30 * time.Second,
-		TechnitiumToken: os.Getenv("TECHNITIUM_TOKEN"),
+		AntiGravTTL:      30 * time.Second,
+		AntiGravAuthsDir:  "/opt/cliproxyapi/auths",
+		TechnitiumToken:  os.Getenv("TECHNITIUM_TOKEN"),
 		TechnitiumURL:   techURL,
 		AuthUser:        authUser,
 		AuthPass:        os.Getenv("AUTH_PASS"),
@@ -1284,7 +1287,10 @@ func collectAntigravity() []AntigravityAccountQuota {
 	// A failed refresh must not keep old measurements looking current.
 	antiGravCache.Value = nil
 	defer func() { antiGravCache.Time = now }()
-	authsDir := "/opt/cliproxyapi/auths"
+	authsDir := cfg.AntiGravAuthsDir
+	if authsDir == "" {
+		authsDir = "/opt/cliproxyapi/auths"
+	}
 	entries, err := os.ReadDir(authsDir)
 	if err != nil {
 		return antiGravCache.Value
@@ -1314,30 +1320,15 @@ func collectAntigravity() []AntigravityAccountQuota {
 			project, _ := authMap["project_id"].(string)
 
 			payload := []byte(fmt.Sprintf(`{"project":"%s"}`, project))
-			req, _ := http.NewRequest("POST", "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary", bytes.NewReader(payload))
-			req.Header.Set("Authorization", "Bearer "+token)
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("User-Agent", "Antigravity/1.0")
-
-			resp, err := client.Do(req)
-			if err != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {
-				if resp != nil {
-					resp.Body.Close()
-				}
-				// Fallback to standard cloudcode-pa if daily is unreachable
-				fallbackReq, _ := http.NewRequest("POST", "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary", bytes.NewReader(payload))
-				fallbackReq.Header.Set("Authorization", "Bearer "+token)
-				fallbackReq.Header.Set("Content-Type", "application/json")
-				fallbackReq.Header.Set("User-Agent", "Antigravity/1.0")
-				resp, err = client.Do(fallbackReq)
-				if err != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {
-					if resp != nil {
-						resp.Body.Close()
-					}
-					continue
-				}
+			endpoints := []string{
+				"https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
+				"https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
 			}
-			var quotaResp struct {
+			if cfg.AntiGravEndpoint != "" {
+				endpoints = []string{cfg.AntiGravEndpoint}
+			}
+
+			type rawQuotaResp struct {
 				Groups []struct {
 					DisplayName string `json:"displayName"`
 					Buckets     []struct {
@@ -1349,13 +1340,56 @@ func collectAntigravity() []AntigravityAccountQuota {
 					} `json:"buckets"`
 				} `json:"groups"`
 			}
-			if err := json.NewDecoder(resp.Body).Decode(&quotaResp); err == nil {
-				var groups []AntigravityQuotaGroup
+
+			var mergedGroups []AntigravityQuotaGroup
+			seenGroupNames := make(map[string]bool)
+			hasGemini := false
+			hasClaude := false
+
+			for _, ep := range endpoints {
+				if hasGemini && hasClaude {
+					break
+				}
+				req, err := http.NewRequest("POST", ep, bytes.NewReader(payload))
+				if err != nil {
+					continue
+				}
+				req.Header.Set("Authorization", "Bearer "+token)
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("User-Agent", "Antigravity/1.0")
+
+				resp, err := client.Do(req)
+				if err != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {
+					if resp != nil {
+						resp.Body.Close()
+					}
+					continue
+				}
+
+				var quotaResp rawQuotaResp
+				decodeErr := json.NewDecoder(resp.Body).Decode(&quotaResp)
+				resp.Body.Close()
+				if decodeErr != nil {
+					continue
+				}
+
 				for _, g := range quotaResp.Groups {
 					gName := g.DisplayName
 					if gName == "" {
 						gName = "Model Group"
 					}
+					key := strings.ToLower(strings.TrimSpace(gName))
+					if strings.Contains(key, "gemini") && !strings.Contains(key, "argon") {
+						hasGemini = true
+					}
+					if strings.Contains(key, "claude") {
+						hasClaude = true
+					}
+					if seenGroupNames[key] {
+						continue
+					}
+					seenGroupNames[key] = true
+
 					var buckets []AntigravityQuotaBucket
 					for _, b := range g.Buckets {
 						w := b.Window
@@ -1376,18 +1410,20 @@ func collectAntigravity() []AntigravityAccountQuota {
 							RemainingPct:      pct,
 						})
 					}
-					groups = append(groups, AntigravityQuotaGroup{
+					mergedGroups = append(mergedGroups, AntigravityQuotaGroup{
 						DisplayName: gName,
 						Buckets:     buckets,
 					})
 				}
+			}
+
+			if len(mergedGroups) > 0 {
 				res = append(res, AntigravityAccountQuota{
 					Email:   email,
 					Project: project,
-					Groups:  groups,
+					Groups:  mergedGroups,
 				})
 			}
-			resp.Body.Close()
 		}
 	}
 	antiGravCache = Cache[[]AntigravityAccountQuota]{Value: res, Time: now}

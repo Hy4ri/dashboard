@@ -287,3 +287,62 @@ func TestCPUGuestTimeNotCountedTwice(t *testing.T) {
 		t.Fatalf("guest time double-counted, got %v", pct)
 	}
 }
+
+func TestAntigravityCollectAndMergeWithArgon(t *testing.T) {
+	oldCfg, oldCache := cfg, antiGravCache
+	defer func() { cfg = oldCfg; antiGravCache = oldCache }()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		resp := `{
+			"groups": [
+				{
+					"displayName": "Gemini Models",
+					"buckets": [
+						{"bucketId": "gemini-weekly", "displayName": "Weekly Limit", "window": "weekly", "remainingFraction": 0.85},
+						{"bucketId": "gemini-5h", "displayName": "Five Hour Limit", "window": "5h", "remainingFraction": 1.0}
+					]
+				},
+				{
+					"displayName": "Claude and GPT models",
+					"buckets": [
+						{"bucketId": "3p-weekly", "displayName": "Weekly Limit", "window": "weekly", "remainingFraction": 0.5}
+					]
+				},
+				{
+					"displayName": "Gemini 4 Argon",
+					"buckets": [
+						{"bucketId": "gemini-argon-wtu-weekly", "displayName": "Gemini 4 Argon Weekly Limit", "window": "weekly", "remainingFraction": 0.9}
+					]
+				}
+			]
+		}`
+		w.Write([]byte(resp))
+	}))
+	defer ts.Close()
+
+	dir := t.TempDir()
+	authData := `{"access_token":"fake-token","email":"test@example.com","project_id":"fake-proj"}`
+	if err := os.WriteFile(filepath.Join(dir, "antigravity-test@example.com.json"), []byte(authData), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg.AntiGravAuthsDir = dir
+	cfg.AntiGravEndpoint = ts.URL
+	cfg.AntiGravTTL = time.Minute
+	antiGravCache = Cache[[]AntigravityAccountQuota]{}
+
+	res := collectAntigravity()
+	if len(res) != 1 {
+		t.Fatalf("expected 1 account, got %d", len(res))
+	}
+	if len(res[0].Groups) != 3 {
+		t.Fatalf("expected 3 groups, got %d", len(res[0].Groups))
+	}
+	if res[0].Groups[0].DisplayName != "Gemini Models" || res[0].Groups[0].Buckets[0].RemainingPct != 85 {
+		t.Fatalf("unexpected group 0: %+v", res[0].Groups[0])
+	}
+	if res[0].Groups[2].DisplayName != "Gemini 4 Argon" || res[0].Groups[2].Buckets[0].RemainingPct != 90 {
+		t.Fatalf("unexpected Argon group: %+v", res[0].Groups[2])
+	}
+}
