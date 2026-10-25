@@ -393,3 +393,24 @@ func TestAntigravityCollectAndMergeWithArgon(t *testing.T) {
 		t.Fatalf("unexpected Argon group: %+v", res[0].Groups[2])
 	}
 }
+
+func TestExtractJSONArray(t *testing.T) {
+	banner := "\n\x1b[31m\x1b[1m>>>> In-memory PM2 is out-of-date, do:\x1b[22m\x1b[39m\n>>>> $ pm2 update\n[{\"name\":\"test-proc\",\"pm_id\":1}]\n"
+	cleaned := extractJSONArray([]byte(banner))
+	var raw []map[string]interface{}
+	if err := json.Unmarshal(cleaned, &raw); err != nil {
+		t.Fatalf("expected valid json, got err: %v", err)
+	}
+	if len(raw) != 1 || raw[0]["name"] != "test-proc" {
+		t.Fatalf("unexpected unmarshaled result: %+v", raw)
+	}
+
+	emptyCleaned := extractJSONArray([]byte("prefix banner\n[]\n"))
+	if err := json.Unmarshal(emptyCleaned, &raw); err != nil {
+		t.Fatalf("expected valid empty json array, got err: %v", err)
+	}
+	if len(raw) != 0 {
+		t.Fatalf("expected 0 items, got %d", len(raw))
+	}
+}
+

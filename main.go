@@ -973,6 +973,25 @@ func collectSystem() *SystemData {
 	}
 }
 
+func extractJSONArray(data []byte) []byte {
+	end := bytes.LastIndexByte(data, ']')
+	if end == -1 {
+		return data
+	}
+	for i := 0; i < end; i++ {
+		if data[i] == '[' {
+			if i > 0 && data[i-1] == 0x1b {
+				continue
+			}
+			candidate := data[i : end+1]
+			if json.Valid(candidate) {
+				return candidate
+			}
+		}
+	}
+	return data
+}
+
 func collectPM2() []PM2Process {
 	pm2Mu.Lock()
 	defer pm2Mu.Unlock()
@@ -990,7 +1009,7 @@ func collectPM2() []PM2Process {
 		return pm2Cache.Value
 	}
 	var raw []map[string]interface{}
-	if err := json.Unmarshal(out, &raw); err != nil {
+	if err := json.Unmarshal(extractJSONArray(out), &raw); err != nil {
 		return pm2Cache.Value
 	}
 	res := make([]PM2Process, 0, len(raw))
