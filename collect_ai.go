@@ -174,7 +174,10 @@ func collectAntigravity() []AntigravityAccountQuota {
 
 func collectClaudeUsage() *ClaudeUsageData {
 	return claudeCache.Get(func() (*ClaudeUsageData, bool) {
-		credPath := "/.claude/.credentials.json"
+		credPath := cfg.ClaudeCreds
+		if credPath == "" {
+			credPath = "/.claude/.credentials.json"
+		}
 		raw, err := os.ReadFile(credPath)
 		if err != nil {
 			log.Printf("Claude read error: %v", err)

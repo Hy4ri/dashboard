@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -31,12 +32,45 @@ type Config struct {
 	QBUser           string
 	QBPass           string
 	TrustProxy       bool
+	NetIfaces        []string
+	ThermalZones     []string
+	AppRoot          string
+	ClaudeCreds      string
 }
 
 var cfg Config
 
+// defaultAppRoot is the directory of the running executable, so the server
+// finds its files whichever directory starts it.
+func defaultAppRoot() string {
+	if exe, err := os.Executable(); err == nil {
+		if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+			exe = resolved
+		}
+		return filepath.Dir(exe)
+	}
+	return "/opt/monit"
+}
+
+func splitList(value string, fallback []string) []string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	parts := strings.Split(value, ",")
+	res := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			res = append(res, p)
+		}
+	}
+	if len(res) == 0 {
+		return fallback
+	}
+	return res
+}
+
 func loadDotEnv() {
-	paths := []string{".env", "/opt/monit/.env"}
+	paths := []string{".env", filepath.Join(defaultAppRoot(), ".env")}
 	for _, p := range paths {
 		data, err := os.ReadFile(p)
 		if err != nil {
@@ -60,6 +94,13 @@ func loadDotEnv() {
 		}
 		break
 	}
+}
+
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
 
 func initConfig() {
@@ -113,6 +154,10 @@ func initConfig() {
 		QBUser:           qbUser,
 		QBPass:           os.Getenv("QB_PASS"),
 		TrustProxy:       os.Getenv("TRUST_PROXY") == "true" || os.Getenv("TRUST_PROXY") == "1",
+		NetIfaces:        splitList(os.Getenv("NET_IFACES"), []string{"wlan0", "tun0"}),
+		ThermalZones:     splitList(os.Getenv("THERMAL_ZONES"), []string{"cpu-1-6-step", "battery", "gpuss-0-step", "ddr-usr"}),
+		AppRoot:          envOr("APP_ROOT", defaultAppRoot()),
+		ClaudeCreds:      envOr("CLAUDE_CREDENTIALS", "/.claude/.credentials.json"),
 	}
 	initCaches()
 }

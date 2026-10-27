@@ -143,13 +143,9 @@ func initStaticData() {
 	}
 
 	// 3. Thermal Paths
-	wantedZones := map[string]bool{
-		"cpu-1-6-step":       true,
-		"battery":            true,
-		"gpuss-0-step":       true,
-		"ddr-usr":            true,
-		"modem-lte-sub6-pa1": true,
-		"pmr735a_tz":         true,
+	wantedZones := make(map[string]bool, len(cfg.ThermalZones))
+	for _, name := range cfg.ThermalZones {
+		wantedZones[name] = true
 	}
 	if zones, err := readDirNames("/sys/class/thermal"); err == nil {
 		for _, z := range zones {
@@ -294,18 +290,33 @@ func parseMemInfo(text string) *MemoryData {
 
 func collectNetwork(netText string, interval float64) map[string]NetworkInterface {
 	currNet := make(map[string][2]int64)
-	re := regexp.MustCompile(`^\s*(wlan0|tun0)\s*:\s*(\d+)\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+(\d+)`)
+	wanted := make(map[string]bool, len(cfg.NetIfaces))
+	for _, name := range cfg.NetIfaces {
+		wanted[name] = true
+	}
 	for _, line := range strings.Split(netText, "\n") {
-		m := re.FindStringSubmatch(line)
-		if len(m) == 4 {
-			rx, _ := strconv.ParseInt(m[2], 10, 64)
-			tx, _ := strconv.ParseInt(m[3], 10, 64)
-			currNet[m[1]] = [2]int64{rx, tx}
+		colon := strings.Index(line, ":")
+		if colon < 0 {
+			continue
 		}
+		name := strings.TrimSpace(line[:colon])
+		if !wanted[name] {
+			continue
+		}
+		fields := strings.Fields(line[colon+1:])
+		if len(fields) < 9 {
+			continue
+		}
+		rx, errRx := strconv.ParseInt(fields[0], 10, 64)
+		tx, errTx := strconv.ParseInt(fields[8], 10, 64)
+		if errRx != nil || errTx != nil {
+			continue
+		}
+		currNet[name] = [2]int64{rx, tx}
 	}
 
 	res := make(map[string]NetworkInterface)
-	for _, iface := range []string{"wlan0", "tun0"} {
+	for _, iface := range cfg.NetIfaces {
 		cur, ok := currNet[iface]
 		if !ok {
 			continue

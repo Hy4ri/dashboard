@@ -17,6 +17,14 @@ import (
 	"time"
 )
 
+func TestMain(m *testing.M) {
+	// Static-file tests serve from the package directory.
+	if wd, err := os.Getwd(); err == nil {
+		cfg.AppRoot = wd
+	}
+	os.Exit(m.Run())
+}
+
 func TestStaticRejectsPrivateFiles(t *testing.T) {
 	for _, path := range []string{"main.go", "go.mod", "package.json", ".git/HEAD", "vendor/xterm.min.js", "dist/client/ui/terminal.js", "../monit-other/file"} {
 		t.Run(path, func(t *testing.T) {
@@ -765,5 +773,26 @@ func TestAntigravityPayloadEscapesProject(t *testing.T) {
 	}
 	if payload["project"] != `pro"ject` {
 		t.Fatalf("project mangled: %q", payload["project"])
+	}
+}
+
+func TestCollectNetworkUsesConfiguredInterfaces(t *testing.T) {
+	oldCfg, oldPrev := cfg, prevState
+	defer func() { cfg, prevState = oldCfg, oldPrev }()
+	cfg.NetIfaces = []string{"eth9"}
+	prevState = PrevState{}
+	text := "Inter-|   Receive                                                |  Transmit\n" +
+		" face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n" +
+		"   eth9: 100 0 0 0 0 0 0 0 200 0 0 0 0 0 0 0\n" +
+		" wlan0: 300 0 0 0 0 0 0 0 400 0 0 0 0 0 0 0\n"
+	got := collectNetwork(text, 1)
+	if _, ok := got["eth9"]; !ok {
+		t.Fatalf("configured interface missing: %+v", got)
+	}
+	if _, ok := got["wlan0"]; ok {
+		t.Fatalf("hardcoded interface still collected: %+v", got)
+	}
+	if got["eth9"].RxBytes != 100 || got["eth9"].TxBytes != 200 {
+		t.Fatalf("wrong counters: %+v", got["eth9"])
 	}
 }

@@ -198,7 +198,13 @@ func serveStaticFile(w http.ResponseWriter, r *http.Request, relPath string) {
 		http.NotFound(w, r)
 		return
 	}
-	root := "/opt/monit"
+	root := cfg.AppRoot
+	if root == "" {
+		root = defaultAppRoot()
+	}
+	if abs, err := filepath.Abs(root); err == nil {
+		root = abs
+	}
 	fullPath, err := filepath.EvalSymlinks(filepath.Join(root, relPath))
 	if err != nil || !strings.HasPrefix(fullPath, root+string(os.PathSeparator)) {
 		http.NotFound(w, r)
