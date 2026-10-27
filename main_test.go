@@ -419,4 +419,3 @@ func TestExtractJSONArray(t *testing.T) {
 		t.Fatalf("expected 0 items, got %d", len(raw))
 	}
 }
-
