@@ -316,14 +316,24 @@ func collectNetwork(netText string, interval float64) map[string]NetworkInterfac
 		}
 		if prevState.Net != nil && interval > 0 {
 			if prev, okPrev := prevState.Net[iface]; okPrev {
-				item.RxRate = math.Round(float64(cur[0]-prev[0]) / interval)
-				item.TxRate = math.Round(float64(cur[1]-prev[1]) / interval)
+				item.RxRate = byteRate(cur[0], prev[0], interval)
+				item.TxRate = byteRate(cur[1], prev[1], interval)
 			}
 		}
 		res[iface] = item
 	}
 	prevState.Net = currNet
 	return res
+}
+
+// byteRate returns bytes per second between two counter readings. A counter
+// that went backwards means the interface or the counter reset, so the rate is
+// zero, never negative.
+func byteRate(cur, prev int64, interval float64) float64 {
+	if interval <= 0 || cur < prev {
+		return 0
+	}
+	return math.Round(float64(cur-prev) / interval)
 }
 
 func collectDiskIO(diskText string, interval float64) map[string]DiskIOItem {

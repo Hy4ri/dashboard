@@ -671,3 +671,15 @@ func TestQBTorrentDeleteAllRejected(t *testing.T) {
 		t.Fatal("single delete route is not registered")
 	}
 }
+
+func TestByteRateClampsCounterReset(t *testing.T) {
+	if got := byteRate(100, 500, 1); got != 0 {
+		t.Fatalf("counter reset produced a rate: %v", got)
+	}
+	if got := byteRate(1500, 500, 2); got != 500 {
+		t.Fatalf("wrong rate: %v", got)
+	}
+	if got := byteRate(100, 50, 0); got != 0 {
+		t.Fatalf("zero interval produced a rate: %v", got)
+	}
+}
