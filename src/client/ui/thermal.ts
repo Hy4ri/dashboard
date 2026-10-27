@@ -1,11 +1,11 @@
 import { fmtTemp } from '../utils/format.js';
 import { $, esc, setTextOf } from '../utils/dom.js';
-import { THERMAL_MAP } from '../config.js';
+import { THERMAL_MAP, THRESHOLDS } from '../config.js';
 import { ThermalSensor } from '../../shared/types.js';
 
 function getTempClass(temp: number): string {
-  if (temp >= 75) return 'temp-critical';
-  if (temp >= 60) return 'temp-warm';
+  if (temp >= THRESHOLDS.temp.crit) return 'temp-critical';
+  if (temp >= THRESHOLDS.temp.warn) return 'temp-warm';
   return 'temp-cool';
 }
 

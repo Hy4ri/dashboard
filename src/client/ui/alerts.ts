@@ -1,5 +1,6 @@
 import { $ } from '../utils/dom.js';
 import { DashboardState } from '../../shared/types.js';
+import { THRESHOLDS } from '../config.js';
 
 let notificationGranted = false;
 let previousAlerts = new Set<string>();
@@ -93,7 +94,7 @@ export function checkAlerts(data?: DashboardState | null): void {
   // 1. Check CPU Temperature (Thermal)
   if (data.thermal) {
     data.thermal.forEach((sensor) => {
-      if (sensor.temp > 80) {
+      if (sensor.temp >= THRESHOLDS.temp.crit) {
         currentAlerts.push({
           key: `temp_${sensor.name}`,
           type: 'danger',
@@ -105,7 +106,7 @@ export function checkAlerts(data?: DashboardState | null): void {
   }
 
   // 2. Check RAM usage
-  if (data.memory && (data.memory.used_pct || 0) > 95) {
+  if (data.memory && (data.memory.used_pct || 0) >= THRESHOLDS.mem.crit) {
     currentAlerts.push({
       key: 'ram_high',
       type: 'warning',
@@ -115,7 +116,7 @@ export function checkAlerts(data?: DashboardState | null): void {
   }
 
   // 3. Check Disk usage
-  if (data.disk && (data.disk.used_pct || 0) > 95) {
+  if (data.disk && (data.disk.used_pct || 0) >= THRESHOLDS.disk.crit) {
     currentAlerts.push({
       key: 'disk_high',
       type: 'warning',

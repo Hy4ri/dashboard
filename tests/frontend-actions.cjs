@@ -334,7 +334,7 @@ async function runTests() {
       const code = fs.readFileSync(eventsPath, 'utf8');
       const mod = new vm.SourceTextModule(code, { context: sandbox });
       await mod.link(async (specifier) => {
-        const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const fetchStatus = () => {};', { context: sandbox });
+        const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const THRESHOLDS = {cpu:{warn:60,crit:80},mem:{warn:60,crit:80},swap:{warn:60,crit:80},disk:{warn:70,crit:85},temp:{warn:60,crit:75}}; export const fetchStatus = () => {};', { context: sandbox });
         await empty.link(() => {});
         await empty.evaluate();
         return empty;
@@ -408,7 +408,7 @@ async function runTests() {
       const code = fs.readFileSync(pm2MenuPath, 'utf8');
       const mod = new vm.SourceTextModule(code, { context: sandbox });
       await mod.link(async (specifier) => {
-        const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const fetchStatus = () => {};', { context: sandbox });
+        const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const THRESHOLDS = {cpu:{warn:60,crit:80},mem:{warn:60,crit:80},swap:{warn:60,crit:80},disk:{warn:70,crit:85},temp:{warn:60,crit:75}}; export const fetchStatus = () => {};', { context: sandbox });
         await empty.link(() => {});
         await empty.evaluate();
         return empty;
@@ -476,7 +476,7 @@ async function runTests() {
     const code = fs.readFileSync(pm2MenuPath, 'utf8');
     const mod = new vm.SourceTextModule(code, { context: sandbox });
     await mod.link(async () => {
-      const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const fetchStatus = () => {};', { context: sandbox });
+      const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const THRESHOLDS = {cpu:{warn:60,crit:80},mem:{warn:60,crit:80},swap:{warn:60,crit:80},disk:{warn:70,crit:85},temp:{warn:60,crit:75}}; export const fetchStatus = () => {};', { context: sandbox });
       await empty.link(() => {});
       await empty.evaluate();
       return empty;
@@ -528,7 +528,7 @@ async function runTests() {
     const code = fs.readFileSync(pm2MenuPath, 'utf8');
     const mod = new vm.SourceTextModule(code, { context: sandbox });
     await mod.link(async () => {
-      const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const fetchStatus = () => {};', { context: sandbox });
+      const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const THRESHOLDS = {cpu:{warn:60,crit:80},mem:{warn:60,crit:80},swap:{warn:60,crit:80},disk:{warn:70,crit:85},temp:{warn:60,crit:75}}; export const fetchStatus = () => {};', { context: sandbox });
       await empty.link(() => {});
       await empty.evaluate();
       return empty;
@@ -603,7 +603,7 @@ async function runTests() {
       const code = fs.readFileSync(alertsPath, 'utf8');
       const mod = new vm.SourceTextModule(code, { context: sandbox });
       await mod.link(async () => {
-        const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id);', { context: sandbox });
+        const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const THRESHOLDS = {cpu:{warn:60,crit:80},mem:{warn:60,crit:80},swap:{warn:60,crit:80},disk:{warn:70,crit:85},temp:{warn:60,crit:75}};', { context: sandbox });
         await empty.link(() => {});
         await empty.evaluate();
         return empty;
@@ -670,7 +670,7 @@ async function runTests() {
     const code = fs.readFileSync(alertsPath, 'utf8');
     const mod = new vm.SourceTextModule(code, { context: sandbox });
     await mod.link(async () => {
-      const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id);', { context: sandbox });
+      const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const THRESHOLDS = {cpu:{warn:60,crit:80},mem:{warn:60,crit:80},swap:{warn:60,crit:80},disk:{warn:70,crit:85},temp:{warn:60,crit:75}};', { context: sandbox });
       await empty.link(() => {});
       await empty.evaluate();
       return empty;
@@ -744,7 +744,7 @@ async function runTests() {
     const code = fs.readFileSync(eventsPath, 'utf8');
     const mod = new vm.SourceTextModule(code, { context: sandbox });
     await mod.link(async () => {
-      const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const fetchStatus = () => {};', { context: sandbox });
+      const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const THRESHOLDS = {cpu:{warn:60,crit:80},mem:{warn:60,crit:80},swap:{warn:60,crit:80},disk:{warn:70,crit:85},temp:{warn:60,crit:75}}; export const fetchStatus = () => {};', { context: sandbox });
       await empty.link(() => {});
       await empty.evaluate();
       return empty;

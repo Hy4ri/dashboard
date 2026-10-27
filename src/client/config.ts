@@ -2,6 +2,18 @@
 
 export const POLL_MS = 3000;
 
+// One source for every warn/crit boundary: bar colours, bar suffixes, thermal
+// colours and alerts all read these numbers.
+export const THRESHOLDS = {
+  cpu: { warn: 60, crit: 80 },
+  mem: { warn: 60, crit: 80 },
+  swap: { warn: 60, crit: 80 },
+  disk: { warn: 70, crit: 85 },
+  temp: { warn: 60, crit: 75 },
+} as const;
+
+export type ThresholdKey = keyof typeof THRESHOLDS;
+
 export interface ThermalMap {
   [key: string]: string;
 }
