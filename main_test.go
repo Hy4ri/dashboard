@@ -622,3 +622,52 @@ func TestRefreshKeepsLastFastSample(t *testing.T) {
 		}
 	}
 }
+
+func TestQBLoginRequiresOkBody(t *testing.T) {
+	oldCfg := cfg
+	oldCookie := qb.getCookie()
+	oldHTTP := qb.http
+	defer func() {
+		cfg = oldCfg
+		qb.setCookie(oldCookie)
+		qb.http = oldHTTP
+	}()
+	body := "Fails."
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(body))
+	}))
+	defer server.Close()
+	u, _ := url.Parse(server.URL)
+	cfg.QBHost = u.Hostname()
+	cfg.QBPort = mustPort(t, u.Port())
+	cfg.QBUser = "admin"
+	cfg.QBPass = "wrong"
+	qb.setCookie("")
+
+	if qb.login() {
+		t.Fatal("a 200 Fails. response was treated as a successful login")
+	}
+
+	body = "Ok."
+	if !qb.login() {
+		t.Fatal("a 200 Ok. response was rejected")
+	}
+}
+
+func TestQBTorrentDeleteAllRejected(t *testing.T) {
+	oldCfg := cfg
+	defer func() { cfg = oldCfg }()
+	cfg.AuthPass = ""
+	handler := dashboardHandler()
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, httptest.NewRequest("POST", "/api/qbittorrent/delete/all", nil))
+	if w.Code != http.StatusNotFound && w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("delete all is still routable: %d", w.Code)
+	}
+	w = httptest.NewRecorder()
+	handler.ServeHTTP(w, httptest.NewRequest("POST", "/api/qbittorrent/delete/"+strings.Repeat("a", 40), nil))
+	if w.Code == http.StatusNotFound {
+		t.Fatal("single delete route is not registered")
+	}
+}

@@ -54,7 +54,10 @@ func (c *qbClient) login() bool {
 			return true
 		}
 	}
-	return resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNoContent
+	// A failed login answers 200 with the body "Fails.", so the status code
+	// alone does not prove success.
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 64))
+	return strings.TrimSpace(string(body)) == "Ok."
 }
 
 func (c *qbClient) request(method, path string, data url.Values, cookie string) (*http.Response, error) {
@@ -145,16 +148,19 @@ func collectQBittorrent() []TorrentItem {
 	})
 }
 
-func handleQBAction(w http.ResponseWriter, r *http.Request, action, hash string) {
+func handleQBAction(w http.ResponseWriter, r *http.Request, action, hash string, deleteFiles bool) {
 	setSecurityHeaders(w)
 	w.Header().Set("Content-Type", "application/json")
 
 	doAction := func(act, h string) (bool, string) {
 		data := url.Values{}
 		data.Set("hashes", h)
-		switch act {
-		case "delete":
-			data.Set("deleteFiles", "true")
+		if act == "delete" {
+			if deleteFiles {
+				data.Set("deleteFiles", "true")
+			} else {
+				data.Set("deleteFiles", "false")
+			}
 		}
 		apiPath := torrentActionPath(act)
 		resp, err := qb.do("POST", apiPath, data)

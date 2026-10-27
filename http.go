@@ -263,7 +263,8 @@ func serveStaticFile(w http.ResponseWriter, r *http.Request, relPath string) {
 func dashboardHandler() http.Handler {
 	pm2ControlRe := regexp.MustCompile(`^/api/pm2/(stop|start|restart|delete)/(\d+)$`)
 	pm2LogsRe := regexp.MustCompile(`^/api/pm2/logs/(\d+)$`)
-	qbRe := regexp.MustCompile(`^/api/qbittorrent/(delete|pause|resume)/([a-fA-F0-9]{40}|all)$`)
+	qbBulkRe := regexp.MustCompile(`^/api/qbittorrent/(pause|resume)/([a-fA-F0-9]{40}|all)$`)
+	qbDeleteRe := regexp.MustCompile(`^/api/qbittorrent/delete/([a-fA-F0-9]{40})$`)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if r.Method == http.MethodPost && r.Header.Get("Origin") != "" {
@@ -382,8 +383,12 @@ func dashboardHandler() http.Handler {
 		}
 
 		// qBittorrent: /api/qbittorrent/:action/:hash
-		if m := qbRe.FindStringSubmatch(path); len(m) == 3 && r.Method == "POST" {
-			handleQBAction(w, r, m[1], m[2])
+		if m := qbBulkRe.FindStringSubmatch(path); len(m) == 3 && r.Method == "POST" {
+			handleQBAction(w, r, m[1], m[2], false)
+			return
+		}
+		if m := qbDeleteRe.FindStringSubmatch(path); len(m) == 2 && r.Method == "POST" {
+			handleQBAction(w, r, "delete", m[1], r.URL.Query().Get("files") == "1")
 			return
 		}
 

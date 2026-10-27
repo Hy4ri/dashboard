@@ -26,8 +26,10 @@ export function setupTorrentEvents(): void {
         return;
       }
 
+      let deleteFiles = false;
       if (action === 'delete') {
-        if (!confirm(`Delete "${name}" and remove downloaded files?`)) return;
+        if (!confirm(`Delete torrent "${name}"?`)) return;
+        deleteFiles = confirm('Also remove the downloaded files?');
       }
 
       pendingTorrentHashes.add(hash);
@@ -37,7 +39,8 @@ export function setupTorrentEvents(): void {
       btn.innerHTML = '…';
 
       try {
-        const res = await fetch(`/api/qbittorrent/${action}/${hash}`, { method: 'POST' });
+        const query = action === 'delete' && deleteFiles ? '?files=1' : '';
+        const res = await fetch(`/api/qbittorrent/${action}/${hash}${query}`, { method: 'POST' });
         let data: any = null;
         try {
           data = await res.json();
