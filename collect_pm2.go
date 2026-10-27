@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"os/exec"
-	"strconv"
 	"time"
 )
 
@@ -95,15 +94,12 @@ func collectPM2() []PM2Process {
 	return pm2Cache.Get(pm2Loader)
 }
 
-func findPM2Process(name string) *PM2Process {
+// findPM2Process returns the process with this numeric PM2 id. Names are not
+// unique, so the API never resolves them.
+func findPM2Process(id int) *PM2Process {
 	procs := collectPM2()
 	for i := range procs {
-		if strconv.Itoa(procs[i].ID) == name {
-			return &procs[i]
-		}
-	}
-	for i := range procs {
-		if procs[i].Name == name {
+		if procs[i].ID == id {
 			return &procs[i]
 		}
 	}

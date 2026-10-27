@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/gorilla/websocket"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -248,45 +250,108 @@ func TestFastCollectionDoesNotWaitOnSlowCollectors(t *testing.T) {
 	}
 }
 
-func TestPM2ControlResolvesKnownNamesToIDs(t *testing.T) {
-	oldCfg, oldCache := cfg, pm2Cache
+func TestPM2ControlRequiresNumericID(t *testing.T) {
+	oldCfg, oldCache, oldRun, oldLoader := cfg, pm2Cache, pm2Run, pm2Loader
 	defer func() {
-		cfg = oldCfg
-		pm2Cache = oldCache
+		cfg, pm2Cache, pm2Run, pm2Loader = oldCfg, oldCache, oldRun, oldLoader
 		pollingMu.Lock()
 		isPollingActive = false
 		pollingMu.Unlock()
 	}()
 	cfg.PM2CacheTTL = time.Minute
 	initCaches()
-	pm2Cache.setForTest([]PM2Process{{ID: 7, Name: "A&B"}})
+	pm2Cache.setForTest([]PM2Process{{ID: 7, Name: "A&B"}, {ID: 3, Name: "3"}})
+	pm2Loader = func() ([]PM2Process, bool) { return []PM2Process{{ID: 7, Name: "A&B"}, {ID: 3, Name: "3"}}, true }
 	pollingMu.Lock()
 	isPollingActive = true
 	pollingMu.Unlock()
-	dir := t.TempDir()
-	output := filepath.Join(dir, "args")
-	if err := os.WriteFile(filepath.Join(dir, "pm2"), []byte("#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$MONIT_FAKE_ARGS\"\n"), 0700); err != nil {
-		t.Fatal(err)
+
+	var calls []string
+	pm2Run = func(ctx context.Context, args ...string) error {
+		calls = append(calls, strings.Join(args, " "))
+		return nil
 	}
-	t.Setenv("PATH", dir+":"+os.Getenv("PATH"))
-	t.Setenv("MONIT_FAKE_ARGS", output)
+
 	w := httptest.NewRecorder()
-	handlePM2Control(w, httptest.NewRequest("POST", "/api/pm2/restart/A&B", nil), "restart", "A&B")
+	handlePM2Control(w, httptest.NewRequest("POST", "/api/pm2/restart/7", nil), "restart", 7)
 	if w.Code != 200 {
-		t.Fatalf("valid name rejected: %d %s", w.Code, w.Body.String())
+		t.Fatalf("valid id rejected: %d %s", w.Code, w.Body.String())
 	}
-	args, err := os.ReadFile(output)
-	if err != nil {
-		t.Fatal(err)
+	if len(calls) != 1 || calls[0] != "restart 7" {
+		t.Fatalf("wrong PM2 target: %q", calls)
 	}
-	if string(args) != "restart\n7\n" {
-		t.Fatalf("wrong PM2 target: %q", args)
+	var body map[string]any
+	json.Unmarshal(w.Body.Bytes(), &body)
+	if body["message"] != "Process A&B restarted" {
+		t.Fatalf("wrong message: %v", body["message"])
 	}
+
 	w = httptest.NewRecorder()
-	handlePM2Control(w, httptest.NewRequest("POST", "/api/pm2/start/unknown", nil), "start", "unknown")
+	handlePM2Control(w, httptest.NewRequest("POST", "/api/pm2/start/99", nil), "start", 99)
 	if w.Code != 404 {
-		t.Fatalf("unknown target accepted: %d", w.Code)
+		t.Fatalf("unknown id accepted: %d", w.Code)
 	}
+
+	// Names must not resolve, even when the name is a number.
+	if regexp.MustCompile(`^/api/pm2/(stop|start|restart|delete)/(\d+)$`).MatchString("/api/pm2/restart/A%26B") {
+		t.Fatal("name route accepted")
+	}
+	if !regexp.MustCompile(`^/api/pm2/(stop|start|restart|delete)/(\d+)$`).MatchString("/api/pm2/restart/7") {
+		t.Fatal("id route rejected")
+	}
+}
+
+func TestPM2RestartAllRestartsSelfLast(t *testing.T) {
+	oldCfg, oldCache, oldRun, oldLoader := cfg, pm2Cache, pm2Run, pm2Loader
+	defer func() {
+		cfg, pm2Cache, pm2Run, pm2Loader = oldCfg, oldCache, oldRun, oldLoader
+	}()
+	cfg.PM2CacheTTL = time.Minute
+	initCaches()
+	self := os.Getpid()
+	pm2Cache.setForTest([]PM2Process{{ID: 1, Name: "worker", PID: 111}, {ID: 2, Name: "dashboard", PID: self}})
+	pm2Loader = func() ([]PM2Process, bool) {
+		return []PM2Process{{ID: 1, Name: "worker", PID: 111}, {ID: 2, Name: "dashboard", PID: self}}, true
+	}
+
+	mu := sync.Mutex{}
+	var calls []string
+	pm2Run = func(ctx context.Context, args ...string) error {
+		mu.Lock()
+		calls = append(calls, strings.Join(args, " "))
+		mu.Unlock()
+		return nil
+	}
+
+	w := httptest.NewRecorder()
+	handlePM2RestartAll(w, httptest.NewRequest("POST", "/api/pm2/restart-all", nil))
+	if w.Code != 200 {
+		t.Fatalf("restart-all failed: %d %s", w.Code, w.Body.String())
+	}
+	mu.Lock()
+	before := append([]string(nil), calls...)
+	mu.Unlock()
+	if len(before) != 1 || before[0] != "restart 1" {
+		t.Fatalf("self restarted before the response: %q", before)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		mu.Lock()
+		n := len(calls)
+		last := ""
+		if n > 0 {
+			last = calls[n-1]
+		}
+		mu.Unlock()
+		if n == 2 && last == "restart 2" {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	t.Fatalf("self was not restarted after the response: %q", calls)
 }
 
 func TestFailedTorrentRefreshDoesNotMasqueradeAsFreshData(t *testing.T) {

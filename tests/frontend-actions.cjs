@@ -425,14 +425,10 @@ async function runTests() {
     await restartAllBtn.dispatchEvent({ type: 'click', preventDefault: () => {}, stopPropagation: () => {} });
     await new Promise(r => setTimeout(r, 20));
 
-    // If it only queried DOM rows, it only restarted proc-1 and did not use full inventory or IDs.
-    // The contract requires: "Restart All uses full latest API process inventory not filtered DOM, uses IDs (not names) and stop dashboard last"
-    // Baseline checks:
-    // 1) Did it restart by ID? E.g. /api/pm2/restart/<id>
-    // 2) Did it avoid relying purely on filtered DOM table rows?
-    const restartedWithId = restartedTargets.some(url => url.match(/\/api\/pm2\/restart\/\d+$/));
-    assert(restartedWithId, 'Restart All must use process IDs (not names) and full process inventory');
-    assert.deepStrictEqual(restartedTargets,['/api/pm2/restart/1','/api/pm2/restart/2','/api/pm2/restart/3'],'Restart full inventory with dashboard last');
+    // Restart All is one server call. The server restarts the full PM2
+    // inventory and restarts the dashboard last, so filtered DOM rows and
+    // names cannot affect the target list.
+    assert.deepStrictEqual(restartedTargets,['/api/pm2/restart-all'],'Restart All must make one server call for the full inventory');
   });
 
   // Test 3: Restart All bulk operation checks HTTP and success on each restart call

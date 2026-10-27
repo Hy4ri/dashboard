@@ -26,15 +26,16 @@ function setupPM2Actions(): void {
     if (!btn) return;
 
     e.stopPropagation();
-    const name = btn.getAttribute('data-name');
-    if (!name) return;
+    const id = Number(btn.getAttribute('data-id'));
+    const name = btn.getAttribute('data-name') || '';
+    if (!Number.isInteger(id)) return;
 
     if (btn.classList.contains('logs')) {
-      showLogsModal(name);
+      showLogsModal(id, name);
     } else {
       const action = btn.getAttribute('data-action');
       if (action) {
-        pm2ControlAction(name, action);
+        pm2ControlAction(id, action, name);
       }
     }
   });
@@ -150,24 +151,25 @@ export function initPM2UI(): void {
   setupPM2Filters();
 }
 
-function buildActionsHTML(name: string, status: string): string {
+function buildActionsHTML(p: PM2Process): string {
+  const attrs = 'data-id="' + p.id + '" data-name="' + esc(p.name) + '"';
   return '<div class="pm2-actions-cell">' +
-    (status === 'stopped'
-      ? '<button class="pm2-action-btn start" data-action="start" data-name="' + esc(name) + '" title="Start">▶</button>'
-      : '<button class="pm2-action-btn stop" data-action="stop" data-name="' + esc(name) + '" title="Stop">■</button>') +
-    '<button class="pm2-action-btn restart" data-action="restart" data-name="' + esc(name) + '" title="Restart">↻</button>' +
-    '<button class="pm2-action-btn delete" data-action="delete" data-name="' + esc(name) + '" title="Delete">✕</button>' +
-    '<button class="pm2-action-btn logs" data-name="' + esc(name) + '" title="View Logs">📄</button>' +
+    (p.status === 'stopped'
+      ? '<button class="pm2-action-btn start" data-action="start" ' + attrs + ' title="Start">▶</button>'
+      : '<button class="pm2-action-btn stop" data-action="stop" ' + attrs + ' title="Stop">■</button>') +
+    '<button class="pm2-action-btn restart" data-action="restart" ' + attrs + ' title="Restart">↻</button>' +
+    '<button class="pm2-action-btn delete" data-action="delete" ' + attrs + ' title="Delete">✕</button>' +
+    '<button class="pm2-action-btn logs" ' + attrs + ' title="View Logs">📄</button>' +
   '</div>';
 }
 
-function updateActionsCell(cell: HTMLElement, name: string, status: string): void {
-  const desiredSig = `${name}::${status}`;
+function updateActionsCell(cell: HTMLElement, p: PM2Process): void {
+  const desiredSig = `${p.id}::${p.status}`;
   if (cell.dataset.actionSig === desiredSig) {
     return;
   }
   cell.dataset.actionSig = desiredSig;
-  cell.innerHTML = buildActionsHTML(name, status);
+  cell.innerHTML = buildActionsHTML(p);
 }
 
 function createRowElement(p: PM2Process): HTMLTableRowElement {
@@ -207,7 +209,7 @@ function createRowElement(p: PM2Process): HTMLTableRowElement {
 
   // Cell 3: Actions
   const td3 = document.createElement('td');
-  updateActionsCell(td3, p.name, p.status);
+  updateActionsCell(td3, p);
   tr.appendChild(td3);
 
   return tr;
@@ -249,7 +251,7 @@ function updateRowElement(row: HTMLTableRowElement, p: PM2Process): void {
   setTextOf(cells[2], fmtBytes(p.memory));
 
   // Cell 3: Actions - preserve buttons if signature identical
-  updateActionsCell(cells[3], p.name, p.status);
+  updateActionsCell(cells[3], p);
 }
 
 export function renderPM2(data?: PM2Process[] | null): void {

@@ -4,13 +4,13 @@ import { $ } from './utils/dom.js';
 import { fetchStatus } from './api.js';
 
 export let pm2MenuEl: HTMLElement | null = null;
-export let pm2MenuTarget: { name: string; status: string } | null = null;
+export let pm2MenuTarget: { id: number; name: string; status: string } | null = null;
 
 // Guard sets to prevent duplicate mutations across renders
 const pendingPM2Targets = new Set<string>();
 let isPM2BulkPending = false;
 
-export function showPM2Menu(name: string, status: string, rect: DOMRect): void {
+export function showPM2Menu(id: number, name: string, status: string, rect: DOMRect): void {
   // Remove any existing menu
   closePM2Menu();
 
@@ -33,7 +33,7 @@ export function showPM2Menu(name: string, status: string, rect: DOMRect): void {
     btn.textContent = label;
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      pm2ControlAction(name, action);
+      pm2ControlAction(id, action, name);
       closePM2Menu();
     });
     menu.appendChild(btn);
@@ -44,7 +44,7 @@ export function showPM2Menu(name: string, status: string, rect: DOMRect): void {
 
   document.body.appendChild(menu);
   pm2MenuEl = menu;
-  pm2MenuTarget = { name, status };
+  pm2MenuTarget = { id, name, status };
 }
 
 export function closePM2Menu(): void {
@@ -55,19 +55,19 @@ export function closePM2Menu(): void {
   pm2MenuTarget = null;
 }
 
-export async function pm2ControlAction(target: string | number, action: string): Promise<void> {
-  const targetKey = String(target);
+export async function pm2ControlAction(id: number, action: string, name: string): Promise<void> {
+  const targetKey = String(id);
   if (isPM2BulkPending || pendingPM2Targets.has(targetKey)) {
     return;
   }
 
-  if (action === 'delete' && !confirm(`Permanently delete process "${target}" from PM2? This cannot be undone.`)) {
+  if (action === 'delete' && !confirm(`Permanently delete process "${name}" from PM2? This cannot be undone.`)) {
     return;
   }
 
   pendingPM2Targets.add(targetKey);
   try {
-    const res = await fetch('/api/pm2/' + action + '/' + encodeURIComponent(targetKey), { method: 'POST' });
+    const res = await fetch('/api/pm2/' + action + '/' + id, { method: 'POST' });
     let data: any = null;
     try {
       data = await res.json();
@@ -101,8 +101,10 @@ export function setupPM2Menu(): void {
         ? (indicator.classList.contains('online') ? 'online' : indicator.classList.contains('errored') ? 'errored' : 'stopped')
         : 'stopped';
       const name = nameEl.textContent?.trim() || '';
+      const id = Number(row.getAttribute('data-pm-id'));
+      if (!Number.isInteger(id)) return;
       const rect = nameEl.getBoundingClientRect();
-      showPM2Menu(name, statusText, rect);
+      showPM2Menu(id, name, statusText, rect);
     });
   }
 
@@ -130,56 +132,20 @@ export function setupPM2Menu(): void {
       restartAllBtn.disabled = true;
       restartAllBtn.textContent = '↻ Restarting...';
 
-      let hadFailure = false;
-      let failureMsg = '';
-
       try {
-        // Fetch latest process inventory from API
-        const statusRes = await fetch('/api/status');
-        if (!statusRes.ok) {
-          throw new Error(`Failed to fetch inventory (HTTP ${statusRes.status})`);
-        }
-        const statusData = await statusRes.json();
-        if (!Array.isArray(statusData?.pm2)) throw new Error('Process inventory unavailable');
-        const processes = statusData.pm2;
+        // One server call restarts the whole inventory except the dashboard,
+        // which the server restarts last so this response gets through.
+        const res = await fetch('/api/pm2/restart-all', { method: 'POST' });
+        let data: any = null;
+        try {
+          data = await res.json();
+        } catch {}
 
-        // Restart each process by ID, stopping dashboard process last
-        const sortedProcesses = [...processes].sort((a: any, b: any) => {
-          const aIsDash = (a?.name === 'dashboard' || a?.name === 'monit') ? 1 : 0;
-          const bIsDash = (b?.name === 'dashboard' || b?.name === 'monit') ? 1 : 0;
-          return aIsDash - bIsDash;
-        });
-
-        for (const proc of sortedProcesses) {
-          const target = proc.id !== undefined && proc.id !== null ? proc.id : proc.name;
-          if (target === undefined || target === null || target === '') continue;
-
-          try {
-            const res = await fetch('/api/pm2/restart/' + encodeURIComponent(String(target)), { method: 'POST' });
-            let data: any = null;
-            try {
-              data = await res.json();
-            } catch {}
-
-            if (!res.ok || !data?.success) {
-              hadFailure = true;
-              if (!failureMsg) {
-                failureMsg = data?.error || (res.status ? `HTTP ${res.status}` : 'Unknown error');
-              }
-            }
-          } catch (err: any) {
-            hadFailure = true;
-            if (!failureMsg) {
-              failureMsg = err?.message || 'Network error';
-            }
-          }
+        if (!res.ok || !data?.success) {
+          const errDetail = data?.error || (res.status ? `HTTP ${res.status}` : 'Unknown error');
+          alert('Restart failed: ' + errDetail);
         }
 
-        if (hadFailure) {
-          alert('Restart failed: ' + (failureMsg || 'One or more processes failed to restart'));
-        }
-
-        // Refresh the status
         fetchStatus();
       } catch (err: any) {
         alert('Restart failed: ' + (err?.message || 'Network error'));

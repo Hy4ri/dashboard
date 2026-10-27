@@ -27,10 +27,22 @@ func setSecurityHeaders(w http.ResponseWriter) {
 	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data:")
 }
 
-func handlePM2Control(w http.ResponseWriter, r *http.Request, action, name string) {
+// pm2Run executes one pm2 command. Tests replace it with a recorder.
+var pm2Run = func(ctx context.Context, args ...string) error {
+	return exec.CommandContext(ctx, "pm2", args...).Run()
+}
+
+var pm2PastTense = map[string]string{
+	"stop":    "stopped",
+	"start":   "started",
+	"restart": "restarted",
+	"delete":  "deleted",
+}
+
+func handlePM2Control(w http.ResponseWriter, r *http.Request, action string, id int) {
 	setSecurityHeaders(w)
 	w.Header().Set("Content-Type", "application/json")
-	target := findPM2Process(name)
+	target := findPM2Process(id)
 	if target == nil {
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(map[string]any{"success": false, "error": "Process not found"})
@@ -38,26 +50,80 @@ func handlePM2Control(w http.ResponseWriter, r *http.Request, action, name strin
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
-	if err := exec.CommandContext(ctx, "pm2", action, strconv.Itoa(target.ID)).Run(); err != nil {
+	if err := pm2Run(ctx, action, strconv.Itoa(target.ID)); err != nil {
 		w.WriteHeader(500)
 		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
 		return
 	}
+	message := "Process " + target.Name + " " + pm2PastTense[action]
+	if past, ok := pm2PastTense[action]; ok {
+		message = "Process " + target.Name + " " + past
+	}
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"message": fmt.Sprintf("Process %s %sed", name, action),
+		"message": message,
 	})
 	pm2Cache.Invalidate()
 	ensureActivePolling()
 }
 
-func handlePM2Logs(w http.ResponseWriter, r *http.Request, name string, lines int) {
+// handlePM2RestartAll restarts every PM2 process except this server, sends the
+// response, and only then restarts this server. Restarting it first would kill
+// the connection before the client gets an answer.
+func handlePM2RestartAll(w http.ResponseWriter, r *http.Request) {
 	setSecurityHeaders(w)
 	w.Header().Set("Content-Type", "application/json")
-	target := findPM2Process(name)
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	self := os.Getpid()
+	selfID := -1
+	var failed []string
+	restarted := 0
+	for _, p := range collectPM2() {
+		if p.PID == self {
+			selfID = p.ID
+			continue
+		}
+		if err := pm2Run(ctx, "restart", strconv.Itoa(p.ID)); err != nil {
+			failed = append(failed, p.Name)
+			continue
+		}
+		restarted++
+	}
+
+	if len(failed) > 0 {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": fmt.Sprintf("Restarted %d process(es); failed: %s", restarted, strings.Join(failed, ", ")),
+			"error":   "restart failed for: " + strings.Join(failed, ", "),
+		})
+	} else {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"message": fmt.Sprintf("Restarted %d process(es)", restarted),
+		})
+	}
+
+	pm2Cache.Invalidate()
+	if selfID >= 0 {
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			selfCtx, selfCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer selfCancel()
+			_ = pm2Run(selfCtx, "restart", strconv.Itoa(selfID))
+		}()
+	}
+}
+
+func handlePM2Logs(w http.ResponseWriter, r *http.Request, id int, lines int) {
+	setSecurityHeaders(w)
+	w.Header().Set("Content-Type", "application/json")
+	target := findPM2Process(id)
 	if target == nil {
 		w.WriteHeader(404)
-		json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Process '%s' not found", name)})
+		json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("Process %d not found", id)})
 		return
 	}
 
@@ -96,7 +162,7 @@ func handlePM2Logs(w http.ResponseWriter, r *http.Request, name string, lines in
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"name":    name,
+		"name":    target.Name,
 		"out":     outLogs,
 		"err":     errLogs,
 	})
@@ -195,8 +261,8 @@ func serveStaticFile(w http.ResponseWriter, r *http.Request, relPath string) {
 }
 
 func dashboardHandler() http.Handler {
-	pm2ControlRe := regexp.MustCompile(`^/api/pm2/(stop|start|restart|delete)/(.+)$`)
-	pm2LogsRe := regexp.MustCompile(`^/api/pm2/logs/(.+)$`)
+	pm2ControlRe := regexp.MustCompile(`^/api/pm2/(stop|start|restart|delete)/(\d+)$`)
+	pm2LogsRe := regexp.MustCompile(`^/api/pm2/logs/(\d+)$`)
 	qbRe := regexp.MustCompile(`^/api/qbittorrent/(delete|pause|resume)/([a-fA-F0-9]{40}|all)$`)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
@@ -285,19 +351,33 @@ func dashboardHandler() http.Handler {
 			return
 		}
 
-		// PM2 control: /api/pm2/:action/:name
+		// PM2 control: /api/pm2/:action/:id
+		if path == "/api/pm2/restart-all" && r.Method == "POST" {
+			handlePM2RestartAll(w, r)
+			return
+		}
 		if m := pm2ControlRe.FindStringSubmatch(path); len(m) == 3 && r.Method == "POST" {
-			handlePM2Control(w, r, m[1], m[2])
+			id, err := strconv.Atoi(m[2])
+			if err != nil {
+				http.Error(w, "Bad id", http.StatusBadRequest)
+				return
+			}
+			handlePM2Control(w, r, m[1], id)
 			return
 		}
 
-		// PM2 logs: /api/pm2/logs/:name
+		// PM2 logs: /api/pm2/logs/:id
 		if m := pm2LogsRe.FindStringSubmatch(path); len(m) == 2 && r.Method == "GET" {
+			id, err := strconv.Atoi(m[1])
+			if err != nil {
+				http.Error(w, "Bad id", http.StatusBadRequest)
+				return
+			}
 			lines := 100
 			if l, err := strconv.Atoi(r.URL.Query().Get("lines")); err == nil && l > 0 {
 				lines = l
 			}
-			handlePM2Logs(w, r, m[1], lines)
+			handlePM2Logs(w, r, id, lines)
 			return
 		}
 

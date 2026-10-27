@@ -33,7 +33,7 @@ if(!dist)throw new Error('MONIT_TEST_DIST required');
  assert.strictEqual(await page.locator('#pm2-body tr[data-pm-id]').count(),1);
  await page.locator('#restart-all-btn').click();
  await page.waitForFunction(()=>!document.querySelector('#restart-all-btn').disabled);
- assert.strictEqual(actions[0],'/api/pm2/restart/1','Restart All must include filtered-out worker');
+ assert.strictEqual(actions[0],'/api/pm2/restart-all','Restart All must make one server call');
  assert(dialogs.some(t=>t.includes('fixture action failure')),'bulk failure must be visible');
  await page.locator('#pm2-search').fill('');
  await page.locator('#pm2-body .logs').first().click();
