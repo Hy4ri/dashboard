@@ -76,56 +76,93 @@ var (
 	collectMu        sync.Mutex
 	slowMu           sync.Mutex
 	slowState        DashboardState
-	slowInFlight     = make(map[string]bool)
+	slowInFlight     = make(map[string]chan struct{})
 )
 
-func refreshSlow(name string, collect func() func(*DashboardState)) {
+// slowSources are the collectors that do network or process work. Each one
+// publishes its result on its own, so a slow source never delays the ticker.
+var slowSources = []struct {
+	name string
+	load func() func(*DashboardState)
+}{
+	{"pm2", func() func(*DashboardState) {
+		v := collectPM2()
+		return func(s *DashboardState) { s.PM2 = v }
+	}},
+	{"qb", func() func(*DashboardState) {
+		v := collectQBittorrent()
+		return func(s *DashboardState) { s.Torrents = v }
+	}},
+	{"services", func() func(*DashboardState) {
+		v := collectServices()
+		return func(s *DashboardState) { s.Services = v }
+	}},
+	{"connectivity", func() func(*DashboardState) {
+		i, d := collectConnectivity()
+		return func(s *DashboardState) { s.Internet = &i; s.DNS = &d }
+	}},
+	{"dns", func() func(*DashboardState) {
+		v := collectTechnitium()
+		return func(s *DashboardState) { s.DNSStats = v }
+	}},
+	{"antigravity", func() func(*DashboardState) {
+		v := collectAntigravity()
+		return func(s *DashboardState) { s.Antigravity = v }
+	}},
+	{"claude", func() func(*DashboardState) {
+		v := collectClaudeUsage()
+		return func(s *DashboardState) { s.ClaudeUsage = v }
+	}},
+	{"codex", func() func(*DashboardState) {
+		v := collectCodexUsage()
+		return func(s *DashboardState) { s.CodexUsage = v }
+	}},
+}
+
+// refreshSlow starts one source unless it already runs, and returns a channel
+// that closes when that source published. Callers wait on it to get fresh data.
+func refreshSlow(name string, collect func() func(*DashboardState)) <-chan struct{} {
 	slowMu.Lock()
-	if slowInFlight[name] {
+	if done, ok := slowInFlight[name]; ok {
 		slowMu.Unlock()
-		return
+		return done
 	}
-	slowInFlight[name] = true
+	done := make(chan struct{})
+	slowInFlight[name] = done
 	slowMu.Unlock()
+
 	go func() {
 		update := collect()
 		slowMu.Lock()
 		update(&slowState)
 		delete(slowInFlight, name)
 		slowMu.Unlock()
+		close(done)
 	}()
+	return done
 }
 
-func refreshSlowCollectors() {
-	refreshSlow("pm2", func() func(*DashboardState) { v := collectPM2(); return func(s *DashboardState) { s.PM2 = v } })
-	refreshSlow("qb", func() func(*DashboardState) {
-		v := collectQBittorrent()
-		return func(s *DashboardState) { s.Torrents = v }
-	})
-	refreshSlow("services", func() func(*DashboardState) {
-		v := collectServices()
-		return func(s *DashboardState) { s.Services = v }
-	})
-	refreshSlow("connectivity", func() func(*DashboardState) {
-		i, d := collectConnectivity()
-		return func(s *DashboardState) { s.Internet = &i; s.DNS = &d }
-	})
-	refreshSlow("dns", func() func(*DashboardState) {
-		v := collectTechnitium()
-		return func(s *DashboardState) { s.DNSStats = v }
-	})
-	refreshSlow("antigravity", func() func(*DashboardState) {
-		v := collectAntigravity()
-		return func(s *DashboardState) { s.Antigravity = v }
-	})
-	refreshSlow("claude", func() func(*DashboardState) {
-		v := collectClaudeUsage()
-		return func(s *DashboardState) { s.ClaudeUsage = v }
-	})
-	refreshSlow("codex", func() func(*DashboardState) {
-		v := collectCodexUsage()
-		return func(s *DashboardState) { s.CodexUsage = v }
-	})
+func refreshSlowCollectors() []<-chan struct{} {
+	pending := make([]<-chan struct{}, 0, len(slowSources))
+	for _, source := range slowSources {
+		pending = append(pending, refreshSlow(source.name, source.load))
+	}
+	return pending
+}
+
+// refreshSlowCollectorsAndWait starts every slow source and waits until all of
+// them publish, or until the total timeout ends.
+func refreshSlowCollectorsAndWait(timeout time.Duration) {
+	pending := refreshSlowCollectors()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	for _, done := range pending {
+		select {
+		case <-done:
+		case <-timer.C:
+			return
+		}
+	}
 }
 
 func invalidateAllCaches() {
@@ -140,7 +177,27 @@ func invalidateAllCaches() {
 	codexCache.Invalidate()
 }
 
-func collectAll() {
+// fastSample holds the metrics read from /proc on the last tick.
+type fastSample struct {
+	cpu     *float64
+	cores   []*float64
+	thermal []ThermalSensor
+	freq    []CpuFrequency
+	load    []float64
+	mem     *MemoryData
+	swap    *SwapData
+	disk    *DiskData
+	network map[string]NetworkInterface
+	battery *BatteryData
+	system  *SystemData
+}
+
+var fastState fastSample
+
+// sampleFast reads the fast /proc metrics and advances the CPU and byte
+// counters. Only the polling ticker calls it: a refresh must not move the
+// counter baseline, or the next CPU percentage is measured over milliseconds.
+func sampleFast() {
 	collectMu.Lock()
 	defer collectMu.Unlock()
 	now := time.Now()
@@ -200,40 +257,60 @@ func collectAll() {
 		diskData = &DiskData{IO: ioMap}
 	}
 
-	thermal := collectThermal()
-	freq := collectFreq()
-	battery := collectBattery()
-	sysData := collectSystem()
-	refreshSlowCollectors()
+	fastState = fastSample{
+		cpu:     cpuOverall,
+		cores:   cpuCores,
+		thermal: collectThermal(),
+		freq:    collectFreq(),
+		load:    loadavg,
+		mem:     memData,
+		swap:    swapData,
+		disk:    diskData,
+		network: network,
+		battery: collectBattery(),
+		system:  collectSystem(),
+	}
+}
+
+// publishState combines the last fast sample with the last slow results.
+func publishState() {
+	collectMu.Lock()
+	empty := fastState.system == nil
+	collectMu.Unlock()
+	if empty {
+		// A refresh can arrive before the first tick; publish needs one sample.
+		sampleFast()
+	}
+
+	collectMu.Lock()
+	fast := fastState
 	slowMu.Lock()
 	slow := slowState
 	slowMu.Unlock()
-	pm2List, torrents, services := slow.PM2, slow.Torrents, slow.Services
-	internet, dnsStat := slow.Internet, slow.DNS
-	dnsStats, antiGrav, claudeUsage, codexUsage := slow.DNSStats, slow.Antigravity, slow.ClaudeUsage, slow.CodexUsage
+	collectMu.Unlock()
 
 	newState := DashboardState{
-		Timestamp:   now.UnixMilli(),
-		PM2:         pm2List,
-		CPU:         cpuOverall,
-		CPUCores:    cpuCores,
-		Thermal:     thermal,
-		Frequency:   freq,
-		LoadAvg:     loadavg,
-		Memory:      memData,
-		Swap:        swapData,
-		Disk:        diskData,
-		Network:     network,
-		Internet:    internet,
-		DNS:         dnsStat,
-		Battery:     battery,
-		System:      sysData,
-		Torrents:    torrents,
-		Services:    services,
-		DNSStats:    dnsStats,
-		Antigravity: antiGrav,
-		ClaudeUsage: claudeUsage,
-		CodexUsage:  codexUsage,
+		Timestamp:   time.Now().UnixMilli(),
+		PM2:         slow.PM2,
+		CPU:         fast.cpu,
+		CPUCores:    fast.cores,
+		Thermal:     fast.thermal,
+		Frequency:   fast.freq,
+		LoadAvg:     fast.load,
+		Memory:      fast.mem,
+		Swap:        fast.swap,
+		Disk:        fast.disk,
+		Network:     fast.network,
+		Internet:    slow.Internet,
+		DNS:         slow.DNS,
+		Battery:     fast.battery,
+		System:      fast.system,
+		Torrents:    slow.Torrents,
+		Services:    slow.Services,
+		DNSStats:    slow.DNSStats,
+		Antigravity: slow.Antigravity,
+		ClaudeUsage: slow.ClaudeUsage,
+		CodexUsage:  slow.CodexUsage,
 		AuthEnabled: cfg.AuthPass != "",
 	}
 
@@ -244,6 +321,11 @@ func collectAll() {
 		lastStateJSON = jsonBytes
 		stateMu.Unlock()
 	}
+}
+
+func collectAll() {
+	sampleFast()
+	publishState()
 }
 
 func ensureActivePolling() {

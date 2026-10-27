@@ -183,13 +183,10 @@ func TestRefreshEndpointInvalidatesCachesAndReturnsState(t *testing.T) {
 	initCaches()
 	antiGravCache.setForTest([]AntigravityAccountQuota{{Email: "dummy@test.com"}})
 
-	// Fence slow sources to prevent external network calls
-	slowMu.Lock()
-	for _, name := range []string{"pm2", "qb", "services", "connectivity", "dns", "antigravity", "claude", "codex"} {
-		slowInFlight[name] = true
-	}
-	slowMu.Unlock()
-	defer func() { slowMu.Lock(); slowInFlight = make(map[string]bool); slowMu.Unlock() }()
+	// Drop the slow sources so this test makes no external calls.
+	oldSources := slowSources
+	slowSources = nil
+	defer func() { slowSources = oldSources }()
 
 	handler := dashboardHandler()
 	w := httptest.NewRecorder()
@@ -230,10 +227,14 @@ func TestFastCollectionDoesNotWaitOnSlowCollectors(t *testing.T) {
 	// Fence each slow source as already in flight: no real integrations/credentials are accessed.
 	slowMu.Lock()
 	for _, name := range []string{"pm2", "qb", "services", "connectivity", "dns", "antigravity", "claude", "codex"} {
-		slowInFlight[name] = true
+		slowInFlight[name] = make(chan struct{})
 	}
 	slowMu.Unlock()
-	defer func() { slowMu.Lock(); slowInFlight = make(map[string]bool); slowMu.Unlock() }()
+	defer func() {
+		slowMu.Lock()
+		slowInFlight = make(map[string]chan struct{})
+		slowMu.Unlock()
+	}()
 	start := time.Now()
 	collectAll()
 	if time.Since(start) > time.Second {
@@ -467,5 +468,92 @@ func TestInvalidateAllCachesReplacesValues(t *testing.T) {
 	}
 	if got := thermalCache.peek(); len(got) != 0 {
 		t.Fatalf("thermal cache kept its value: %v", got)
+	}
+}
+
+func TestRefreshReturnsFreshSlowData(t *testing.T) {
+	oldCfg := cfg
+	oldLoader := pm2Loader
+	defer func() {
+		cfg = oldCfg
+		pm2Loader = oldLoader
+		pollingMu.Lock()
+		isPollingActive = false
+		pollingMu.Unlock()
+		slowMu.Lock()
+		slowState = DashboardState{}
+		slowInFlight = make(map[string]chan struct{})
+		slowMu.Unlock()
+	}()
+	cfg.AuthPass = ""
+	cfg.CollectMS = time.Minute
+	cfg.QBHost = "127.0.0.1"
+	cfg.QBPort = 1
+	cfg.QBPass = ""
+	cfg.TechnitiumURL = "http://127.0.0.1:1"
+	cfg.AntiGravAuthsDir = t.TempDir()
+	initCaches()
+
+	pm2Loader = func() ([]PM2Process, bool) {
+		return []PM2Process{{ID: 9, Name: "fresh"}}, true
+	}
+
+	handler := dashboardHandler()
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/api/refresh", nil)
+	req.RemoteAddr = "192.0.2.11:1234"
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("refresh failed: %d %s", w.Code, w.Body.String())
+	}
+	var res DashboardState
+	if err := json.Unmarshal(w.Body.Bytes(), &res); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range res.PM2 {
+		if p.ID == 9 && p.Name == "fresh" {
+			return
+		}
+	}
+	t.Fatalf("refresh returned stale slow data: %+v", res.PM2)
+}
+
+func TestRefreshKeepsLastFastSample(t *testing.T) {
+	oldCfg, oldSources := cfg, slowSources
+	defer func() {
+		cfg, slowSources = oldCfg, oldSources
+		pollingMu.Lock()
+		isPollingActive = false
+		pollingMu.Unlock()
+	}()
+	cfg.AuthPass = ""
+	cfg.CollectMS = time.Minute
+	slowSources = nil
+	initCaches()
+
+	pollingMu.Lock()
+	isPollingActive = true
+	pollingMu.Unlock()
+
+	collectAll()
+	stateMu.RLock()
+	first := globalState.CPU
+	stateMu.RUnlock()
+	if first == nil {
+		t.Fatal("no CPU sample")
+	}
+
+	handler := dashboardHandler()
+	for i := 0; i < 2; i++ {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/api/refresh", nil)
+		req.RemoteAddr = "192.0.2.12:1234"
+		handler.ServeHTTP(w, req)
+		stateMu.RLock()
+		got := globalState.CPU
+		stateMu.RUnlock()
+		if got == nil || *got != *first {
+			t.Fatalf("refresh %d took a new CPU sample: first=%v now=%v", i, first, got)
+		}
 	}
 }

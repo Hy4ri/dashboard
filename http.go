@@ -260,7 +260,8 @@ func dashboardHandler() http.Handler {
 			}
 			ensureActivePolling()
 			invalidateAllCaches()
-			collectAll()
+			refreshSlowCollectorsAndWait(5 * time.Second)
+			publishState()
 			broadcastState()
 			setSecurityHeaders(w)
 			w.Header().Set("Content-Type", "application/json")
