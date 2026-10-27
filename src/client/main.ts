@@ -2,7 +2,6 @@
 
 import { $ } from './utils/dom.js';
 import { connectWS, disconnectWS, forceRefresh } from './api.js';
-import { initServiceBar } from './service-bar.js';
 import { setupPM2Menu } from './pm2-menu.js';
 import { initPM2UI } from './ui/pm2.js';
 import { initTorrentsUI } from './ui/torrents.js';
@@ -45,9 +44,6 @@ function initAccordions(): void {
     });
   });
 }
-
-// Init service bar
-initServiceBar();
 
 // Init accordions
 initAccordions();

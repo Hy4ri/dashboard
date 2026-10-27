@@ -36,6 +36,7 @@ type Config struct {
 	ThermalZones     []string
 	AppRoot          string
 	ClaudeCreds      string
+	Services         []ServiceStatus
 }
 
 var cfg Config
@@ -158,6 +159,7 @@ func initConfig() {
 		ThermalZones:     splitList(os.Getenv("THERMAL_ZONES"), []string{"cpu-1-6-step", "battery", "gpuss-0-step", "ddr-usr"}),
 		AppRoot:          envOr("APP_ROOT", defaultAppRoot()),
 		ClaudeCreds:      envOr("CLAUDE_CREDENTIALS", "/.claude/.credentials.json"),
+		Services:         parseServices(os.Getenv("SERVICES")),
 	}
 	initCaches()
 }

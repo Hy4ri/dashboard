@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestStaticRejectsPrivateFiles(t *testing.T) {
-	for _, path := range []string{"main.go", "go.mod", "package.json", ".git/HEAD", "vendor/xterm.min.js", "dist/client/ui/terminal.js", "../monit-other/file"} {
+	for _, path := range []string{"main.go", "go.mod", "package.json", ".git/HEAD", "vendor/xterm.min.js", "dist/client/does-not-exist.js", "../monit-other/file"} {
 		t.Run(path, func(t *testing.T) {
 			w := httptest.NewRecorder()
 			serveStaticFile(w, httptest.NewRequest("GET", "/"+path, nil), path)
@@ -794,5 +794,53 @@ func TestCollectNetworkUsesConfiguredInterfaces(t *testing.T) {
 	}
 	if got["eth9"].RxBytes != 100 || got["eth9"].TxBytes != 200 {
 		t.Fatalf("wrong counters: %+v", got["eth9"])
+	}
+}
+
+func TestServicesListComesFromConfig(t *testing.T) {
+	oldCfg := cfg
+	defer func() { cfg = oldCfg }()
+	cfg.Services = []ServiceStatus{{Name: "Alpha", Port: 1}, {Name: "Beta", Port: 2}}
+	got := collectServices()
+	if len(got) != 2 {
+		t.Fatalf("wrong service count: %+v", got)
+	}
+	if got[0].Name != "Alpha" || got[0].Port != 1 || got[0].Up {
+		t.Fatalf("wrong first service: %+v", got[0])
+	}
+	if got[1].Name != "Beta" || got[1].Port != 2 {
+		t.Fatalf("wrong second service: %+v", got[1])
+	}
+}
+
+func TestParseServicesSkipsInvalidEntries(t *testing.T) {
+	got := parseServices(" A:8080 , bad , B:x , C:99999 , D:80")
+	if len(got) != 2 {
+		t.Fatalf("wrong entries kept: %+v", got)
+	}
+	if got[0].Name != "A" || got[0].Port != 8080 || got[1].Name != "D" || got[1].Port != 80 {
+		t.Fatalf("wrong parsing: %+v", got)
+	}
+}
+
+func TestStaticAssetIndexFollowsDist(t *testing.T) {
+	oldCfg := cfg
+	defer func() { cfg = oldCfg }()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "dist", "client"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "dist", "client", "brand-new.js"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg.AppRoot = root
+	if !isServableAsset("dist/client/brand-new.js") {
+		t.Fatal("file built into dist/ is not servable")
+	}
+	if isServableAsset("main.go") {
+		t.Fatal("source file is servable")
+	}
+	if !isServableAsset("login.js") {
+		t.Fatal("root asset is not servable")
 	}
 }

@@ -9,6 +9,12 @@ export interface PM2Process {
   pid: number;
 }
 
+export interface ServiceStatus {
+  name: string;
+  port: number;
+  up: boolean;
+}
+
 export interface ThermalSensor {
   name: string;
   temp: number;
@@ -182,7 +188,7 @@ export interface DashboardState {
   battery?: BatteryData;
   system?: SystemData;
   torrents?: TorrentItem[] | null;
-  services?: Record<string, boolean>;
+  services?: ServiceStatus[];
   dnsStats?: TechnitiumStats;
   antigravity?: AntigravityAccountQuota[];
   claudeUsage?: ClaudeUsageData;

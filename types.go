@@ -186,7 +186,7 @@ type DashboardState struct {
 	Battery     *BatteryData                `json:"battery,omitempty"`
 	System      *SystemData                 `json:"system,omitempty"`
 	Torrents    []TorrentItem               `json:"torrents"`
-	Services    map[string]bool             `json:"services,omitempty"`
+	Services    []ServiceStatus             `json:"services,omitempty"`
 	DNSStats    *TechnitiumStats            `json:"dnsStats,omitempty"`
 	Antigravity []AntigravityAccountQuota   `json:"antigravity,omitempty"`
 	ClaudeUsage *ClaudeUsageData            `json:"claudeUsage,omitempty"`

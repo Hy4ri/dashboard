@@ -10,47 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 )
-
-func collectServices() map[string]bool {
-	services := []struct {
-		name string
-		port int
-	}{
-		{"Jellyfin", 8096},
-		{"Seerr", 5055},
-		{"qBittorrent", 7777},
-		{"Sonarr", 8989},
-		{"Radarr", 7878},
-		{"Prowlarr", 9696},
-		{"Bazarr", 6767},
-		{"Dufs", 5050},
-		{"Technitium", 5380},
-		{"Hermes", 9119},
-	}
-	res := make(map[string]bool)
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-
-	for _, s := range services {
-		wg.Add(1)
-		go func(name string, port int) {
-			defer wg.Done()
-			conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 400*time.Millisecond)
-			isUp := err == nil
-			if isUp {
-				conn.Close()
-			}
-			mu.Lock()
-			res[name] = isUp
-			mu.Unlock()
-		}(s.name, s.port)
-	}
-	wg.Wait()
-	return res
-}
 
 type connStatus struct{ Internet, DNS ConnectivityStatus }
 

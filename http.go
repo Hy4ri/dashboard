@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
@@ -170,14 +171,58 @@ func handlePM2Logs(w http.ResponseWriter, r *http.Request, id int, lines int) {
 
 // --- Static File Server ---
 
-var staticAssets = func() map[string]bool {
-	assets := map[string]bool{"index.html": true, "login.html": true, "login.js": true, "style.css": true, "sw.js": true, "manifest.json": true, "icon.svg": true, "icon-192.png": true, "icon-512.png": true}
-	for _, name := range strings.Fields("main api config events particles pm2-menu service-bar ui/alerts ui/antigravity ui/battery ui/cpu ui/disk ui/logs-modal ui/memory ui/network ui/pm2 ui/sparklines ui/system ui/thermal ui/torrents utils/dom utils/format") {
-		assets["dist/client/"+name+".js"] = true
+// rootAssets are the files at the application root that are not part of dist/.
+var rootAssets = map[string]bool{
+	"index.html": true, "login.html": true, "login.js": true, "style.css": true,
+	"sw.js": true, "manifest.json": true, "icon.svg": true, "icon-192.png": true,
+	"icon-512.png": true, "favicon.ico": true,
+}
+
+var assetIndexMu sync.Mutex
+var assetIndexRoot string
+var assetIndex map[string]bool
+
+// buildAssetIndex lists every file under dist/, so a new module needs no
+// second edit here. Anything outside dist/ must be a known root asset.
+func buildAssetIndex(root string) map[string]bool {
+	index := make(map[string]bool, len(rootAssets)+32)
+	for name := range rootAssets {
+		index[name] = true
 	}
-	assets["dist/shared/types.js"] = true
-	return assets
-}()
+	distDir := filepath.Join(root, "dist")
+	_ = filepath.WalkDir(distDir, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return nil
+		}
+		if rel, relErr := filepath.Rel(root, path); relErr == nil {
+			index[filepath.ToSlash(rel)] = true
+		}
+		return nil
+	})
+	return index
+}
+
+func appRootPath() string {
+	root := cfg.AppRoot
+	if root == "" {
+		root = defaultAppRoot()
+	}
+	if abs, err := filepath.Abs(root); err == nil {
+		root = abs
+	}
+	return root
+}
+
+func isServableAsset(relPath string) bool {
+	root := appRootPath()
+	assetIndexMu.Lock()
+	defer assetIndexMu.Unlock()
+	if assetIndex == nil || assetIndexRoot != root {
+		assetIndex = buildAssetIndex(root)
+		assetIndexRoot = root
+	}
+	return assetIndex[relPath]
+}
 
 type staticAsset struct {
 	modTime        time.Time
@@ -194,17 +239,11 @@ func serveStaticFile(w http.ResponseWriter, r *http.Request, relPath string) {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !staticAssets[relPath] {
+	if !isServableAsset(relPath) {
 		http.NotFound(w, r)
 		return
 	}
-	root := cfg.AppRoot
-	if root == "" {
-		root = defaultAppRoot()
-	}
-	if abs, err := filepath.Abs(root); err == nil {
-		root = abs
-	}
+	root := appRootPath()
 	fullPath, err := filepath.EvalSymlinks(filepath.Join(root, relPath))
 	if err != nil || !strings.HasPrefix(fullPath, root+string(os.PathSeparator)) {
 		http.NotFound(w, r)
