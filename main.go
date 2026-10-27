@@ -1375,7 +1375,8 @@ func collectAntigravity() []AntigravityAccountQuota {
 				}
 				req.Header.Set("Authorization", "Bearer "+token)
 				req.Header.Set("Content-Type", "application/json")
-				req.Header.Set("User-Agent", "Antigravity/1.0")
+				// Legacy client identities omit Gemini and Argon quotas.
+				req.Header.Set("User-Agent", "antigravity/cli/1.4.3")
 
 				resp, err := client.Do(req)
 				if err != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {

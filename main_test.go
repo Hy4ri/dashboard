@@ -341,6 +341,12 @@ func TestAntigravityCollectAndMergeWithArgon(t *testing.T) {
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		// Legacy client identities receive only third-party quotas upstream.
+		if r.UserAgent() != "antigravity/cli/1.4.3" {
+			t.Errorf("quota summary requires supported CLI identity, got %q", r.UserAgent())
+			w.Write([]byte(`{"groups":[{"displayName":"Claude and GPT models","buckets":[{"bucketId":"3p-weekly","window":"weekly","remainingFraction":0.5}]}]}`))
+			return
+		}
 		resp := `{
 			"groups": [
 				{
