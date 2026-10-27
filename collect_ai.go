@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"math"
@@ -15,6 +14,13 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+)
+
+// Upstream rejects unknown clients, so these strings mimic the official CLIs.
+// Update them when the official CLI version changes.
+const (
+	antigravityUA = "antigravity/cli/1.4.3"
+	claudeUA      = "claude-code/2.1.283"
 )
 
 func collectAntigravity() []AntigravityAccountQuota {
@@ -51,7 +57,10 @@ func collectAntigravity() []AntigravityAccountQuota {
 				}
 				project, _ := authMap["project_id"].(string)
 
-				payload := []byte(fmt.Sprintf(`{"project":"%s"}`, project))
+				payload, err := json.Marshal(map[string]string{"project": project})
+				if err != nil {
+					continue
+				}
 				endpoints := []string{
 					"https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
 					"https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary",
@@ -89,7 +98,7 @@ func collectAntigravity() []AntigravityAccountQuota {
 					req.Header.Set("Authorization", "Bearer "+token)
 					req.Header.Set("Content-Type", "application/json")
 					// Legacy client identities omit Gemini and Argon quotas.
-					req.Header.Set("User-Agent", "antigravity/cli/1.4.3")
+					req.Header.Set("User-Agent", antigravityUA)
 
 					resp, err := client.Do(req)
 					if err != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -195,7 +204,7 @@ func collectClaudeUsage() *ClaudeUsageData {
 			return nil, false
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set("User-Agent", "claude-code/2.1.283")
+		req.Header.Set("User-Agent", claudeUA)
 
 		resp, err := client.Do(req)
 		if err != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {
