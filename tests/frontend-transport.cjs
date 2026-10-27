@@ -119,6 +119,8 @@ function createMockEnvironment() {
     createElement(tag) {
       return makeElement('', tag);
     },
+    querySelectorAll() { return []; },
+    querySelector() { return null; },
     body: {
       appendChild(el) {
         if (el.id) elements.set(el.id, el);
@@ -675,6 +677,53 @@ async function runTests() {
       false,
       'Old process log content leaked into new modal before fetch completed!'
     );
+  });
+
+  // Test 9: main: hidden tab keeps the socket only when notifications are granted
+  async function loadMain(granted) {
+    const env = createMockEnvironment();
+    const calls = { connect: 0, disconnect: 0 };
+    await loadModuleWithMocks('client/main.js', {
+      globals: {
+        navigator: {},
+        Notification: class {
+          static get permission() { return granted ? 'granted' : 'denied'; }
+          static requestPermission() { return Promise.resolve(granted ? 'granted' : 'denied'); }
+        }
+      },
+      modules: {
+        './utils/dom.js': { $: id => env.doc.getElementById(id) },
+        './api.js': {
+          connectWS: () => { calls.connect++; },
+          disconnectWS: () => { calls.disconnect++; },
+          forceRefresh: async () => {}
+        },
+        './pm2-menu.js': { setupPM2Menu: () => {} },
+        './ui/pm2.js': { initPM2UI: () => {} },
+        './ui/torrents.js': { initTorrentsUI: () => {} },
+        './events.js': { setupTorrentDelete: () => {} },
+        './ui/alerts.js': {
+          initNotifications: () => {},
+          notificationsGranted: () => granted
+        },
+        './particles.js': {}
+      }
+    }, env);
+    return { env, calls };
+  }
+
+  await test('main: hidden tab keeps the socket when notifications are granted', async () => {
+    const { env, calls } = await loadMain(true);
+    env.doc.hidden = true;
+    env.doc.dispatchEvent('visibilitychange');
+    assert.strictEqual(calls.disconnect, 0, 'hidden tab closed the socket although desktop alerts are allowed');
+  });
+
+  await test('main: hidden tab closes the socket without notification permission', async () => {
+    const { env, calls } = await loadMain(false);
+    env.doc.hidden = true;
+    env.doc.dispatchEvent('visibilitychange');
+    assert.strictEqual(calls.disconnect, 1, 'hidden tab kept polling without notification permission');
   });
 
   console.log(`\n========================================`);

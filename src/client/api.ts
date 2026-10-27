@@ -16,7 +16,7 @@ import { renderThermal } from './ui/thermal.js';
 import { renderSystem } from './ui/system.js';
 import { renderSparklines } from './ui/sparklines.js';
 import { renderAntigravity } from './ui/antigravity.js';
-import { checkAlerts, initNotifications } from './ui/alerts.js';
+import { checkAlerts } from './ui/alerts.js';
 import { updateServiceHealth } from './service-bar.js';
 import { updateCPULoad } from './particles.js';
 import { DashboardState } from '../shared/types.js';
@@ -123,7 +123,6 @@ export function connectWS(): void {
     if (dot) dot.className = 'status-dot';
     const statusText = $('status-text');
     if (statusText) statusText.textContent = 'Connected';
-    initNotifications(); // initialize HTML5 notification requests
     if (reconnectTimeout) {
       clearTimeout(reconnectTimeout);
       reconnectTimeout = null;

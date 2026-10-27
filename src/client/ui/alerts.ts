@@ -10,15 +10,20 @@ export interface AlertItem {
   message: string;
 }
 
-// Request notification permission
+// notificationsGranted reports whether the browser will deliver desktop
+// alerts. It is also the reason to keep the socket open while the tab hides.
+export function notificationsGranted(): boolean {
+  return typeof Notification !== 'undefined' && Notification.permission === 'granted';
+}
+
+// Request notification permission. Call this once at startup: the button owns
+// its click handler, so repeated calls would stack listeners.
 export function initNotifications(): void {
-  if ('Notification' in window) {
-    if (Notification.permission === 'granted') {
-      notificationGranted = true;
-      updateNotificationButton(true);
-    } else if (Notification.permission !== 'denied') {
-      updateNotificationButton(false);
-    }
+  if (notificationsGranted()) {
+    notificationGranted = true;
+    updateNotificationButton(true);
+  } else if (typeof Notification !== 'undefined' && Notification.permission !== 'denied') {
+    updateNotificationButton(false);
   }
 }
 
@@ -27,38 +32,35 @@ function updateNotificationButton(enabled: boolean): void {
   if (!btn) {
     // Create button in the header status-bar
     const statusBar = document.querySelector('.status-bar');
-    if (statusBar) {
-      btn = document.createElement('button');
-      btn.id = 'enable-notifications-btn';
-      btn.className = 'notification-toggle-btn';
-      statusBar.insertBefore(btn, statusBar.firstChild);
-    }
+    if (!statusBar) return;
+    btn = document.createElement('button');
+    btn.id = 'enable-notifications-btn';
+    btn.className = 'notification-toggle-btn';
+    btn.addEventListener('click', requestPermission);
+    statusBar.insertBefore(btn, statusBar.firstChild);
   }
 
-  if (btn) {
-    if (enabled) {
-      btn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
-        </svg>
-        <span>Alerts On</span>
-      `;
-      btn.classList.add('enabled');
-    } else {
-      btn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M13.73 21a2 2 0 01-3.46 0M18.02 8c0-1.55-.63-2.96-1.64-4M6.02 8c0-1.55.63-2.96 1.64-4M3 17h18M12 4v1" />
-        </svg>
-        <span>Enable Alerts</span>
-      `;
-      btn.classList.remove('enabled');
-      btn.addEventListener('click', requestPermission);
-    }
+  if (enabled) {
+    btn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
+      </svg>
+      <span>Alerts On</span>
+    `;
+    btn.classList.add('enabled');
+  } else {
+    btn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M13.73 21a2 2 0 01-3.46 0M18.02 8c0-1.55-.63-2.96-1.64-4M6.02 8c0-1.55.63-2.96 1.64-4M3 17h18M12 4v1" />
+      </svg>
+      <span>Enable Alerts</span>
+    `;
+    btn.classList.remove('enabled');
   }
 }
 
 function requestPermission(): void {
-  if ('Notification' in window) {
+  if (typeof Notification !== 'undefined') {
     Notification.requestPermission().then(permission => {
       if (permission === 'granted') {
         notificationGranted = true;

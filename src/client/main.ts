@@ -6,6 +6,7 @@ import { setupPM2Menu } from './pm2-menu.js';
 import { initPM2UI } from './ui/pm2.js';
 import { initTorrentsUI } from './ui/torrents.js';
 import { setupTorrentDelete } from './events.js';
+import { initNotifications, notificationsGranted } from './ui/alerts.js';
 import './particles.js';
 
 document.title = 'Server Dashboard — Loading...';
@@ -47,6 +48,9 @@ function initAccordions(): void {
 
 // Init accordions
 initAccordions();
+
+// Notification state is read once: the toggle button keeps its own listener.
+initNotifications();
 
 // Setup event handlers
 setupPM2Menu();
@@ -101,9 +105,11 @@ if ('serviceWorker' in navigator && window.location.protocol.startsWith('http'))
   });
 }
 
-// Pause WebSocket connection when tab is hidden
+// Keep the socket open while the tab is hidden only when desktop alerts are
+// allowed; otherwise there is nothing to notify, so stop the polling.
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
+    if (notificationsGranted()) return;
     disconnectWS();
     const lastUpdate = $('last-update');
     if (lastUpdate) lastUpdate.textContent = 'Updates paused while tab is hidden';
