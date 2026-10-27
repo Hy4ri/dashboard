@@ -1,17 +1,26 @@
 package main
 
 import (
-	"net/url"
-)
-
-import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
+	"sync"
 	"time"
+)
+
+const (
+	loginMaxFailures   = 5
+	loginLockoutWindow = 15 * time.Minute
+)
+
+var (
+	loginFailures   = make(map[string][]time.Time)
+	loginFailuresMu sync.Mutex
 )
 
 func parseCookies(cookieHeader string) map[string]string {
@@ -88,13 +97,47 @@ func checkRateLimit(ip string) bool {
 	return true
 }
 
+// loginLocked reports whether this IP has failed too many logins inside the
+// lockout window. A wrong password is cheap to try, so a per-second rate limit
+// alone cannot stop a password guesser.
+func loginLocked(ip string) bool {
+	loginFailuresMu.Lock()
+	defer loginFailuresMu.Unlock()
+	cutoff := time.Now().Add(-loginLockoutWindow)
+	times := loginFailures[ip]
+	recent := make([]time.Time, 0, len(times))
+	for _, t := range times {
+		if t.After(cutoff) {
+			recent = append(recent, t)
+		}
+	}
+	if len(recent) == 0 {
+		delete(loginFailures, ip)
+		return false
+	}
+	loginFailures[ip] = recent
+	return len(recent) >= loginMaxFailures
+}
+
+func recordLoginFailure(ip string) {
+	loginFailuresMu.Lock()
+	loginFailures[ip] = append(loginFailures[ip], time.Now())
+	loginFailuresMu.Unlock()
+}
+
+func clearLoginFailures(ip string) {
+	loginFailuresMu.Lock()
+	delete(loginFailures, ip)
+	loginFailuresMu.Unlock()
+}
+
 func handleLogin(w http.ResponseWriter, r *http.Request) {
 	setSecurityHeaders(w)
 	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
 	if ip == "" {
 		ip = r.RemoteAddr
 	}
-	if !checkRateLimit(ip) {
+	if !checkRateLimit(ip) || loginLocked(ip) {
 		http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
 		return
 	}
@@ -114,7 +157,9 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "Invalid payload"})
 		return
 	}
-	if creds.Username == cfg.AuthUser && creds.Password == cfg.AuthPass {
+	userOK := subtle.ConstantTimeCompare([]byte(creds.Username), []byte(cfg.AuthUser)) == 1
+	passOK := subtle.ConstantTimeCompare([]byte(creds.Password), []byte(cfg.AuthPass)) == 1
+	if userOK && passOK {
 		b := make([]byte, 32)
 		if _, err := rand.Read(b); err != nil {
 			http.Error(w, "Session creation failed", http.StatusInternalServerError)
@@ -128,13 +173,14 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		sessionsMu.Lock()
 		sessions[token] = time.Now().Add(duration)
 		sessionsMu.Unlock()
+		clearLoginFailures(ip)
 
 		cookie := &http.Cookie{
 			Name:     "session_token",
 			Value:    token,
 			Path:     "/",
 			HttpOnly: true,
-			Secure:   r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https",
+			Secure:   requestIsHTTPS(r),
 			SameSite: http.SameSiteStrictMode,
 			MaxAge:   int(duration.Seconds()),
 		}
@@ -143,9 +189,20 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
 		return
 	}
+	recordLoginFailure(ip)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
 	json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "Invalid username or password"})
+}
+
+// requestIsHTTPS reports whether the browser reached this server over TLS.
+// X-Forwarded-Proto is client-controlled, so it counts only when the operator
+// sets TRUST_PROXY.
+func requestIsHTTPS(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+	return cfg.TrustProxy && r.Header.Get("X-Forwarded-Proto") == "https"
 }
 
 func handleLogout(w http.ResponseWriter, r *http.Request) {

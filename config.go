@@ -30,6 +30,7 @@ type Config struct {
 	QBPort           int
 	QBUser           string
 	QBPass           string
+	TrustProxy       bool
 }
 
 var cfg Config
@@ -111,6 +112,7 @@ func initConfig() {
 		QBPort:           qbPort,
 		QBUser:           qbUser,
 		QBPass:           os.Getenv("QB_PASS"),
+		TrustProxy:       os.Getenv("TRUST_PROXY") == "true" || os.Getenv("TRUST_PROXY") == "1",
 	}
 	initCaches()
 }
