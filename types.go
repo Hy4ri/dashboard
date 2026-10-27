@@ -8,23 +8,14 @@ type PM2Process struct {
 	Status   string      `json:"status"`
 	CPU      float64     `json:"cpu"`
 	Memory   int64       `json:"memory"`
-	Uptime   *int64      `json:"uptime"`
 	Restarts int         `json:"restarts"`
-	PID      int         `json:"pid"`
+	PID      int         `json:"-"` // used only to keep restart-all from killing itself
 	Full     interface{} `json:"-"`
 }
 
 type ThermalSensor struct {
 	Name string  `json:"name"`
 	Temp float64 `json:"temp"`
-}
-
-type CpuFrequency struct {
-	Core     int     `json:"core"`
-	Current  *int    `json:"current,omitempty"`
-	Min      *int    `json:"min"`
-	Max      *int    `json:"max"`
-	Governor *string `json:"governor"`
 }
 
 type DiskUsage struct {
@@ -34,24 +25,11 @@ type DiskUsage struct {
 	UsedPct   float64 `json:"used_pct,omitempty"`
 }
 
-type DiskIOItem struct {
-	Reads                int64   `json:"reads"`
-	Writes               int64   `json:"writes"`
-	SectorsRead          int64   `json:"sectorsRead"`
-	SectorsWritten       int64   `json:"sectorsWritten"`
-	IOTime               int64   `json:"ioTime"`
-	ReadsPerSec          float64 `json:"readsPerSec,omitempty"`
-	WritesPerSec         float64 `json:"writesPerSec,omitempty"`
-	SectorsReadPerSec    float64 `json:"sectorsReadPerSec,omitempty"`
-	SectorsWrittenPerSec float64 `json:"sectorsWrittenPerSec,omitempty"`
-}
-
 type DiskData struct {
-	Total     uint64                `json:"total,omitempty"`
-	Used      uint64                `json:"used,omitempty"`
-	Available uint64                `json:"available,omitempty"`
-	UsedPct   float64               `json:"used_pct,omitempty"`
-	IO        map[string]DiskIOItem `json:"io"`
+	Total     uint64  `json:"total,omitempty"`
+	Used      uint64  `json:"used,omitempty"`
+	Available uint64  `json:"available,omitempty"`
+	UsedPct   float64 `json:"used_pct,omitempty"`
 }
 
 type MemoryData struct {
@@ -96,17 +74,11 @@ type TechnitiumStats struct {
 type BatteryData struct {
 	Capacity *int    `json:"capacity"`
 	Status   *string `json:"status"`
-	Voltage  *int    `json:"voltage"`
-	Current  *int    `json:"current"`
 }
 
+// SystemData carries only the hostname: it is the one system field the UI uses.
 type SystemData struct {
-	Uptime   *float64 `json:"uptime"`
-	Hostname *string  `json:"hostname"`
-	IP       *string  `json:"ip"`
-	Kernel   *string  `json:"kernel"`
-	OS       *string  `json:"os"`
-	Arch     *string  `json:"arch"`
+	Hostname *string `json:"hostname"`
 }
 
 type TorrentItem struct {
@@ -175,7 +147,6 @@ type DashboardState struct {
 	CPU         *float64                    `json:"cpu"`
 	CPUCores    []*float64                  `json:"cpuCores,omitempty"`
 	Thermal     []ThermalSensor             `json:"thermal,omitempty"`
-	Frequency   []CpuFrequency              `json:"frequency,omitempty"`
 	LoadAvg     []float64                   `json:"loadavg"`
 	Memory      *MemoryData                 `json:"memory"`
 	Swap        *SwapData                   `json:"swap"`

@@ -622,9 +622,7 @@ async function runTests() {
         status: 'errored',
         cpu: 0,
         memory: 0,
-        uptime: 0,
-        restarts: 1,
-        pid: 123
+        restarts: 1
       }]
     });
 

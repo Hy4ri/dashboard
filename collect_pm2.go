@@ -51,15 +51,10 @@ var pm2Loader = func() ([]PM2Process, bool) {
 			pid = int(pidVal)
 		}
 		status := "stopped"
-		var uptime *int64
 		restarts := 0
 		if env, ok := p["pm2_env"].(map[string]interface{}); ok {
 			if s, ok := env["status"].(string); ok {
 				status = s
-			}
-			if u, ok := env["pm_uptime"].(float64); ok {
-				val := int64(u)
-				uptime = &val
 			}
 			if r, ok := env["restart_time"].(float64); ok {
 				restarts = int(r)
@@ -81,7 +76,6 @@ var pm2Loader = func() ([]PM2Process, bool) {
 			Status:   status,
 			CPU:      cpu,
 			Memory:   mem,
-			Uptime:   uptime,
 			Restarts: restarts,
 			PID:      pid,
 			Full:     p,

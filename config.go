@@ -16,7 +16,6 @@ type Config struct {
 	IdleTimeout      time.Duration
 	DiskCacheTTL     time.Duration
 	PM2CacheTTL      time.Duration
-	FreqCacheTTL     time.Duration
 	ThermalCacheTTL  time.Duration
 	QBCacheTTL       time.Duration
 	ConnCacheTTL     time.Duration
@@ -140,7 +139,6 @@ func initConfig() {
 		IdleTimeout:      10000 * time.Millisecond,
 		DiskCacheTTL:     120 * time.Second,
 		PM2CacheTTL:      5 * time.Second,
-		FreqCacheTTL:     5 * time.Second,
 		ThermalCacheTTL:  5 * time.Second,
 		QBCacheTTL:       10 * time.Second,
 		ConnCacheTTL:     10 * time.Second,
@@ -169,7 +167,6 @@ func initConfig() {
 func initCaches() {
 	diskCache = newCache[*DiskUsage](cfg.DiskCacheTTL)
 	pm2Cache = newCache[[]PM2Process](cfg.PM2CacheTTL)
-	freqCache = newCache[[]CpuFrequency](cfg.FreqCacheTTL)
 	thermalCache = newCache[[]ThermalSensor](cfg.ThermalCacheTTL)
 	qbCache = newCache[[]TorrentItem](cfg.QBCacheTTL)
 	connCache = newCache[connStatus](cfg.ConnCacheTTL)

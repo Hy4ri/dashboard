@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"os/exec"
-	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -35,114 +32,14 @@ func readDirNames(path string) ([]string, error) {
 // --- Init Static Information ---
 
 func initStaticData() {
-	// 1. Static System
-	upt := ""
-	if b, err := os.ReadFile("/etc/os-release"); err == nil {
-		re := regexp.MustCompile(`PRETTY_NAME="(.+)"`)
-		if m := re.FindStringSubmatch(string(b)); len(m) > 1 {
-			upt = m[1]
-		}
-	}
-	var osName *string
-	if upt != "" {
-		osName = &upt
-	}
-
 	hostname, _ := os.Hostname()
 	var hostPtr *string
 	if hostname != "" {
 		hostPtr = &hostname
 	}
+	staticSystem = SystemData{Hostname: hostPtr}
 
-	ipStr := ""
-	if out, err := exec.Command("hostname", "-I").Output(); err == nil {
-		ipStr = strings.TrimSpace(string(out))
-	}
-	var ipPtr *string
-	if ipStr != "" {
-		ipPtr = &ipStr
-	}
-
-	kernStr := ""
-	if out, err := exec.Command("uname", "-r").Output(); err == nil {
-		kernStr = strings.TrimSpace(string(out))
-	}
-	var kernPtr *string
-	if kernStr != "" {
-		kernPtr = &kernStr
-	}
-
-	archStr := ""
-	if out, err := exec.Command("lscpu").Output(); err == nil {
-		for _, line := range strings.Split(string(out), "\n") {
-			parts := strings.SplitN(line, ":", 2)
-			if len(parts) == 2 {
-				k := strings.TrimSpace(parts[0])
-				v := strings.TrimSpace(parts[1])
-				if k == "Model name" {
-					archStr = v
-					break
-				}
-				if k == "Architecture" && archStr == "" {
-					archStr = v
-				}
-			}
-		}
-	}
-	var archPtr *string
-	if archStr != "" {
-		archPtr = &archStr
-	}
-
-	staticSystem = SystemData{
-		Hostname: hostPtr,
-		IP:       ipPtr,
-		Kernel:   kernPtr,
-		OS:       osName,
-		Arch:     archPtr,
-	}
-
-	// 2. CPU Static Info
-	if dirs, err := readDirNames("/sys/devices/system/cpu"); err == nil {
-		re := regexp.MustCompile(`^cpu(\d+)$`)
-		for _, d := range dirs {
-			m := re.FindStringSubmatch(d)
-			if len(m) < 2 {
-				continue
-			}
-			core, _ := strconv.Atoi(m[1])
-			base := fmt.Sprintf("/sys/devices/system/cpu/%s/cpufreq", d)
-			var minF, maxF *int
-			var gov *string
-			if minStr, err := readFileString(base + "/scaling_min_freq"); err == nil {
-				if v, err := strconv.Atoi(strings.TrimSpace(minStr)); err == nil {
-					val := v / 1000
-					minF = &val
-				}
-			}
-			if maxStr, err := readFileString(base + "/scaling_max_freq"); err == nil {
-				if v, err := strconv.Atoi(strings.TrimSpace(maxStr)); err == nil {
-					val := v / 1000
-					maxF = &val
-				}
-			}
-			if govStr, err := readFileString(base + "/scaling_governor"); err == nil {
-				g := strings.TrimSpace(govStr)
-				gov = &g
-			}
-			cpuStaticInfo = append(cpuStaticInfo, CpuStaticInfoItem{
-				Core:     core,
-				Min:      minF,
-				Max:      maxF,
-				Governor: gov,
-			})
-		}
-		sort.Slice(cpuStaticInfo, func(i, j int) bool {
-			return cpuStaticInfo[i].Core < cpuStaticInfo[j].Core
-		})
-	}
-
-	// 3. Thermal Paths
+	// Thermal zone names are stable at boot, so resolve their paths once.
 	wantedZones := make(map[string]bool, len(cfg.ThermalZones))
 	for _, name := range cfg.ThermalZones {
 		wantedZones[name] = true
@@ -347,56 +244,6 @@ func byteRate(cur, prev int64, interval float64) float64 {
 	return math.Round(float64(cur-prev) / interval)
 }
 
-func collectDiskIO(diskText string, interval float64) map[string]DiskIOItem {
-	currDisk := make(map[string]RawDiskEntry)
-	for _, line := range strings.Split(diskText, "\n") {
-		f := strings.Fields(line)
-		if len(f) < 14 {
-			continue
-		}
-		name := f[2]
-		if name == "sda" || name == "sda26" || name == "zram0" {
-			r, _ := strconv.ParseInt(f[3], 10, 64)
-			sr, _ := strconv.ParseInt(f[5], 10, 64)
-			w, _ := strconv.ParseInt(f[7], 10, 64)
-			sw, _ := strconv.ParseInt(f[9], 10, 64)
-			iot, _ := strconv.ParseInt(f[12], 10, 64)
-			currDisk[name] = RawDiskEntry{
-				Reads:          r,
-				Writes:         w,
-				SectorsRead:    sr,
-				SectorsWritten: sw,
-				IOTime:         iot,
-			}
-		}
-	}
-	res := make(map[string]DiskIOItem)
-	for _, dev := range []string{"sda", "sda26", "zram0"} {
-		cur, ok := currDisk[dev]
-		if !ok {
-			continue
-		}
-		item := DiskIOItem{
-			Reads:          cur.Reads,
-			Writes:         cur.Writes,
-			SectorsRead:    cur.SectorsRead,
-			SectorsWritten: cur.SectorsWritten,
-			IOTime:         cur.IOTime,
-		}
-		if prevState.Disk != nil && interval > 0 {
-			if prev, okPrev := prevState.Disk[dev]; okPrev {
-				item.ReadsPerSec = math.Round(float64(cur.Reads-prev.Reads) / interval)
-				item.WritesPerSec = math.Round(float64(cur.Writes-prev.Writes) / interval)
-				item.SectorsReadPerSec = math.Round(float64(cur.SectorsRead-prev.SectorsRead) / interval)
-				item.SectorsWrittenPerSec = math.Round(float64(cur.SectorsWritten-prev.SectorsWritten) / interval)
-			}
-		}
-		res[dev] = item
-	}
-	prevState.Disk = currDisk
-	return res
-}
-
 func collectThermal() []ThermalSensor {
 	return thermalCache.Get(func() ([]ThermalSensor, bool) {
 		var res []ThermalSensor
@@ -409,30 +256,6 @@ func collectThermal() []ThermalSensor {
 					})
 				}
 			}
-		}
-		return res, true
-	})
-}
-
-func collectFreq() []CpuFrequency {
-	return freqCache.Get(func() ([]CpuFrequency, bool) {
-		var res []CpuFrequency
-		for _, info := range cpuStaticInfo {
-			var cur *int
-			base := fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", info.Core)
-			if curStr, err := readFileString(base); err == nil {
-				if v, err := strconv.Atoi(strings.TrimSpace(curStr)); err == nil {
-					val := v / 1000
-					cur = &val
-				}
-			}
-			res = append(res, CpuFrequency{
-				Core:     info.Core,
-				Current:  cur,
-				Min:      info.Min,
-				Max:      info.Max,
-				Governor: info.Governor,
-			})
 		}
 		return res, true
 	})
@@ -464,7 +287,7 @@ func collectDiskUsage() *DiskUsage {
 
 func collectBattery() *BatteryData {
 	base := "/sys/class/power_supply/battery"
-	var capPtr, voltPtr, currPtr *int
+	var capPtr *int
 	var statusPtr *string
 
 	if str, err := readFileString(base + "/capacity"); err == nil {
@@ -476,40 +299,12 @@ func collectBattery() *BatteryData {
 		s := strings.TrimSpace(str)
 		statusPtr = &s
 	}
-	if str, err := readFileString(base + "/voltage_now"); err == nil {
-		if v, err := strconv.Atoi(strings.TrimSpace(str)); err == nil {
-			voltPtr = &v
-		}
-	}
-	if str, err := readFileString(base + "/current_now"); err == nil {
-		if v, err := strconv.Atoi(strings.TrimSpace(str)); err == nil {
-			currPtr = &v
-		}
-	}
 	return &BatteryData{
 		Capacity: capPtr,
 		Status:   statusPtr,
-		Voltage:  voltPtr,
-		Current:  currPtr,
 	}
 }
 
 func collectSystem() *SystemData {
-	var uptPtr *float64
-	if uptStr, err := readFileString("/proc/uptime"); err == nil {
-		fields := strings.Fields(uptStr)
-		if len(fields) > 0 {
-			if v, err := strconv.ParseFloat(fields[0], 64); err == nil {
-				uptPtr = &v
-			}
-		}
-	}
-	return &SystemData{
-		Uptime:   uptPtr,
-		Hostname: staticSystem.Hostname,
-		IP:       staticSystem.IP,
-		Kernel:   staticSystem.Kernel,
-		OS:       staticSystem.OS,
-		Arch:     staticSystem.Arch,
-	}
+	return &SystemData{Hostname: staticSystem.Hostname}
 }

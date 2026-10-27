@@ -4,9 +4,7 @@ export interface PM2Process {
   status: 'online' | 'stopped' | 'errored' | string;
   cpu: number;
   memory: number;
-  uptime: number | null;
   restarts: number;
-  pid: number;
 }
 
 export interface ServiceStatus {
@@ -20,14 +18,6 @@ export interface ThermalSensor {
   temp: number;
 }
 
-export interface CpuFrequency {
-  core: number;
-  current?: number | null;
-  min: number | null;
-  max: number | null;
-  governor: string | null;
-}
-
 export interface DiskUsage {
   total: number;
   used: number;
@@ -35,21 +25,7 @@ export interface DiskUsage {
   used_pct?: number;
 }
 
-export interface DiskIOItem {
-  reads: number;
-  writes: number;
-  sectorsRead: number;
-  sectorsWritten: number;
-  ioTime: number;
-  readsPerSec?: number;
-  writesPerSec?: number;
-  sectorsReadPerSec?: number;
-  sectorsWrittenPerSec?: number;
-}
-
-export interface DiskData extends Partial<DiskUsage> {
-  io: Record<string, DiskIOItem>;
-}
+export type DiskData = Partial<DiskUsage>;
 
 export interface MemoryData {
   MemTotal: number;
@@ -93,17 +69,10 @@ export interface TechnitiumStats {
 export interface BatteryData {
   capacity: number | null;
   status: string | null;
-  voltage: number | null;
-  current: number | null;
 }
 
 export interface SystemData {
-  uptime: number | null;
   hostname: string | null;
-  ip: string | null;
-  kernel: string | null;
-  os: string | null;
-  arch: string | null;
 }
 
 export interface ActionResult {
@@ -177,7 +146,6 @@ export interface DashboardState {
   cpu?: number | null;
   cpuCores?: (number | null)[];
   thermal?: ThermalSensor[];
-  frequency?: CpuFrequency[];
   loadavg?: [number, number, number] | null;
   memory?: MemoryData | null;
   swap?: SwapData | null;

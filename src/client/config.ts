@@ -6,10 +6,6 @@ export interface ThermalMap {
   [key: string]: string;
 }
 
-export interface GovernorMap {
-  [key: string]: string;
-}
-
 export interface NetIfaceMap {
   [key: string]: string;
 }
@@ -19,17 +15,6 @@ export const THERMAL_MAP: ThermalMap = {
   'battery': 'Battery',
   'gpuss-0-step': 'GPU',
   'ddr-usr': 'RAM',
-  'modem-lte-sub6-pa1': '5G Modem',
-  'pmr735a_tz': 'PMIC',
-};
-
-export const GOVERNOR_MAP: GovernorMap = {
-  schedutil: 'Scheduler-guided',
-  performance: 'Max Performance',
-  powersave: 'Power Saving',
-  ondemand: 'On Demand',
-  conservative: 'Conservative',
-  userspace: 'Userspace',
 };
 
 export const NET_IFACE_MAP: NetIfaceMap = {

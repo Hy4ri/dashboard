@@ -18,27 +18,11 @@ type ProcStatCpu struct {
 	Idle  float64
 }
 
-type RawDiskEntry struct {
-	Reads          int64
-	Writes         int64
-	SectorsRead    int64
-	SectorsWritten int64
-	IOTime         int64
-}
-
 type PrevState struct {
 	CPUOverall *ProcStatCpu
 	CPUCores   map[string]ProcStatCpu
 	Net        map[string][2]int64 // rx, tx
-	Disk       map[string]RawDiskEntry
 	Time       time.Time
-}
-
-type CpuStaticInfoItem struct {
-	Core     int
-	Min      *int
-	Max      *int
-	Governor *string
 }
 
 type ThermalPathItem struct {
@@ -55,11 +39,9 @@ var (
 	isPollingActive  bool
 	pollingMu        sync.Mutex
 	staticSystem     SystemData
-	cpuStaticInfo    []CpuStaticInfoItem
 	thermalPaths     []ThermalPathItem
 	diskCache        = newCache[*DiskUsage](0)
 	pm2Cache         = newCache[[]PM2Process](0)
-	freqCache        = newCache[[]CpuFrequency](0)
 	thermalCache     = newCache[[]ThermalSensor](0)
 	qbCache          = newCache[[]TorrentItem](0)
 	connCache        = newCache[connStatus](0)
@@ -168,7 +150,6 @@ func refreshSlowCollectorsAndWait(timeout time.Duration) {
 func invalidateAllCaches() {
 	diskCache.Invalidate()
 	pm2Cache.Invalidate()
-	freqCache.Invalidate()
 	thermalCache.Invalidate()
 	qbCache.Invalidate()
 	connCache.Invalidate()
@@ -182,7 +163,6 @@ type fastSample struct {
 	cpu     *float64
 	cores   []*float64
 	thermal []ThermalSensor
-	freq    []CpuFrequency
 	load    []float64
 	mem     *MemoryData
 	swap    *SwapData
@@ -205,13 +185,11 @@ func sampleFast() {
 
 	statText, _ := readFileString("/proc/stat")
 	netText, _ := readFileString("/proc/net/dev")
-	diskText, _ := readFileString("/proc/diskstats")
 	loadText, _ := readFileString("/proc/loadavg")
 	memText, _ := readFileString("/proc/meminfo")
 
 	cpuOverall, cpuCores := collectCPU(statText, interval)
 	network := collectNetwork(netText, interval)
-	ioMap := collectDiskIO(diskText, interval)
 	prevState.Time = now
 
 	var loadavg []float64
@@ -251,17 +229,13 @@ func sampleFast() {
 			Used:      diskUse.Used,
 			Available: diskUse.Available,
 			UsedPct:   diskUse.UsedPct,
-			IO:        ioMap,
 		}
-	} else {
-		diskData = &DiskData{IO: ioMap}
 	}
 
 	fastState = fastSample{
 		cpu:     cpuOverall,
 		cores:   cpuCores,
 		thermal: collectThermal(),
-		freq:    collectFreq(),
 		load:    loadavg,
 		mem:     memData,
 		swap:    swapData,
@@ -295,7 +269,6 @@ func publishState() {
 		CPU:         fast.cpu,
 		CPUCores:    fast.cores,
 		Thermal:     fast.thermal,
-		Frequency:   fast.freq,
 		LoadAvg:     fast.load,
 		Memory:      fast.mem,
 		Swap:        fast.swap,
