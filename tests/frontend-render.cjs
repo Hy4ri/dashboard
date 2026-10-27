@@ -917,9 +917,33 @@ async function run() {
 
     assert(content.includes('Gemini Models'), 'Must render Gemini Models group');
     assert(content.includes('Gemini 4 Argon'), 'Must render Gemini 4 Argon group');
-    assert(content.includes('Claude Models'), 'Must render Claude Models group');
+    assert(content.includes('Claude and GPT models'), 'Must render the group label exactly as the API sends it');
     assert(content.includes('single-gauge'), 'Argon weekly-only quota must render with single-gauge grid');
     assert(content.includes('Argon <span class="agy-meta-win">Weekly</span>'), 'Argon bucket title must be rendered cleanly');
+  });
+
+  await testAsync('AI quota gauges show the tightest bucket in a window', async () => {
+    const { document, window } = createMinimalDOM(BASE_HTML);
+    const agyModule = await loadModule(antigravityModulePath, window);
+
+    agyModule.renderAntigravity([
+      {
+        email: 'test@example.com',
+        groups: [
+          {
+            displayName: 'Gemini Models',
+            buckets: [
+              { bucketId: 'a-5h', displayName: 'Wide', window: '5h', remainingPct: 70 },
+              { bucketId: 'b-5h', displayName: 'Tight', window: '5h', remainingPct: 25 }
+            ]
+          }
+        ]
+      }
+    ], null, null);
+
+    const content = document.getElementById('antigravity-content').innerHTML;
+    assert(content.includes('25%'), 'the binding bucket (25%) must be shown');
+    assert(!content.includes('70%'), 'the looser bucket must not replace the binding one');
   });
 
   await testAsync('Claude and Codex usage tabs do NOT display fabricated model/plan/traffic/credits labels', async () => {
