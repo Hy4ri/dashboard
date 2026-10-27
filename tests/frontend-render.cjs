@@ -590,7 +590,7 @@ async function loadModule(modulePath, mockContext) {
   });
 
   const linker = async (specifier, referencingModule) => {
-    if (specifier.endsWith('/pm2-menu.js') || specifier.endsWith('/logs-modal.js')) {
+    if (specifier.endsWith('/pm2-actions.js') || specifier.endsWith('/logs-modal.js')) {
       const stub=new vm.SourceTextModule('export const showLogsModal=()=>{};export const pm2ControlAction=()=>{};', {context});
       await stub.link(()=>{}); return stub;
     }

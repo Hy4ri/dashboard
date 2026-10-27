@@ -2,7 +2,7 @@
 
 import { $ } from './utils/dom.js';
 import { connectWS, disconnectWS, forceRefresh } from './api.js';
-import { setupPM2Menu } from './pm2-menu.js';
+import { setupPM2Actions } from './pm2-actions.js';
 import { initPM2UI } from './ui/pm2.js';
 import { initTorrentsUI } from './ui/torrents.js';
 import { setupTorrentDelete } from './events.js';
@@ -53,7 +53,7 @@ initAccordions();
 initNotifications();
 
 // Setup event handlers
-setupPM2Menu();
+setupPM2Actions();
 initPM2UI();
 initTorrentsUI();
 setupTorrentDelete();

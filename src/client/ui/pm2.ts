@@ -1,7 +1,7 @@
 import { fmtBytes } from '../utils/format.js';
 import { $, esc, setTextOf } from '../utils/dom.js';
 import { showLogsModal } from './logs-modal.js';
-import { pm2ControlAction } from '../pm2-menu.js';
+import { pm2ControlAction } from '../pm2-actions.js';
 import { PM2Process } from '../../shared/types.js';
 
 let eventsRegistered = false;
@@ -49,6 +49,7 @@ function setupPM2Headers(): void {
   if (!table) return;
   const headers = table.querySelectorAll<HTMLElement>('thead th');
 
+  const nameHeader = headers[0];
   const cpuHeader = headers[1];
   const memHeader = headers[2];
 
@@ -60,6 +61,7 @@ function setupPM2Headers(): void {
     }
   };
 
+  makeClickable(nameHeader, 'name');
   makeClickable(cpuHeader, 'cpu');
   makeClickable(memHeader, 'memory');
 
@@ -92,14 +94,14 @@ function updateHeaderIndicators(): void {
   };
 
   // Name = 0, CPU = 1, Memory = 2, Actions = 3
+  resetHeader(headers[0], 'Name');
   resetHeader(headers[1], 'CPU');
   resetHeader(headers[2], 'Memory');
 
   const indicator = currentSortOrder === 'asc' ? ' ▲' : ' ▼';
-  if (currentSortBy === 'cpu' && headers[1]) {
-    headers[1].innerHTML = 'CPU' + indicator;
-  } else if (currentSortBy === 'memory' && headers[2]) {
-    headers[2].innerHTML = 'Memory' + indicator;
+  const active = { name: headers[0], cpu: headers[1], memory: headers[2] }[currentSortBy as 'name' | 'cpu' | 'memory'];
+  if (active) {
+    active.innerHTML = active.textContent + indicator;
   }
 }
 

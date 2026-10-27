@@ -4,7 +4,7 @@
  *
  * Target modules:
  * - events.ts (setupTorrentEvents, bulk torrent actions pause/resume/delete)
- * - pm2-menu.ts (setupPM2Menu, pm2ControlAction, Restart All)
+ * - pm2-actions.ts (setupPM2Actions, pm2ControlAction, Restart All)
  * - ui/alerts.ts (checkAlerts, renderAlertsList, dynamic names escaping/textContent)
  */
 
@@ -356,7 +356,7 @@ async function runTests() {
   });
 
   // Test 2: Restart All uses full latest API process inventory, not filtered DOM rows
-  await test('pm2-menu: Restart All uses full latest API process inventory not filtered DOM', async () => {
+  await test('pm2-actions: Restart All uses full latest API process inventory not filtered DOM', async () => {
     // Contract: Restart All uses full latest API process inventory not filtered DOM, uses IDs (not names) and stop dashboard last
     // Baseline pm2-menu.ts:
     // const rows = document.querySelectorAll('#pm2-body tr[data-pm-id]');
@@ -364,7 +364,7 @@ async function runTests() {
     // for (const name of names) { await fetch('/api/pm2/restart/' + encodeURIComponent(name)); }
     // When the user has searched or filtered the PM2 table, document.querySelectorAll('#pm2-body tr[data-pm-id]')
     // only contains visible rows! Filtered-out processes are omitted.
-    const pm2MenuPath = path.join(distDir, 'client/pm2-menu.js');
+    const pm2MenuPath = path.join(distDir, 'client/pm2-actions.js');
     if (!fs.existsSync(pm2MenuPath)) {
       assert.fail(`File not found: ${pm2MenuPath}. Dist must be built.`);
     }
@@ -419,7 +419,7 @@ async function runTests() {
       assert.fail('vm.SourceTextModule is required');
     }
 
-    pm2MenuModule.setupPM2Menu();
+    pm2MenuModule.setupPM2Actions();
 
     // Trigger restart all
     await restartAllBtn.dispatchEvent({ type: 'click', preventDefault: () => {}, stopPropagation: () => {} });
@@ -432,14 +432,14 @@ async function runTests() {
   });
 
   // Test 3: Restart All bulk operation checks HTTP and success on each restart call
-  await test('pm2-menu: Restart All checks HTTP status and success response', async () => {
+  await test('pm2-actions: Restart All checks HTTP status and success response', async () => {
     // Contract: bulk torrent and restart operations check HTTP and success
     // Baseline pm2-menu.ts:
     // for (const name of names) {
     //   await fetch('/api/pm2/restart/' + encodeURIComponent(name), { method: 'POST' });
     // }
     // Baseline completely ignores res.ok and data.success!
-    const pm2MenuPath = path.join(distDir, 'client/pm2-menu.js');
+    const pm2MenuPath = path.join(distDir, 'client/pm2-actions.js');
     const { doc, win, registerElement } = createMockEnvironment();
     const restartAllBtn = registerElement('restart-all-btn', new MockElement('BUTTON'));
     const pm2Body = registerElement('pm2-body', new MockElement('TBODY'));
@@ -483,7 +483,7 @@ async function runTests() {
     });
     await mod.evaluate();
 
-    mod.namespace.setupPM2Menu();
+    mod.namespace.setupPM2Actions();
     await restartAllBtn.dispatchEvent({ type: 'click', preventDefault: () => {}, stopPropagation: () => {} });
     await new Promise(r => setTimeout(r, 20));
 
@@ -491,7 +491,7 @@ async function runTests() {
   });
 
   // Test 4: Per-entity pending guard prevents duplicate mutations despite renders and releases on every terminal path
-  await test('events & pm2-menu: per-entity pending guard blocks duplicates and releases on terminal paths', async () => {
+  await test('events & pm2-actions: per-entity pending guard blocks duplicates and releases on terminal paths', async () => {
     // Contract: per-entity pending guard prevents duplicate mutations despite renders; release every terminal path.
     // In baseline events.ts:
     // Only btn.disabled = true is set on the specific button element!
@@ -499,7 +499,7 @@ async function runTests() {
     // completely bypassing btn.disabled and allowing concurrent duplicate mutations for the same hash/id!
     // In baseline pm2-menu.ts:
     // pm2ControlAction(name, action) does not even disable any button or track in-flight actions by entity ID/name!
-    const pm2MenuPath = path.join(distDir, 'client/pm2-menu.js');
+    const pm2MenuPath = path.join(distDir, 'client/pm2-actions.js');
     const { doc, win } = createMockEnvironment();
 
     let fetchCount = 0;
@@ -702,7 +702,7 @@ async function runTests() {
   });
 
   // Test 7: Preserves user confirmations for destructive actions
-  await test('pm2-menu & events: preserve user confirmations for destructive actions', async () => {
+  await test('pm2-actions & events: preserve user confirmations for destructive actions', async () => {
     // Contract: Preserve user confirmations.
     // Ensure confirm dialog is prompted before delete, and action cancelled if user rejects.
     const eventsPath = path.join(distDir, 'client/events.js');

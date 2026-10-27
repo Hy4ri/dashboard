@@ -712,7 +712,7 @@ async function runTests() {
           disconnectWS: () => { calls.disconnect++; },
           forceRefresh: async () => {}
         },
-        './pm2-menu.js': { setupPM2Menu: () => {} },
+        './pm2-actions.js': { setupPM2Actions: () => {} },
         './ui/pm2.js': { initPM2UI: () => {} },
         './ui/torrents.js': { initTorrentsUI: () => {} },
         './events.js': { setupTorrentDelete: () => {} },
