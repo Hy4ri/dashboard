@@ -27,7 +27,7 @@ let reconnectTimeout: any = null;
 let lastTimestamp: number = 0;
 let isIntentionallyDisconnected: boolean = false;
 
-export function updateUI(data?: DashboardState | null): void {
+export function updateUI(data?: DashboardState | null, fromTick = false): void {
   if (!data) return;
 
   if (typeof data.timestamp === 'number') {
@@ -69,7 +69,7 @@ export function updateUI(data?: DashboardState | null): void {
   renderSystem(data.system);
 
   // New modules
-  renderSparklines(data);
+  renderSparklines(data, fromTick);
   renderAntigravity(data.antigravity, data.claudeUsage, data.codexUsage);
   checkAlerts(data);
   updateServiceHealth(data.services);
@@ -140,7 +140,7 @@ export function connectWS(): void {
     }
 
     try {
-      updateUI(data);
+      updateUI(data, true);
     } catch (err) {
       console.error('Failed to render WS update:', err);
     }

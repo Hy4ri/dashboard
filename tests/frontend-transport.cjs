@@ -340,6 +340,20 @@ async function runTests() {
     );
   });
 
+  await test('updateUI: sparkline history is pushed only from the websocket tick', async () => {
+    const env = createMockEnvironment();
+    const ticks = [];
+    const { namespace } = await loadModuleWithMocks('client/api.js', {
+      globals: { fetch: async () => ({ ok: true, json: async () => ({}) }) },
+      modules: { './ui/sparklines.js': { renderSparklines: (_data, fromTick) => ticks.push(fromTick) } }
+    }, env);
+
+    namespace.updateUI({ timestamp: 1, pm2: [] });
+    namespace.updateUI({ timestamp: 2, pm2: [] }, true);
+
+    assert.deepStrictEqual(ticks, [false, true], 'manual refresh must not add a sparkline point');
+  });
+
   // Test 2: connectWS: intentional disconnect cancels stale and reconnect callbacks
   await test('disconnectWS: intentional disconnect cancels stale timer and reconnect callbacks', async () => {
     const env = createMockEnvironment();
