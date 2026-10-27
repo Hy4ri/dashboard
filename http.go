@@ -24,7 +24,7 @@ func setSecurityHeaders(w http.ResponseWriter) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data:")
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src 'self' data:")
 }
 
 // pm2Run executes one pm2 command. Tests replace it with a recorder.
@@ -171,7 +171,7 @@ func handlePM2Logs(w http.ResponseWriter, r *http.Request, id int, lines int) {
 // --- Static File Server ---
 
 var staticAssets = func() map[string]bool {
-	assets := map[string]bool{"index.html": true, "login.html": true, "style.css": true, "sw.js": true, "manifest.json": true, "icon.svg": true, "icon-192.png": true, "icon-512.png": true}
+	assets := map[string]bool{"index.html": true, "login.html": true, "login.js": true, "style.css": true, "sw.js": true, "manifest.json": true, "icon.svg": true, "icon-192.png": true, "icon-512.png": true}
 	for _, name := range strings.Fields("main api config events particles pm2-menu service-bar ui/alerts ui/antigravity ui/battery ui/cpu ui/disk ui/logs-modal ui/memory ui/network ui/pm2 ui/sparklines ui/system ui/thermal ui/torrents utils/dom utils/format") {
 		assets["dist/client/"+name+".js"] = true
 	}
@@ -276,7 +276,7 @@ func dashboardHandler() http.Handler {
 		}
 
 		// Public assets
-		isPublic := path == "/manifest.json" || path == "/sw.js" || strings.HasPrefix(path, "/icon") || path == "/favicon.ico"
+		isPublic := path == "/manifest.json" || path == "/sw.js" || path == "/login.js" || strings.HasPrefix(path, "/icon") || path == "/favicon.ico"
 		authed := isAuthenticated(r)
 
 		if path == "/api/login" {

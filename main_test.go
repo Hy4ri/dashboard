@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/gorilla/websocket"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -66,21 +67,44 @@ func TestEmptyTorrentsClearPreviousResults(t *testing.T) {
 	}
 }
 
-func TestLoginRateLimited(t *testing.T) {
+func TestLoginLockoutAfterFiveFailures(t *testing.T) {
 	oldCfg := cfg
 	defer func() { cfg = oldCfg }()
 	cfg.AuthUser, cfg.AuthPass = "test", "expected"
 	rateLimiterMu.Lock()
 	rateLimiterMap = make(map[string][]time.Time)
 	rateLimiterMu.Unlock()
-	for i := 0; i < 11; i++ {
-		req := httptest.NewRequest("POST", "/api/login", strings.NewReader(`{"username":"test","password":"wrong"}`))
+	loginFailuresMu.Lock()
+	loginFailures = make(map[string][]time.Time)
+	loginFailuresMu.Unlock()
+
+	attempt := func(password string) int {
+		body := `{"username":"test","password":"` + password + `"}`
+		req := httptest.NewRequest("POST", "/api/login", strings.NewReader(body))
 		req.RemoteAddr = "192.0.2.1:4567"
 		w := httptest.NewRecorder()
 		handleLogin(w, req)
-		if i == 10 && w.Code != http.StatusTooManyRequests {
-			t.Fatalf("login bypassed limit: %d", w.Code)
+		return w.Code
+	}
+
+	for i := 0; i < 5; i++ {
+		if code := attempt("wrong"); code != http.StatusUnauthorized {
+			t.Fatalf("attempt %d: %d", i+1, code)
 		}
+	}
+	if code := attempt("wrong"); code != http.StatusTooManyRequests {
+		t.Fatalf("sixth failure not locked out: %d", code)
+	}
+	if code := attempt("expected"); code != http.StatusTooManyRequests {
+		t.Fatalf("correct password bypassed the lockout: %d", code)
+	}
+
+	// After the window expires the entry is dropped and a good login works.
+	loginFailuresMu.Lock()
+	loginFailures = make(map[string][]time.Time)
+	loginFailuresMu.Unlock()
+	if code := attempt("expected"); code != http.StatusOK {
+		t.Fatalf("correct password rejected after the lockout: %d", code)
 	}
 }
 
@@ -681,5 +705,65 @@ func TestByteRateClampsCounterReset(t *testing.T) {
 	}
 	if got := byteRate(100, 50, 0); got != 0 {
 		t.Fatalf("zero interval produced a rate: %v", got)
+	}
+}
+
+func TestCSPDisallowsInlineScripts(t *testing.T) {
+	w := httptest.NewRecorder()
+	setSecurityHeaders(w)
+	csp := w.Header().Get("Content-Security-Policy")
+	if strings.Contains(csp, "script-src 'self' 'unsafe-inline'") {
+		t.Fatalf("inline scripts are still allowed: %s", csp)
+	}
+	if !strings.Contains(csp, "script-src 'self'") {
+		t.Fatalf("missing script policy: %s", csp)
+	}
+}
+
+func TestLoginScriptIsPublic(t *testing.T) {
+	old := cfg
+	defer func() { cfg = old }()
+	cfg.AuthPass = "fixture"
+	handler := dashboardHandler()
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, httptest.NewRequest("GET", "/login.js", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("login.js needs auth: %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "api/login") {
+		t.Fatalf("login.js content not served: %s", w.Body.String())
+	}
+}
+
+func TestAntigravityPayloadEscapesProject(t *testing.T) {
+	oldCfg := cfg
+	defer func() { cfg = oldCfg }()
+	var got string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		buf := new(strings.Builder)
+		_, _ = io.Copy(buf, r.Body)
+		got = buf.String()
+		w.Write([]byte(`{"groups":[]}`))
+	}))
+	defer ts.Close()
+	dir := t.TempDir()
+	auth := `{"access_token":"tok","email":"a@b","project_id":"pro\"ject"}`
+	if err := os.WriteFile(filepath.Join(dir, "antigravity-a@b.json"), []byte(auth), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cfg.AntiGravAuthsDir = dir
+	cfg.AntiGravEndpoint = ts.URL
+	cfg.AntiGravTTL = time.Minute
+	initCaches()
+	antiGravCache.Invalidate()
+
+	collectAntigravity()
+
+	var payload map[string]string
+	if err := json.Unmarshal([]byte(got), &payload); err != nil {
+		t.Fatalf("invalid payload %q: %v", got, err)
+	}
+	if payload["project"] != `pro"ject` {
+		t.Fatalf("project mangled: %q", payload["project"])
 	}
 }
