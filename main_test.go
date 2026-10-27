@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"github.com/gorilla/websocket"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -119,7 +121,7 @@ func TestLoginLockoutAfterFiveFailures(t *testing.T) {
 func TestCodexRPCErrorIsNotZeroUsage(t *testing.T) {
 	oldCfg, oldCache := cfg, codexCache
 	defer func() { cfg = oldCfg; codexCache = oldCache }()
-	cfg.AntiGravTTL = time.Minute
+	cfg.CodexTTL = time.Minute
 	initCaches()
 	codexCache.setStale(&CodexUsageData{PlanType: "old-fixture", PrimaryWindow: &CodexUsageWindow{UsedPercent: 20}})
 	dir := t.TempDir()
@@ -842,5 +844,56 @@ func TestStaticAssetIndexFollowsDist(t *testing.T) {
 	}
 	if !isServableAsset("login.js") {
 		t.Fatal("root asset is not servable")
+	}
+}
+
+func TestLogOnceDedupesRepeatedMessages(t *testing.T) {
+	logOnceMu.Lock()
+	logOnceLast = make(map[string]string)
+	logOnceMu.Unlock()
+
+	var buf bytes.Buffer
+	oldOut := log.Writer()
+	log.SetOutput(&buf)
+	defer log.SetOutput(oldOut)
+
+	logOnce("k", "same error")
+	logOnce("k", "same error")
+	logOnce("k", "other error")
+	logOnce("k2", "same error")
+
+	got := strings.Count(buf.String(), "same error")
+	if got != 2 {
+		t.Fatalf("same message logged %d times, want 2 (one per key):\n%s", got, buf.String())
+	}
+	if strings.Count(buf.String(), "other error") != 1 {
+		t.Fatalf("changed message not logged:\n%s", buf.String())
+	}
+}
+
+func TestCodexCacheUsesItsOwnTTL(t *testing.T) {
+	oldCfg := cfg
+	defer func() { cfg = oldCfg }()
+	cfg.AntiGravTTL = 30 * time.Second
+	cfg.CodexTTL = 5 * time.Minute
+	initCaches()
+	if codexCache.ttl != cfg.CodexTTL {
+		t.Fatalf("codex ttl %v, want %v", codexCache.ttl, cfg.CodexTTL)
+	}
+	if claudeCache.ttl != cfg.AntiGravTTL {
+		t.Fatalf("claude ttl changed: %v", claudeCache.ttl)
+	}
+}
+
+func TestHandlerConstructionDoesNotCollect(t *testing.T) {
+	stateMu.Lock()
+	lastStateJSON = nil
+	stateMu.Unlock()
+	_ = dashboardHandler()
+	stateMu.RLock()
+	empty := len(lastStateJSON) == 0
+	stateMu.RUnlock()
+	if !empty {
+		t.Fatal("building the handler collected state before any client connected")
 	}
 }

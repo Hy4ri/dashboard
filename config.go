@@ -20,6 +20,7 @@ type Config struct {
 	QBCacheTTL       time.Duration
 	ConnCacheTTL     time.Duration
 	AntiGravTTL      time.Duration
+	CodexTTL         time.Duration
 	AntiGravAuthsDir string
 	AntiGravEndpoint string
 	TechnitiumToken  string
@@ -96,6 +97,21 @@ func loadDotEnv() {
 	}
 }
 
+// envDuration accepts a Go duration ("5m") or a plain number of seconds.
+func envDuration(key string, fallback time.Duration) time.Duration {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+	if d, err := time.ParseDuration(raw); err == nil && d > 0 {
+		return d
+	}
+	if secs, err := strconv.Atoi(raw); err == nil && secs > 0 {
+		return time.Duration(secs) * time.Second
+	}
+	return fallback
+}
+
 func envOr(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -143,6 +159,7 @@ func initConfig() {
 		QBCacheTTL:       10 * time.Second,
 		ConnCacheTTL:     10 * time.Second,
 		AntiGravTTL:      30 * time.Second,
+		CodexTTL:         envDuration("CODEX_TTL", 5*time.Minute),
 		AntiGravAuthsDir: "/opt/cliproxyapi/auths",
 		TechnitiumToken:  os.Getenv("TECHNITIUM_TOKEN"),
 		TechnitiumURL:    techURL,
@@ -172,5 +189,5 @@ func initCaches() {
 	connCache = newCache[connStatus](cfg.ConnCacheTTL)
 	antiGravCache = newCache[[]AntigravityAccountQuota](cfg.AntiGravTTL)
 	claudeCache = newCache[*ClaudeUsageData](cfg.AntiGravTTL)
-	codexCache = newCache[*CodexUsageData](cfg.AntiGravTTL)
+	codexCache = newCache[*CodexUsageData](cfg.CodexTTL)
 }

@@ -5,8 +5,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
-	"log"
 	"math"
 	"net/http"
 	"os"
@@ -180,30 +180,30 @@ func collectClaudeUsage() *ClaudeUsageData {
 		}
 		raw, err := os.ReadFile(credPath)
 		if err != nil {
-			log.Printf("Claude read error: %v", err)
+			logOnce("claude-read", fmt.Sprintf("Claude read error: %v", err))
 			return nil, false
 		}
 
 		var credMap map[string]interface{}
 		if err := json.Unmarshal(raw, &credMap); err != nil {
-			log.Printf("Claude json error: %v", err)
+			logOnce("claude-json", fmt.Sprintf("Claude json error: %v", err))
 			return nil, false
 		}
 		oauth, _ := credMap["claudeAiOauth"].(map[string]interface{})
 		if oauth == nil {
-			log.Printf("Claude oauth nil")
+			logOnce("claude-oauth", "Claude oauth nil")
 			return nil, false
 		}
 		token, _ := oauth["accessToken"].(string)
 		if token == "" {
-			log.Printf("Claude token empty")
+			logOnce("claude-token", "Claude token empty")
 			return nil, false
 		}
 
 		client := &http.Client{Timeout: 4 * time.Second}
 		req, err := http.NewRequest("GET", "https://api.anthropic.com/api/oauth/usage", nil)
 		if err != nil {
-			log.Printf("Claude new request err: %v", err)
+			logOnce("claude-request-new", fmt.Sprintf("Claude new request err: %v", err))
 			return nil, false
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -212,10 +212,10 @@ func collectClaudeUsage() *ClaudeUsageData {
 		resp, err := client.Do(req)
 		if err != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			if resp != nil {
-				log.Printf("Claude request failed with status: %d", resp.StatusCode)
+				logOnce("claude-status", fmt.Sprintf("Claude request failed with status: %d", resp.StatusCode))
 				resp.Body.Close()
 			} else {
-				log.Printf("Claude request err: %v", err)
+				logOnce("claude-request", fmt.Sprintf("Claude request err: %v", err))
 			}
 			return nil, false
 		}
@@ -239,7 +239,7 @@ func collectClaudeUsage() *ClaudeUsageData {
 		}
 
 		if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
-			log.Printf("Claude decode error: %v", err)
+			logOnce("claude-decode", fmt.Sprintf("Claude decode error: %v", err))
 			return nil, false
 		}
 

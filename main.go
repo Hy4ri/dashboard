@@ -11,7 +11,6 @@ func main() {
 	initConfig()
 	initStaticData()
 	log.Printf("Starting monit Go server on port %d...", cfg.Port)
-	collectAll()
 	server := &http.Server{
 		Handler:      dashboardHandler(),
 		Addr:         fmt.Sprintf(":%d", cfg.Port),
