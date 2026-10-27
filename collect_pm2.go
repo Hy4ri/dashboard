@@ -32,75 +32,67 @@ func extractJSONArray(data []byte) []byte {
 }
 
 func collectPM2() []PM2Process {
-	pm2Mu.Lock()
-	defer pm2Mu.Unlock()
-	now := time.Now()
-	if !pm2Cache.Time.IsZero() && now.Sub(pm2Cache.Time) < cfg.PM2CacheTTL {
-		return pm2Cache.Value
-	}
-	// A failed refresh must not keep old measurements looking current.
-	pm2Cache.Value = nil
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	defer func() { pm2Cache.Time = now }()
-	out, err := exec.CommandContext(ctx, "pm2", "jlist").Output()
-	if err != nil {
-		return pm2Cache.Value
-	}
-	var raw []map[string]interface{}
-	if err := json.Unmarshal(extractJSONArray(out), &raw); err != nil {
-		return pm2Cache.Value
-	}
-	res := make([]PM2Process, 0, len(raw))
-	for _, p := range raw {
-		pmId := 0
-		if idVal, ok := p["pm_id"].(float64); ok {
-			pmId = int(idVal)
+	return pm2Cache.Get(func() ([]PM2Process, bool) {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		out, err := exec.CommandContext(ctx, "pm2", "jlist").Output()
+		if err != nil {
+			return nil, false
 		}
-		name, _ := p["name"].(string)
-		pid := 0
-		if pidVal, ok := p["pid"].(float64); ok {
-			pid = int(pidVal)
+		var raw []map[string]interface{}
+		if err := json.Unmarshal(extractJSONArray(out), &raw); err != nil {
+			return nil, false
 		}
-		status := "stopped"
-		var uptime *int64
-		restarts := 0
-		if env, ok := p["pm2_env"].(map[string]interface{}); ok {
-			if s, ok := env["status"].(string); ok {
-				status = s
+		res := make([]PM2Process, 0, len(raw))
+		for _, p := range raw {
+			pmId := 0
+			if idVal, ok := p["pm_id"].(float64); ok {
+				pmId = int(idVal)
 			}
-			if u, ok := env["pm_uptime"].(float64); ok {
-				val := int64(u)
-				uptime = &val
+			name, _ := p["name"].(string)
+			pid := 0
+			if pidVal, ok := p["pid"].(float64); ok {
+				pid = int(pidVal)
 			}
-			if r, ok := env["restart_time"].(float64); ok {
-				restarts = int(r)
+			status := "stopped"
+			var uptime *int64
+			restarts := 0
+			if env, ok := p["pm2_env"].(map[string]interface{}); ok {
+				if s, ok := env["status"].(string); ok {
+					status = s
+				}
+				if u, ok := env["pm_uptime"].(float64); ok {
+					val := int64(u)
+					uptime = &val
+				}
+				if r, ok := env["restart_time"].(float64); ok {
+					restarts = int(r)
+				}
 			}
+			cpu := 0.0
+			mem := int64(0)
+			if monit, ok := p["monit"].(map[string]interface{}); ok {
+				if c, ok := monit["cpu"].(float64); ok {
+					cpu = c
+				}
+				if m, ok := monit["memory"].(float64); ok {
+					mem = int64(m)
+				}
+			}
+			res = append(res, PM2Process{
+				ID:       pmId,
+				Name:     name,
+				Status:   status,
+				CPU:      cpu,
+				Memory:   mem,
+				Uptime:   uptime,
+				Restarts: restarts,
+				PID:      pid,
+				Full:     p,
+			})
 		}
-		cpu := 0.0
-		mem := int64(0)
-		if monit, ok := p["monit"].(map[string]interface{}); ok {
-			if c, ok := monit["cpu"].(float64); ok {
-				cpu = c
-			}
-			if m, ok := monit["memory"].(float64); ok {
-				mem = int64(m)
-			}
-		}
-		res = append(res, PM2Process{
-			ID:       pmId,
-			Name:     name,
-			Status:   status,
-			CPU:      cpu,
-			Memory:   mem,
-			Uptime:   uptime,
-			Restarts: restarts,
-			PID:      pid,
-			Full:     p,
-		})
-	}
-	pm2Cache = Cache[[]PM2Process]{Value: res, Time: now}
-	return res
+		return res, true
+	})
 }
 
 func findPM2Process(name string) *PM2Process {

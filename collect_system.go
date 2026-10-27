@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 )
 
 func readFileString(path string) (string, error) {
@@ -378,77 +377,68 @@ func collectDiskIO(diskText string, interval float64) map[string]DiskIOItem {
 }
 
 func collectThermal() []ThermalSensor {
-	now := time.Now()
-	if thermalCache.Value != nil && now.Sub(thermalCache.Time) < cfg.ThermalCacheTTL {
-		return thermalCache.Value
-	}
-	var res []ThermalSensor
-	for _, tp := range thermalPaths {
-		if raw, err := readFileString(tp.Path); err == nil {
-			if v, err := strconv.Atoi(strings.TrimSpace(raw)); err == nil {
-				res = append(res, ThermalSensor{
-					Name: tp.Name,
-					Temp: float64(v) / 1000.0,
-				})
+	return thermalCache.Get(func() ([]ThermalSensor, bool) {
+		var res []ThermalSensor
+		for _, tp := range thermalPaths {
+			if raw, err := readFileString(tp.Path); err == nil {
+				if v, err := strconv.Atoi(strings.TrimSpace(raw)); err == nil {
+					res = append(res, ThermalSensor{
+						Name: tp.Name,
+						Temp: float64(v) / 1000.0,
+					})
+				}
 			}
 		}
-	}
-	thermalCache = Cache[[]ThermalSensor]{Value: res, Time: now}
-	return res
+		return res, true
+	})
 }
 
 func collectFreq() []CpuFrequency {
-	now := time.Now()
-	if freqCache.Value != nil && now.Sub(freqCache.Time) < cfg.FreqCacheTTL {
-		return freqCache.Value
-	}
-	var res []CpuFrequency
-	for _, info := range cpuStaticInfo {
-		var cur *int
-		base := fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", info.Core)
-		if curStr, err := readFileString(base); err == nil {
-			if v, err := strconv.Atoi(strings.TrimSpace(curStr)); err == nil {
-				val := v / 1000
-				cur = &val
+	return freqCache.Get(func() ([]CpuFrequency, bool) {
+		var res []CpuFrequency
+		for _, info := range cpuStaticInfo {
+			var cur *int
+			base := fmt.Sprintf("/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", info.Core)
+			if curStr, err := readFileString(base); err == nil {
+				if v, err := strconv.Atoi(strings.TrimSpace(curStr)); err == nil {
+					val := v / 1000
+					cur = &val
+				}
 			}
+			res = append(res, CpuFrequency{
+				Core:     info.Core,
+				Current:  cur,
+				Min:      info.Min,
+				Max:      info.Max,
+				Governor: info.Governor,
+			})
 		}
-		res = append(res, CpuFrequency{
-			Core:     info.Core,
-			Current:  cur,
-			Min:      info.Min,
-			Max:      info.Max,
-			Governor: info.Governor,
-		})
-	}
-	freqCache = Cache[[]CpuFrequency]{Value: res, Time: now}
-	return res
+		return res, true
+	})
 }
 
 func collectDiskUsage() *DiskUsage {
-	now := time.Now()
-	if diskCache.Value != nil && now.Sub(diskCache.Time) < cfg.DiskCacheTTL {
-		return diskCache.Value
-	}
-	var stat syscall.Statfs_t
-	if err := syscall.Statfs("/", &stat); err == nil {
-		bsize := uint64(stat.Bsize)
-		total := stat.Blocks * bsize
-		avail := stat.Bavail * bsize
-		used := total - stat.Bfree*bsize
-		usedPct := 0.0
-		if total > 0 {
-			usedPct = math.Round((float64(used)/float64(total))*1000) / 10
+	return diskCache.Get(func() (*DiskUsage, bool) {
+		var stat syscall.Statfs_t
+		if err := syscall.Statfs("/", &stat); err == nil {
+			bsize := uint64(stat.Bsize)
+			total := stat.Blocks * bsize
+			avail := stat.Bavail * bsize
+			used := total - stat.Bfree*bsize
+			usedPct := 0.0
+			if total > 0 {
+				usedPct = math.Round((float64(used)/float64(total))*1000) / 10
+			}
+			val := &DiskUsage{
+				Total:     total,
+				Used:      used,
+				Available: avail,
+				UsedPct:   usedPct,
+			}
+			return val, true
 		}
-		val := &DiskUsage{
-			Total:     total,
-			Used:      used,
-			Available: avail,
-			UsedPct:   usedPct,
-		}
-		diskCache = Cache[*DiskUsage]{Value: val, Time: now}
-		return val
-	}
-	return nil
+		return nil, true
+	})
 }
 
 func collectBattery() *BatteryData {

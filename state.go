@@ -46,11 +46,6 @@ type ThermalPathItem struct {
 	Path string
 }
 
-type Cache[T any] struct {
-	Value T
-	Time  time.Time
-}
-
 var (
 	stateMu          sync.RWMutex
 	globalState      DashboardState
@@ -62,16 +57,15 @@ var (
 	staticSystem     SystemData
 	cpuStaticInfo    []CpuStaticInfoItem
 	thermalPaths     []ThermalPathItem
-	diskCache        Cache[*DiskUsage]
-	pm2Cache         Cache[[]PM2Process]
-	freqCache        Cache[[]CpuFrequency]
-	thermalCache     Cache[[]ThermalSensor]
-	qbCache          Cache[[]TorrentItem]
-	connCache        Cache[struct{ Internet, DNS ConnectivityStatus }]
-	antiGravCache    Cache[[]AntigravityAccountQuota]
-	claudeCache      Cache[*ClaudeUsageData]
-	codexCache       Cache[*CodexUsageData]
-	qbCookie         string
+	diskCache        = newCache[*DiskUsage](0)
+	pm2Cache         = newCache[[]PM2Process](0)
+	freqCache        = newCache[[]CpuFrequency](0)
+	thermalCache     = newCache[[]ThermalSensor](0)
+	qbCache          = newCache[[]TorrentItem](0)
+	connCache        = newCache[connStatus](0)
+	antiGravCache    = newCache[[]AntigravityAccountQuota](0)
+	claudeCache      = newCache[*ClaudeUsageData](0)
+	codexCache       = newCache[*CodexUsageData](0)
 	wsClients        = make(map[*websocket.Conn]*statsClient)
 	wsMu             sync.Mutex
 	sessions         = make(map[string]time.Time)
@@ -80,8 +74,6 @@ var (
 	rateLimiterMu    sync.Mutex
 	lastLimiterSweep time.Time
 	collectMu        sync.Mutex
-	pm2Mu            sync.Mutex
-	qbMu             sync.Mutex
 	slowMu           sync.Mutex
 	slowState        DashboardState
 	slowInFlight     = make(map[string]bool)
@@ -137,17 +129,15 @@ func refreshSlowCollectors() {
 }
 
 func invalidateAllCaches() {
-	collectMu.Lock()
-	defer collectMu.Unlock()
-	diskCache = Cache[*DiskUsage]{}
-	pm2Cache = Cache[[]PM2Process]{}
-	freqCache = Cache[[]CpuFrequency]{}
-	thermalCache = Cache[[]ThermalSensor]{}
-	qbCache = Cache[[]TorrentItem]{}
-	connCache = Cache[struct{ Internet, DNS ConnectivityStatus }]{}
-	antiGravCache = Cache[[]AntigravityAccountQuota]{}
-	claudeCache = Cache[*ClaudeUsageData]{}
-	codexCache = Cache[*CodexUsageData]{}
+	diskCache.Invalidate()
+	pm2Cache.Invalidate()
+	freqCache.Invalidate()
+	thermalCache.Invalidate()
+	qbCache.Invalidate()
+	connCache.Invalidate()
+	antiGravCache.Invalidate()
+	claudeCache.Invalidate()
+	codexCache.Invalidate()
 }
 
 func collectAll() {

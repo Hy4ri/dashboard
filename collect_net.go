@@ -52,48 +52,47 @@ func collectServices() map[string]bool {
 	return res
 }
 
+type connStatus struct{ Internet, DNS ConnectivityStatus }
+
 func collectConnectivity() (ConnectivityStatus, ConnectivityStatus) {
-	now := time.Now()
-	if !connCache.Time.IsZero() && now.Sub(connCache.Time) < cfg.ConnCacheTTL {
-		return connCache.Value.Internet, connCache.Value.DNS
-	}
-	var internet, dnsStatus ConnectivityStatus
+	res := connCache.Get(func() (connStatus, bool) {
+		var internet, dnsStatus ConnectivityStatus
 
-	// 1. Check Internet (8.8.8.8:53)
-	startNet := time.Now()
-	conn, err := net.DialTimeout("tcp", "8.8.8.8:53", 1500*time.Millisecond)
-	if err == nil {
-		lat := time.Since(startNet).Milliseconds()
-		conn.Close()
-		internet = ConnectivityStatus{Ok: true, Latency: &lat}
-	} else {
-		errStr := err.Error()
-		internet = ConnectivityStatus{Ok: false, Error: &errStr}
-	}
+		// 1. Check Internet (8.8.8.8:53)
+		startNet := time.Now()
+		conn, err := net.DialTimeout("tcp", "8.8.8.8:53", 1500*time.Millisecond)
+		if err == nil {
+			lat := time.Since(startNet).Milliseconds()
+			conn.Close()
+			internet = ConnectivityStatus{Ok: true, Latency: &lat}
+		} else {
+			errStr := err.Error()
+			internet = ConnectivityStatus{Ok: false, Error: &errStr}
+		}
 
-	// 2. Check DNS via local Technitium (127.0.0.1:53)
-	r := &net.Resolver{
-		PreferGo: true,
-		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			d := net.Dialer{Timeout: 2000 * time.Millisecond}
-			return d.DialContext(ctx, "udp", "127.0.0.1:53")
-		},
-	}
-	startDNS := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), 2500*time.Millisecond)
-	_, dnsErr := r.LookupHost(ctx, "google.com")
-	cancel()
-	if dnsErr == nil {
-		lat := time.Since(startDNS).Milliseconds()
-		dnsStatus = ConnectivityStatus{Ok: true, Latency: &lat}
-	} else {
-		errStr := dnsErr.Error()
-		dnsStatus = ConnectivityStatus{Ok: false, Error: &errStr}
-	}
+		// 2. Check DNS via local Technitium (127.0.0.1:53)
+		r := &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				d := net.Dialer{Timeout: 2000 * time.Millisecond}
+				return d.DialContext(ctx, "udp", "127.0.0.1:53")
+			},
+		}
+		startDNS := time.Now()
+		ctx, cancel := context.WithTimeout(context.Background(), 2500*time.Millisecond)
+		_, dnsErr := r.LookupHost(ctx, "google.com")
+		cancel()
+		if dnsErr == nil {
+			lat := time.Since(startDNS).Milliseconds()
+			dnsStatus = ConnectivityStatus{Ok: true, Latency: &lat}
+		} else {
+			errStr := dnsErr.Error()
+			dnsStatus = ConnectivityStatus{Ok: false, Error: &errStr}
+		}
 
-	res := struct{ Internet, DNS ConnectivityStatus }{Internet: internet, DNS: dnsStatus}
-	connCache = Cache[struct{ Internet, DNS ConnectivityStatus }]{Value: res, Time: now}
-	return internet, dnsStatus
+		return connStatus{Internet: internet, DNS: dnsStatus}, true
+	})
+	return res.Internet, res.DNS
 }
 
 var technitiumClient = &http.Client{Timeout: 3 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, MaxIdleConnsPerHost: 2, IdleConnTimeout: 30 * time.Second}}

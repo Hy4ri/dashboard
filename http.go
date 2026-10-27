@@ -47,9 +47,7 @@ func handlePM2Control(w http.ResponseWriter, r *http.Request, action, name strin
 		"success": true,
 		"message": fmt.Sprintf("Process %s %sed", name, action),
 	})
-	pm2Mu.Lock()
-	pm2Cache.Time = time.Time{}
-	pm2Mu.Unlock()
+	pm2Cache.Invalidate()
 	ensureActivePolling()
 }
 

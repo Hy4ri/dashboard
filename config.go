@@ -112,4 +112,19 @@ func initConfig() {
 		QBUser:           qbUser,
 		QBPass:           os.Getenv("QB_PASS"),
 	}
+	initCaches()
+}
+
+// initCaches applies the configured TTLs. The caches are package-level, so
+// they cannot read cfg at construction time.
+func initCaches() {
+	diskCache = newCache[*DiskUsage](cfg.DiskCacheTTL)
+	pm2Cache = newCache[[]PM2Process](cfg.PM2CacheTTL)
+	freqCache = newCache[[]CpuFrequency](cfg.FreqCacheTTL)
+	thermalCache = newCache[[]ThermalSensor](cfg.ThermalCacheTTL)
+	qbCache = newCache[[]TorrentItem](cfg.QBCacheTTL)
+	connCache = newCache[connStatus](cfg.ConnCacheTTL)
+	antiGravCache = newCache[[]AntigravityAccountQuota](cfg.AntiGravTTL)
+	claudeCache = newCache[*ClaudeUsageData](cfg.AntiGravTTL)
+	codexCache = newCache[*CodexUsageData](cfg.AntiGravTTL)
 }

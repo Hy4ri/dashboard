@@ -42,19 +42,24 @@ func TestEmptyTorrentsClearPreviousResults(t *testing.T) {
 		w.Write([]byte("[]"))
 	}))
 	defer server.Close()
-	oldCfg, oldCache, oldCookie := cfg, qbCache, qbCookie
-	defer func() { cfg, qbCache, qbCookie = oldCfg, oldCache, oldCookie }()
+	oldCfg, oldCache := cfg, qbCache
+	defer func() {
+		cfg, qbCache = oldCfg, oldCache
+		qbCache.setForTest(nil)
+		qb.setCookie("")
+	}()
 	u, _ := url.Parse(server.URL)
 	cfg.QBHost = u.Hostname()
 	cfg.QBPort = mustPort(t, u.Port())
 	cfg.QBCacheTTL = time.Second
-	qbCache = Cache[[]TorrentItem]{Value: []TorrentItem{{Hash: "old"}}}
-	qbCookie = ""
+	initCaches()
+	qbCache.setStale([]TorrentItem{{Hash: "old"}})
+	qb.setCookie("")
 	got := collectQBittorrent()
 	if got == nil || len(got) != 0 {
 		t.Fatalf("empty response returned stale torrents: %+v", got)
 	}
-	if qbCache.Time.IsZero() {
+	if !qbCache.isFresh() {
 		t.Fatal("successful empty response was not cached")
 	}
 }
@@ -81,7 +86,8 @@ func TestCodexRPCErrorIsNotZeroUsage(t *testing.T) {
 	oldCfg, oldCache := cfg, codexCache
 	defer func() { cfg = oldCfg; codexCache = oldCache }()
 	cfg.AntiGravTTL = time.Minute
-	codexCache = Cache[*CodexUsageData]{Value: &CodexUsageData{PlanType: "old-fixture", PrimaryWindow: &CodexUsageWindow{UsedPercent: 20}}}
+	initCaches()
+	codexCache.setStale(&CodexUsageData{PlanType: "old-fixture", PrimaryWindow: &CodexUsageWindow{UsedPercent: 20}})
 	dir := t.TempDir()
 	script := "#!/bin/sh\nread init\nprintf '%s\\n' '{\"id\":1,\"result\":{}}'\nread notified\nread limits\nprintf '%s\\n' '{\"id\":2,\"error\":{\"code\":-1,\"message\":\"fixture unavailable\"}}'\n"
 	if err := os.WriteFile(filepath.Join(dir, "codex"), []byte(script), 0700); err != nil {
@@ -91,7 +97,7 @@ func TestCodexRPCErrorIsNotZeroUsage(t *testing.T) {
 	if got := collectCodexUsage(); got != nil {
 		t.Fatalf("RPC error manufactured quota: %+v", got)
 	}
-	if codexCache.Time.IsZero() {
+	if !codexCache.isFresh() {
 		t.Fatal("failed request must be throttled")
 	}
 }
@@ -174,10 +180,8 @@ func TestRefreshEndpointInvalidatesCachesAndReturnsState(t *testing.T) {
 	cfg.IdleTimeout = 100 * time.Millisecond
 
 	// Seed cache with dummy data
-	antiGravCache = Cache[[]AntigravityAccountQuota]{
-		Value: []AntigravityAccountQuota{{Email: "dummy@test.com"}},
-		Time:  time.Now(),
-	}
+	initCaches()
+	antiGravCache.setForTest([]AntigravityAccountQuota{{Email: "dummy@test.com"}})
 
 	// Fence slow sources to prevent external network calls
 	slowMu.Lock()
@@ -203,8 +207,8 @@ func TestRefreshEndpointInvalidatesCachesAndReturnsState(t *testing.T) {
 	}
 
 	// Verify cache was invalidated
-	if len(antiGravCache.Value) != 0 {
-		t.Fatalf("expected antiGravCache to be cleared, got %v", antiGravCache.Value)
+	if got := antiGravCache.peek(); len(got) != 0 {
+		t.Fatalf("expected antiGravCache to be cleared, got %v", got)
 	}
 }
 
@@ -253,7 +257,8 @@ func TestPM2ControlResolvesKnownNamesToIDs(t *testing.T) {
 		pollingMu.Unlock()
 	}()
 	cfg.PM2CacheTTL = time.Minute
-	pm2Cache = Cache[[]PM2Process]{Value: []PM2Process{{ID: 7, Name: "A&B"}}, Time: time.Now()}
+	initCaches()
+	pm2Cache.setForTest([]PM2Process{{ID: 7, Name: "A&B"}})
 	pollingMu.Lock()
 	isPollingActive = true
 	pollingMu.Unlock()
@@ -286,19 +291,24 @@ func TestPM2ControlResolvesKnownNamesToIDs(t *testing.T) {
 func TestFailedTorrentRefreshDoesNotMasqueradeAsFreshData(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }))
 	defer server.Close()
-	oldCfg, oldCache, oldCookie := cfg, qbCache, qbCookie
-	defer func() { cfg = oldCfg; qbCache = oldCache; qbCookie = oldCookie }()
+	oldCfg, oldCache := cfg, qbCache
+	defer func() {
+		cfg, qbCache = oldCfg, oldCache
+		qbCache.setForTest(nil)
+		qb.setCookie("")
+	}()
 	u, _ := url.Parse(server.URL)
 	cfg.QBHost = u.Hostname()
 	cfg.QBPort = mustPort(t, u.Port())
 	cfg.QBPass = ""
 	cfg.QBCacheTTL = time.Minute
-	qbCache = Cache[[]TorrentItem]{Value: []TorrentItem{{Hash: "old"}}}
-	qbCookie = ""
+	initCaches()
+	qbCache.setStale([]TorrentItem{{Hash: "old"}})
+	qb.setCookie("")
 	if got := collectQBittorrent(); got != nil {
 		t.Fatalf("stale torrents presented as fresh: %+v", got)
 	}
-	if qbCache.Time.IsZero() {
+	if !qbCache.isFresh() {
 		t.Fatal("failure retry not throttled")
 	}
 }
@@ -383,7 +393,8 @@ func TestAntigravityCollectAndMergeWithArgon(t *testing.T) {
 	cfg.AntiGravAuthsDir = dir
 	cfg.AntiGravEndpoint = ts.URL
 	cfg.AntiGravTTL = time.Minute
-	antiGravCache = Cache[[]AntigravityAccountQuota]{}
+	initCaches()
+	antiGravCache.Invalidate()
 
 	res := collectAntigravity()
 	if len(res) != 1 {
@@ -417,5 +428,44 @@ func TestExtractJSONArray(t *testing.T) {
 	}
 	if len(raw) != 0 {
 		t.Fatalf("expected 0 items, got %d", len(raw))
+	}
+}
+
+func TestCacheConcurrentInvalidateAndLoad(t *testing.T) {
+	c := newCache[int](time.Hour)
+	c.setForTest(1)
+	var wg sync.WaitGroup
+	for i := 0; i < 50; i++ {
+		wg.Add(3)
+		go func() { defer wg.Done(); c.Invalidate() }()
+		go func() { defer wg.Done(); c.Get(func() (int, bool) { return 2, true }) }()
+		go func() { defer wg.Done(); _ = c.peek() }()
+	}
+	wg.Wait()
+}
+
+func TestInvalidateAllCachesReplacesValues(t *testing.T) {
+	old := struct {
+		disk    *Cache[*DiskUsage]
+		pm2     *Cache[[]PM2Process]
+		qb      *Cache[[]TorrentItem]
+		thermal *Cache[[]ThermalSensor]
+	}{diskCache, pm2Cache, qbCache, thermalCache}
+	defer func() {
+		diskCache, pm2Cache, qbCache, thermalCache = old.disk, old.pm2, old.qb, old.thermal
+	}()
+	initCaches()
+	pm2Cache.setForTest([]PM2Process{{ID: 1, Name: "x"}})
+	qbCache.setForTest([]TorrentItem{{Hash: "abc"}})
+	thermalCache.setForTest([]ThermalSensor{{Name: "cpu", Temp: 50}})
+	invalidateAllCaches()
+	if got := pm2Cache.peek(); len(got) != 0 {
+		t.Fatalf("pm2 cache kept its value: %v", got)
+	}
+	if got := qbCache.peek(); len(got) != 0 {
+		t.Fatalf("qb cache kept its value: %v", got)
+	}
+	if got := thermalCache.peek(); len(got) != 0 {
+		t.Fatalf("thermal cache kept its value: %v", got)
 	}
 }
