@@ -715,7 +715,7 @@ async function runTests() {
         './pm2-actions.js': { setupPM2Actions: () => {} },
         './ui/pm2.js': { initPM2UI: () => {} },
         './ui/torrents.js': { initTorrentsUI: () => {} },
-        './events.js': { setupTorrentDelete: () => {} },
+        './events.js': { setupTorrentActions: () => {} },
         './ui/alerts.js': {
           initNotifications: () => {},
           notificationsGranted: () => granted

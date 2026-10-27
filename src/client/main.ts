@@ -5,7 +5,7 @@ import { connectWS, disconnectWS, forceRefresh } from './api.js';
 import { setupPM2Actions } from './pm2-actions.js';
 import { initPM2UI } from './ui/pm2.js';
 import { initTorrentsUI } from './ui/torrents.js';
-import { setupTorrentDelete } from './events.js';
+import { setupTorrentActions } from './events.js';
 import { initNotifications, notificationsGranted } from './ui/alerts.js';
 import './particles.js';
 
@@ -56,7 +56,7 @@ initNotifications();
 setupPM2Actions();
 initPM2UI();
 initTorrentsUI();
-setupTorrentDelete();
+setupTorrentActions();
 
 // Refresh Button handler
 const refreshBtn = $('refresh-btn');

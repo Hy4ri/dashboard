@@ -3,7 +3,7 @@
  * Tests contracts defined in .hermes/cache/scratch/monit-cleanup-contract.md
  *
  * Target modules:
- * - events.ts (setupTorrentEvents, bulk torrent actions pause/resume/delete)
+ * - events.ts (setupTorrentActions, bulk torrent actions pause/resume/delete)
  * - pm2-actions.ts (setupPM2Actions, pm2ControlAction, Restart All)
  * - ui/alerts.ts (checkAlerts, renderAlertsList, dynamic names escaping/textContent)
  */
@@ -345,7 +345,7 @@ async function runTests() {
       assert.fail('vm.SourceTextModule is required to test ES modules');
     }
 
-    eventsModule.setupTorrentEvents();
+    eventsModule.setupTorrentActions();
 
     // Trigger resume all with failed response
     alerted = null;
@@ -554,15 +554,16 @@ async function runTests() {
     assert.strictEqual(fetchCount, 2, 'Pending guard must be released after completion so subsequent actions succeed');
   });
 
-  await test('events: successful mutation restores retained button',async()=>{
+  await test('events: successful mutation keeps the button disabled until the next render',async()=>{
     const {doc,win,registerElement}=createMockEnvironment();
     const list=registerElement('torrent-list',new MockElement('DIV')),btn=new MockElement('BUTTON');
     btn.className='torrent-action-btn';btn.dataset.action='pause';btn.dataset.hash='fixture';btn.innerHTML='pause';list.appendChild(btn);
     const context=vm.createContext({document:doc,window:win,Element:MockElement,HTMLButtonElement:MockElement,console,confirm:()=>true,alert:()=>{},setTimeout:()=>1,fetch:async()=>({ok:true,json:async()=>({success:true})})});
     const mod=new vm.SourceTextModule(fs.readFileSync(path.join(distDir,'client/events.js'),'utf8'),{context});
-    await mod.link(async()=>{const stub=new vm.SourceTextModule('export const $=id=>document.getElementById(id);export const fetchStatus=()=>{};',{context});await stub.link(()=>{});return stub;});await mod.evaluate();mod.namespace.setupTorrentEvents();
+    await mod.link(async()=>{const stub=new vm.SourceTextModule('export const $=id=>document.getElementById(id);export const fetchStatus=()=>{};',{context});await stub.link(()=>{});return stub;});await mod.evaluate();mod.namespace.setupTorrentActions();
     list.dispatchEvent({type:'click',target:btn,preventDefault(){},stopPropagation(){}});await new Promise(r=>setTimeout(r,0));
-    assert.strictEqual(btn.disabled,false,'Successful action left button permanently disabled');assert.strictEqual(btn.innerHTML,'pause');
+    assert.strictEqual(btn.disabled,true,'Successful action must leave the button disabled for the next render');
+    assert.strictEqual(btn.getAttribute('aria-disabled'),'true','aria-disabled must stay set until the row re-renders');
   });
 
   // Test 5: Alerts safely render dynamic sensor and process names using textContent (prevent XSS)
@@ -751,7 +752,7 @@ async function runTests() {
     });
     await mod.evaluate();
 
-    mod.namespace.setupTorrentEvents();
+    mod.namespace.setupTorrentActions();
 
     torrentList.dispatchEvent({
       type: 'click',
