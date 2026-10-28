@@ -897,3 +897,38 @@ func TestHandlerConstructionDoesNotCollect(t *testing.T) {
 		t.Fatal("building the handler collected state before any client connected")
 	}
 }
+
+func TestPollingTickStartsSlowSources(t *testing.T) {
+	oldSources := slowSources
+	defer func() {
+		slowSources = oldSources
+		slowMu.Lock()
+		slowState = DashboardState{}
+		slowInFlight = make(map[string]chan struct{})
+		slowMu.Unlock()
+	}()
+	slowMu.Lock()
+	slowState = DashboardState{}
+	slowInFlight = make(map[string]chan struct{})
+	slowMu.Unlock()
+	slowSources = []struct {
+		name string
+		load func() func(*DashboardState)
+	}{{"pm2", func() func(*DashboardState) {
+		return func(s *DashboardState) { s.PM2 = []PM2Process{{ID: 1, Name: "tick"}} }
+	}}}
+
+	collectAll()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		slowMu.Lock()
+		got := len(slowState.PM2)
+		slowMu.Unlock()
+		if got == 1 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("the polling tick never started the slow sources")
+}
