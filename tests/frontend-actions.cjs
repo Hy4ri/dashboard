@@ -3,8 +3,8 @@
  * Tests contracts defined in .hermes/cache/scratch/monit-cleanup-contract.md
  *
  * Target modules:
- * - events.ts (setupTorrentEvents, bulk torrent actions pause/resume/delete)
- * - pm2-menu.ts (setupPM2Menu, pm2ControlAction, Restart All)
+ * - events.ts (setupTorrentActions, bulk torrent actions pause/resume/delete)
+ * - pm2-actions.ts (setupPM2Actions, pm2ControlAction, Restart All)
  * - ui/alerts.ts (checkAlerts, renderAlertsList, dynamic names escaping/textContent)
  */
 
@@ -334,7 +334,7 @@ async function runTests() {
       const code = fs.readFileSync(eventsPath, 'utf8');
       const mod = new vm.SourceTextModule(code, { context: sandbox });
       await mod.link(async (specifier) => {
-        const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const fetchStatus = () => {};', { context: sandbox });
+        const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const THRESHOLDS = {cpu:{warn:60,crit:80},mem:{warn:60,crit:80},swap:{warn:60,crit:80},disk:{warn:70,crit:85},temp:{warn:60,crit:75}}; export const fetchStatus = () => {};', { context: sandbox });
         await empty.link(() => {});
         await empty.evaluate();
         return empty;
@@ -345,7 +345,7 @@ async function runTests() {
       assert.fail('vm.SourceTextModule is required to test ES modules');
     }
 
-    eventsModule.setupTorrentEvents();
+    eventsModule.setupTorrentActions();
 
     // Trigger resume all with failed response
     alerted = null;
@@ -356,7 +356,7 @@ async function runTests() {
   });
 
   // Test 2: Restart All uses full latest API process inventory, not filtered DOM rows
-  await test('pm2-menu: Restart All uses full latest API process inventory not filtered DOM', async () => {
+  await test('pm2-actions: Restart All uses full latest API process inventory not filtered DOM', async () => {
     // Contract: Restart All uses full latest API process inventory not filtered DOM, uses IDs (not names) and stop dashboard last
     // Baseline pm2-menu.ts:
     // const rows = document.querySelectorAll('#pm2-body tr[data-pm-id]');
@@ -364,7 +364,7 @@ async function runTests() {
     // for (const name of names) { await fetch('/api/pm2/restart/' + encodeURIComponent(name)); }
     // When the user has searched or filtered the PM2 table, document.querySelectorAll('#pm2-body tr[data-pm-id]')
     // only contains visible rows! Filtered-out processes are omitted.
-    const pm2MenuPath = path.join(distDir, 'client/pm2-menu.js');
+    const pm2MenuPath = path.join(distDir, 'client/pm2-actions.js');
     if (!fs.existsSync(pm2MenuPath)) {
       assert.fail(`File not found: ${pm2MenuPath}. Dist must be built.`);
     }
@@ -408,7 +408,7 @@ async function runTests() {
       const code = fs.readFileSync(pm2MenuPath, 'utf8');
       const mod = new vm.SourceTextModule(code, { context: sandbox });
       await mod.link(async (specifier) => {
-        const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const fetchStatus = () => {};', { context: sandbox });
+        const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const THRESHOLDS = {cpu:{warn:60,crit:80},mem:{warn:60,crit:80},swap:{warn:60,crit:80},disk:{warn:70,crit:85},temp:{warn:60,crit:75}}; export const fetchStatus = () => {};', { context: sandbox });
         await empty.link(() => {});
         await empty.evaluate();
         return empty;
@@ -419,31 +419,27 @@ async function runTests() {
       assert.fail('vm.SourceTextModule is required');
     }
 
-    pm2MenuModule.setupPM2Menu();
+    pm2MenuModule.setupPM2Actions();
 
     // Trigger restart all
     await restartAllBtn.dispatchEvent({ type: 'click', preventDefault: () => {}, stopPropagation: () => {} });
     await new Promise(r => setTimeout(r, 20));
 
-    // If it only queried DOM rows, it only restarted proc-1 and did not use full inventory or IDs.
-    // The contract requires: "Restart All uses full latest API process inventory not filtered DOM, uses IDs (not names) and stop dashboard last"
-    // Baseline checks:
-    // 1) Did it restart by ID? E.g. /api/pm2/restart/<id>
-    // 2) Did it avoid relying purely on filtered DOM table rows?
-    const restartedWithId = restartedTargets.some(url => url.match(/\/api\/pm2\/restart\/\d+$/));
-    assert(restartedWithId, 'Restart All must use process IDs (not names) and full process inventory');
-    assert.deepStrictEqual(restartedTargets,['/api/pm2/restart/1','/api/pm2/restart/2','/api/pm2/restart/3'],'Restart full inventory with dashboard last');
+    // Restart All is one server call. The server restarts the full PM2
+    // inventory and restarts the dashboard last, so filtered DOM rows and
+    // names cannot affect the target list.
+    assert.deepStrictEqual(restartedTargets,['/api/pm2/restart-all'],'Restart All must make one server call for the full inventory');
   });
 
   // Test 3: Restart All bulk operation checks HTTP and success on each restart call
-  await test('pm2-menu: Restart All checks HTTP status and success response', async () => {
+  await test('pm2-actions: Restart All checks HTTP status and success response', async () => {
     // Contract: bulk torrent and restart operations check HTTP and success
     // Baseline pm2-menu.ts:
     // for (const name of names) {
     //   await fetch('/api/pm2/restart/' + encodeURIComponent(name), { method: 'POST' });
     // }
     // Baseline completely ignores res.ok and data.success!
-    const pm2MenuPath = path.join(distDir, 'client/pm2-menu.js');
+    const pm2MenuPath = path.join(distDir, 'client/pm2-actions.js');
     const { doc, win, registerElement } = createMockEnvironment();
     const restartAllBtn = registerElement('restart-all-btn', new MockElement('BUTTON'));
     const pm2Body = registerElement('pm2-body', new MockElement('TBODY'));
@@ -480,14 +476,14 @@ async function runTests() {
     const code = fs.readFileSync(pm2MenuPath, 'utf8');
     const mod = new vm.SourceTextModule(code, { context: sandbox });
     await mod.link(async () => {
-      const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const fetchStatus = () => {};', { context: sandbox });
+      const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const THRESHOLDS = {cpu:{warn:60,crit:80},mem:{warn:60,crit:80},swap:{warn:60,crit:80},disk:{warn:70,crit:85},temp:{warn:60,crit:75}}; export const fetchStatus = () => {};', { context: sandbox });
       await empty.link(() => {});
       await empty.evaluate();
       return empty;
     });
     await mod.evaluate();
 
-    mod.namespace.setupPM2Menu();
+    mod.namespace.setupPM2Actions();
     await restartAllBtn.dispatchEvent({ type: 'click', preventDefault: () => {}, stopPropagation: () => {} });
     await new Promise(r => setTimeout(r, 20));
 
@@ -495,7 +491,7 @@ async function runTests() {
   });
 
   // Test 4: Per-entity pending guard prevents duplicate mutations despite renders and releases on every terminal path
-  await test('events & pm2-menu: per-entity pending guard blocks duplicates and releases on terminal paths', async () => {
+  await test('events & pm2-actions: per-entity pending guard blocks duplicates and releases on terminal paths', async () => {
     // Contract: per-entity pending guard prevents duplicate mutations despite renders; release every terminal path.
     // In baseline events.ts:
     // Only btn.disabled = true is set on the specific button element!
@@ -503,7 +499,7 @@ async function runTests() {
     // completely bypassing btn.disabled and allowing concurrent duplicate mutations for the same hash/id!
     // In baseline pm2-menu.ts:
     // pm2ControlAction(name, action) does not even disable any button or track in-flight actions by entity ID/name!
-    const pm2MenuPath = path.join(distDir, 'client/pm2-menu.js');
+    const pm2MenuPath = path.join(distDir, 'client/pm2-actions.js');
     const { doc, win } = createMockEnvironment();
 
     let fetchCount = 0;
@@ -532,7 +528,7 @@ async function runTests() {
     const code = fs.readFileSync(pm2MenuPath, 'utf8');
     const mod = new vm.SourceTextModule(code, { context: sandbox });
     await mod.link(async () => {
-      const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const fetchStatus = () => {};', { context: sandbox });
+      const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const THRESHOLDS = {cpu:{warn:60,crit:80},mem:{warn:60,crit:80},swap:{warn:60,crit:80},disk:{warn:70,crit:85},temp:{warn:60,crit:75}}; export const fetchStatus = () => {};', { context: sandbox });
       await empty.link(() => {});
       await empty.evaluate();
       return empty;
@@ -558,15 +554,16 @@ async function runTests() {
     assert.strictEqual(fetchCount, 2, 'Pending guard must be released after completion so subsequent actions succeed');
   });
 
-  await test('events: successful mutation restores retained button',async()=>{
+  await test('events: successful mutation keeps the button disabled until the next render',async()=>{
     const {doc,win,registerElement}=createMockEnvironment();
     const list=registerElement('torrent-list',new MockElement('DIV')),btn=new MockElement('BUTTON');
     btn.className='torrent-action-btn';btn.dataset.action='pause';btn.dataset.hash='fixture';btn.innerHTML='pause';list.appendChild(btn);
     const context=vm.createContext({document:doc,window:win,Element:MockElement,HTMLButtonElement:MockElement,console,confirm:()=>true,alert:()=>{},setTimeout:()=>1,fetch:async()=>({ok:true,json:async()=>({success:true})})});
     const mod=new vm.SourceTextModule(fs.readFileSync(path.join(distDir,'client/events.js'),'utf8'),{context});
-    await mod.link(async()=>{const stub=new vm.SourceTextModule('export const $=id=>document.getElementById(id);export const fetchStatus=()=>{};',{context});await stub.link(()=>{});return stub;});await mod.evaluate();mod.namespace.setupTorrentEvents();
+    await mod.link(async()=>{const stub=new vm.SourceTextModule('export const $=id=>document.getElementById(id);export const fetchStatus=()=>{};',{context});await stub.link(()=>{});return stub;});await mod.evaluate();mod.namespace.setupTorrentActions();
     list.dispatchEvent({type:'click',target:btn,preventDefault(){},stopPropagation(){}});await new Promise(r=>setTimeout(r,0));
-    assert.strictEqual(btn.disabled,false,'Successful action left button permanently disabled');assert.strictEqual(btn.innerHTML,'pause');
+    assert.strictEqual(btn.disabled,true,'Successful action must leave the button disabled for the next render');
+    assert.strictEqual(btn.getAttribute('aria-disabled'),'true','aria-disabled must stay set until the row re-renders');
   });
 
   // Test 5: Alerts safely render dynamic sensor and process names using textContent (prevent XSS)
@@ -607,7 +604,7 @@ async function runTests() {
       const code = fs.readFileSync(alertsPath, 'utf8');
       const mod = new vm.SourceTextModule(code, { context: sandbox });
       await mod.link(async () => {
-        const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id);', { context: sandbox });
+        const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const THRESHOLDS = {cpu:{warn:60,crit:80},mem:{warn:60,crit:80},swap:{warn:60,crit:80},disk:{warn:70,crit:85},temp:{warn:60,crit:75}};', { context: sandbox });
         await empty.link(() => {});
         await empty.evaluate();
         return empty;
@@ -626,9 +623,7 @@ async function runTests() {
         status: 'errored',
         cpu: 0,
         memory: 0,
-        uptime: 0,
-        restarts: 1,
-        pid: 123
+        restarts: 1
       }]
     });
 
@@ -676,7 +671,7 @@ async function runTests() {
     const code = fs.readFileSync(alertsPath, 'utf8');
     const mod = new vm.SourceTextModule(code, { context: sandbox });
     await mod.link(async () => {
-      const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id);', { context: sandbox });
+      const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const THRESHOLDS = {cpu:{warn:60,crit:80},mem:{warn:60,crit:80},swap:{warn:60,crit:80},disk:{warn:70,crit:85},temp:{warn:60,crit:75}};', { context: sandbox });
       await empty.link(() => {});
       await empty.evaluate();
       return empty;
@@ -708,7 +703,7 @@ async function runTests() {
   });
 
   // Test 7: Preserves user confirmations for destructive actions
-  await test('pm2-menu & events: preserve user confirmations for destructive actions', async () => {
+  await test('pm2-actions & events: preserve user confirmations for destructive actions', async () => {
     // Contract: Preserve user confirmations.
     // Ensure confirm dialog is prompted before delete, and action cancelled if user rejects.
     const eventsPath = path.join(distDir, 'client/events.js');
@@ -750,14 +745,14 @@ async function runTests() {
     const code = fs.readFileSync(eventsPath, 'utf8');
     const mod = new vm.SourceTextModule(code, { context: sandbox });
     await mod.link(async () => {
-      const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const fetchStatus = () => {};', { context: sandbox });
+      const empty = new vm.SourceTextModule('export default {}; export const $ = (id) => globalThis.document.getElementById(id); export const THRESHOLDS = {cpu:{warn:60,crit:80},mem:{warn:60,crit:80},swap:{warn:60,crit:80},disk:{warn:70,crit:85},temp:{warn:60,crit:75}}; export const fetchStatus = () => {};', { context: sandbox });
       await empty.link(() => {});
       await empty.evaluate();
       return empty;
     });
     await mod.evaluate();
 
-    mod.namespace.setupTorrentEvents();
+    mod.namespace.setupTorrentActions();
 
     torrentList.dispatchEvent({
       type: 'click',

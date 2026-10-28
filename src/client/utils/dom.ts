@@ -1,6 +1,7 @@
 /* ── DOM helpers ──────────────────────────────────────────────────── */
 
 import { NONE } from './format.js';
+import { THRESHOLDS, ThresholdKey } from '../config.js';
 
 export const $ = <T extends HTMLElement = HTMLElement>(id: string): T | null => {
   // SAFETY: document.getElementById returns HTMLElement or null; generic specializes the subtype for callers.
@@ -25,8 +26,8 @@ export function setText(id: string, val: string): void {
   }
 }
 
-// Update bar fill width, text label, and ARIA
-export function updateBar(id: string, pct: number, valText: string): void {
+// Update bar fill width, text label, and ARIA. The key picks the thresholds.
+export function updateBar(id: string, pct: number, valText: string, key: ThresholdKey): void {
   const fill = $(id);
   if (!fill) return;
   fill.style.width = Math.min(pct * 100, 100) + '%';
@@ -37,18 +38,22 @@ export function updateBar(id: string, pct: number, valText: string): void {
     if (label) {
       const pctSpan = label.querySelector('span:last-child');
       if (pctSpan) {
+        const { warn, crit } = THRESHOLDS[key];
+        const value = pct * 100;
         let suffix = '';
-        if (pct > 0.85) suffix = ' 🚨 Critical';
-        else if (pct > 0.7) suffix = ' ⚠️ High';
+        if (value >= crit) suffix = ' Critical';
+        else if (value >= warn) suffix = ' High';
         pctSpan.textContent = valText + suffix;
       }
     }
   }
 }
 
-export function barClass(pct: number, warn: number, crit: number): string {
-  if (pct > crit) return ' critical';
-  if (pct > warn) return ' high';
+export function barClass(pct: number, key: ThresholdKey): string {
+  const { warn, crit } = THRESHOLDS[key];
+  const value = pct * 100;
+  if (value >= crit) return ' critical';
+  if (value >= warn) return ' high';
   return '';
 }
 

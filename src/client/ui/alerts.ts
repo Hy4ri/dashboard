@@ -1,8 +1,16 @@
 import { $ } from '../utils/dom.js';
 import { DashboardState } from '../../shared/types.js';
+import { THRESHOLDS } from '../config.js';
 
 let notificationGranted = false;
 let previousAlerts = new Set<string>();
+
+// Banners use inline icons so the UI carries no emoji glyphs.
+const ALERT_ICONS: Record<AlertItem['type'], string> = {
+  danger: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  warning: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+  info: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+};
 
 export interface AlertItem {
   key: string;
@@ -10,15 +18,20 @@ export interface AlertItem {
   message: string;
 }
 
-// Request notification permission
+// notificationsGranted reports whether the browser will deliver desktop
+// alerts. It is also the reason to keep the socket open while the tab hides.
+export function notificationsGranted(): boolean {
+  return typeof Notification !== 'undefined' && Notification.permission === 'granted';
+}
+
+// Request notification permission. Call this once at startup: the button owns
+// its click handler, so repeated calls would stack listeners.
 export function initNotifications(): void {
-  if ('Notification' in window) {
-    if (Notification.permission === 'granted') {
-      notificationGranted = true;
-      updateNotificationButton(true);
-    } else if (Notification.permission !== 'denied') {
-      updateNotificationButton(false);
-    }
+  if (notificationsGranted()) {
+    notificationGranted = true;
+    updateNotificationButton(true);
+  } else if (typeof Notification !== 'undefined' && Notification.permission !== 'denied') {
+    updateNotificationButton(false);
   }
 }
 
@@ -27,38 +40,35 @@ function updateNotificationButton(enabled: boolean): void {
   if (!btn) {
     // Create button in the header status-bar
     const statusBar = document.querySelector('.status-bar');
-    if (statusBar) {
-      btn = document.createElement('button');
-      btn.id = 'enable-notifications-btn';
-      btn.className = 'notification-toggle-btn';
-      statusBar.insertBefore(btn, statusBar.firstChild);
-    }
+    if (!statusBar) return;
+    btn = document.createElement('button');
+    btn.id = 'enable-notifications-btn';
+    btn.className = 'notification-toggle-btn';
+    btn.addEventListener('click', requestPermission);
+    statusBar.insertBefore(btn, statusBar.firstChild);
   }
 
-  if (btn) {
-    if (enabled) {
-      btn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
-        </svg>
-        <span>Alerts On</span>
-      `;
-      btn.classList.add('enabled');
-    } else {
-      btn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M13.73 21a2 2 0 01-3.46 0M18.02 8c0-1.55-.63-2.96-1.64-4M6.02 8c0-1.55.63-2.96 1.64-4M3 17h18M12 4v1" />
-        </svg>
-        <span>Enable Alerts</span>
-      `;
-      btn.classList.remove('enabled');
-      btn.addEventListener('click', requestPermission);
-    }
+  if (enabled) {
+    btn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
+      </svg>
+      <span>Alerts On</span>
+    `;
+    btn.classList.add('enabled');
+  } else {
+    btn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M13.73 21a2 2 0 01-3.46 0M18.02 8c0-1.55-.63-2.96-1.64-4M6.02 8c0-1.55.63-2.96 1.64-4M3 17h18M12 4v1" />
+      </svg>
+      <span>Enable Alerts</span>
+    `;
+    btn.classList.remove('enabled');
   }
 }
 
 function requestPermission(): void {
-  if ('Notification' in window) {
+  if (typeof Notification !== 'undefined') {
     Notification.requestPermission().then(permission => {
       if (permission === 'granted') {
         notificationGranted = true;
@@ -91,7 +101,7 @@ export function checkAlerts(data?: DashboardState | null): void {
   // 1. Check CPU Temperature (Thermal)
   if (data.thermal) {
     data.thermal.forEach((sensor) => {
-      if (sensor.temp > 80) {
+      if (sensor.temp >= THRESHOLDS.temp.crit) {
         currentAlerts.push({
           key: `temp_${sensor.name}`,
           type: 'danger',
@@ -103,7 +113,7 @@ export function checkAlerts(data?: DashboardState | null): void {
   }
 
   // 2. Check RAM usage
-  if (data.memory && (data.memory.used_pct || 0) > 95) {
+  if (data.memory && (data.memory.used_pct || 0) >= THRESHOLDS.mem.crit) {
     currentAlerts.push({
       key: 'ram_high',
       type: 'warning',
@@ -113,7 +123,7 @@ export function checkAlerts(data?: DashboardState | null): void {
   }
 
   // 3. Check Disk usage
-  if (data.disk && (data.disk.used_pct || 0) > 95) {
+  if (data.disk && (data.disk.used_pct || 0) >= THRESHOLDS.disk.crit) {
     currentAlerts.push({
       key: 'disk_high',
       type: 'warning',
@@ -214,7 +224,7 @@ function renderAlertsList(alerts: AlertItem[]): void {
       }
       const iconEl = existing.querySelector('.alert-icon');
       if (iconEl) {
-        iconEl.textContent = a.type === 'danger' ? '⚠️' : '🔔';
+        iconEl.innerHTML = ALERT_ICONS[a.type];
       }
     } else {
       // Create new banner safely
@@ -224,7 +234,7 @@ function renderAlertsList(alerts: AlertItem[]): void {
 
       const iconSpan = document.createElement('span');
       iconSpan.className = 'alert-icon';
-      iconSpan.textContent = a.type === 'danger' ? '⚠️' : '🔔';
+      iconSpan.innerHTML = ALERT_ICONS[a.type];
 
       const msgSpan = document.createElement('span');
       msgSpan.className = 'alert-message';

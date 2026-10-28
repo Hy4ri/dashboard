@@ -1,6 +1,7 @@
 import { $ } from '../utils/dom.js';
 
 let modalEl: HTMLElement | null = null;
+let currentProcessId: number | null = null;
 let currentProcessName: string | null = null;
 let activeLogTab: 'out' | 'err' = 'out';
 const logData = { out: '', err: '' };
@@ -24,7 +25,7 @@ function esc(text: string | null | undefined): string {
 
 async function fetchLogs(silent: boolean = false): Promise<void> {
   const codeEl = $('pm2-log-content');
-  if (!codeEl || !currentProcessName) return;
+  if (!codeEl || currentProcessId === null) return;
 
   if (isFetching) {
     return;
@@ -44,7 +45,7 @@ async function fetchLogs(silent: boolean = false): Promise<void> {
   }
 
   try {
-    const res = await fetch(`/api/pm2/logs/${encodeURIComponent(currentProcessName)}?lines=${selectedLines}`, {
+    const res = await fetch(`/api/pm2/logs/${currentProcessId}?lines=${selectedLines}`, {
       signal: controller.signal
     });
     const data = await res.json();
@@ -89,7 +90,7 @@ function renderLogContent(): void {
 
   const tsEl = $('pm2-log-timestamp');
   if (tsEl) {
-    tsEl.textContent = lastFetchedAt ? '📋 Fetched: ' + lastFetchedAt : '';
+    tsEl.textContent = lastFetchedAt ? 'Fetched: ' + lastFetchedAt : '';
   }
 
   if (autoScroll) {
@@ -115,15 +116,17 @@ export function closeLogsModal(): void {
     modalEl.remove();
     modalEl = null;
   }
+  currentProcessId = null;
   currentProcessName = null;
   logData.out = '';
   logData.err = '';
   lastFetchedAt = '';
 }
 
-export function showLogsModal(processName: string): void {
+export function showLogsModal(processId: number, processName: string): void {
   closeLogsModal();
   currentGeneration++;
+  currentProcessId = processId;
   currentProcessName = processName;
   activeLogTab = 'out';
   autoScroll = true;

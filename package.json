@@ -16,10 +16,8 @@
     "dev": "go run main.go",
     "pm2:start": "pm2 start ecosystem.config.js",
     "pm2:stop": "pm2 stop ecosystem.config.js",
-    "pm2:restart": "pm2 restart ecosystem.config.js"
-  },
-  "dependencies": {
-    "playwright": "^1.60.0"
+    "pm2:restart": "pm2 restart ecosystem.config.js",
+    "lint": "oxlint -c oxlint.config.mjs src"
   },
   "keywords": [
     "dashboard",
@@ -30,8 +28,7 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^26.2.0",
-    "@types/ws": "^8.18.1",
-    "tsx": "^4.23.12",
+    "playwright": "^1.60.0",
     "typescript": "^7.0.2"
   }
 }

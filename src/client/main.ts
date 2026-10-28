@@ -2,12 +2,11 @@
 
 import { $ } from './utils/dom.js';
 import { connectWS, disconnectWS, forceRefresh } from './api.js';
-import { initServiceBar } from './service-bar.js';
-import { setupPM2Menu } from './pm2-menu.js';
+import { setupPM2Actions } from './pm2-actions.js';
 import { initPM2UI } from './ui/pm2.js';
 import { initTorrentsUI } from './ui/torrents.js';
-import { setupTorrentDelete } from './events.js';
-import './particles.js';
+import { setupTorrentActions } from './events.js';
+import { initNotifications, notificationsGranted } from './ui/alerts.js';
 
 document.title = 'Server Dashboard — Loading...';
 
@@ -46,17 +45,17 @@ function initAccordions(): void {
   });
 }
 
-// Init service bar
-initServiceBar();
-
 // Init accordions
 initAccordions();
 
+// Notification state is read once: the toggle button keeps its own listener.
+initNotifications();
+
 // Setup event handlers
-setupPM2Menu();
+setupPM2Actions();
 initPM2UI();
 initTorrentsUI();
-setupTorrentDelete();
+setupTorrentActions();
 
 // Refresh Button handler
 const refreshBtn = $('refresh-btn');
@@ -105,9 +104,11 @@ if ('serviceWorker' in navigator && window.location.protocol.startsWith('http'))
   });
 }
 
-// Pause WebSocket connection when tab is hidden
+// Keep the socket open while the tab is hidden only when desktop alerts are
+// allowed; otherwise there is nothing to notify, so stop the polling.
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
+    if (notificationsGranted()) return;
     disconnectWS();
     const lastUpdate = $('last-update');
     if (lastUpdate) lastUpdate.textContent = 'Updates paused while tab is hidden';

@@ -1,7 +1,7 @@
 import { fmtBytes } from '../utils/format.js';
 import { $, esc, setTextOf } from '../utils/dom.js';
 import { showLogsModal } from './logs-modal.js';
-import { pm2ControlAction } from '../pm2-menu.js';
+import { pm2ControlAction } from '../pm2-actions.js';
 import { PM2Process } from '../../shared/types.js';
 
 let eventsRegistered = false;
@@ -26,15 +26,16 @@ function setupPM2Actions(): void {
     if (!btn) return;
 
     e.stopPropagation();
-    const name = btn.getAttribute('data-name');
-    if (!name) return;
+    const id = Number(btn.getAttribute('data-id'));
+    const name = btn.getAttribute('data-name') || '';
+    if (!Number.isInteger(id)) return;
 
     if (btn.classList.contains('logs')) {
-      showLogsModal(name);
+      showLogsModal(id, name);
     } else {
       const action = btn.getAttribute('data-action');
       if (action) {
-        pm2ControlAction(name, action);
+        pm2ControlAction(id, action, name);
       }
     }
   });
@@ -48,6 +49,7 @@ function setupPM2Headers(): void {
   if (!table) return;
   const headers = table.querySelectorAll<HTMLElement>('thead th');
 
+  const nameHeader = headers[0];
   const cpuHeader = headers[1];
   const memHeader = headers[2];
 
@@ -59,6 +61,7 @@ function setupPM2Headers(): void {
     }
   };
 
+  makeClickable(nameHeader, 'name');
   makeClickable(cpuHeader, 'cpu');
   makeClickable(memHeader, 'memory');
 
@@ -91,14 +94,14 @@ function updateHeaderIndicators(): void {
   };
 
   // Name = 0, CPU = 1, Memory = 2, Actions = 3
+  resetHeader(headers[0], 'Name');
   resetHeader(headers[1], 'CPU');
   resetHeader(headers[2], 'Memory');
 
   const indicator = currentSortOrder === 'asc' ? ' ▲' : ' ▼';
-  if (currentSortBy === 'cpu' && headers[1]) {
-    headers[1].innerHTML = 'CPU' + indicator;
-  } else if (currentSortBy === 'memory' && headers[2]) {
-    headers[2].innerHTML = 'Memory' + indicator;
+  const active = { name: headers[0], cpu: headers[1], memory: headers[2] }[currentSortBy as 'name' | 'cpu' | 'memory'];
+  if (active) {
+    active.innerHTML = active.textContent + indicator;
   }
 }
 
@@ -150,24 +153,34 @@ export function initPM2UI(): void {
   setupPM2Filters();
 }
 
-function buildActionsHTML(name: string, status: string): string {
+function buildActionsHTML(p: PM2Process): string {
+  const attrs = 'data-id="' + p.id + '" data-name="' + esc(p.name) + '"';
   return '<div class="pm2-actions-cell">' +
-    (status === 'stopped'
-      ? '<button class="pm2-action-btn start" data-action="start" data-name="' + esc(name) + '" title="Start">▶</button>'
-      : '<button class="pm2-action-btn stop" data-action="stop" data-name="' + esc(name) + '" title="Stop">■</button>') +
-    '<button class="pm2-action-btn restart" data-action="restart" data-name="' + esc(name) + '" title="Restart">↻</button>' +
-    '<button class="pm2-action-btn delete" data-action="delete" data-name="' + esc(name) + '" title="Delete">✕</button>' +
-    '<button class="pm2-action-btn logs" data-name="' + esc(name) + '" title="View Logs">📄</button>' +
+    (p.status === 'stopped'
+      ? '<button class="pm2-action-btn start" data-action="start" ' + attrs + ' title="Start">▶</button>'
+      : '<button class="pm2-action-btn stop" data-action="stop" ' + attrs + ' title="Stop">■</button>') +
+    '<button class="pm2-action-btn restart" data-action="restart" ' + attrs + ' title="Restart">↻</button>' +
+    '<button class="pm2-action-btn delete" data-action="delete" ' + attrs + ' title="Delete" aria-label="Delete">' +
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
+        '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>' +
+      '</svg>' +
+    '</button>' +
+    '<button class="pm2-action-btn logs" ' + attrs + ' title="View Logs" aria-label="View logs">' +
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>' +
+        '<polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>' +
+      '</svg>' +
+    '</button>' +
   '</div>';
 }
 
-function updateActionsCell(cell: HTMLElement, name: string, status: string): void {
-  const desiredSig = `${name}::${status}`;
+function updateActionsCell(cell: HTMLElement, p: PM2Process): void {
+  const desiredSig = `${p.id}::${p.status}`;
   if (cell.dataset.actionSig === desiredSig) {
     return;
   }
   cell.dataset.actionSig = desiredSig;
-  cell.innerHTML = buildActionsHTML(name, status);
+  cell.innerHTML = buildActionsHTML(p);
 }
 
 function createRowElement(p: PM2Process): HTMLTableRowElement {
@@ -207,7 +220,7 @@ function createRowElement(p: PM2Process): HTMLTableRowElement {
 
   // Cell 3: Actions
   const td3 = document.createElement('td');
-  updateActionsCell(td3, p.name, p.status);
+  updateActionsCell(td3, p);
   tr.appendChild(td3);
 
   return tr;
@@ -249,7 +262,7 @@ function updateRowElement(row: HTMLTableRowElement, p: PM2Process): void {
   setTextOf(cells[2], fmtBytes(p.memory));
 
   // Cell 3: Actions - preserve buttons if signature identical
-  updateActionsCell(cells[3], p.name, p.status);
+  updateActionsCell(cells[3], p);
 }
 
 export function renderPM2(data?: PM2Process[] | null): void {

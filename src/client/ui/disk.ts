@@ -16,9 +16,9 @@ export function renderDisk(disk?: DiskData | null): void {
   const pct = total > 0 ? used / total : 0;
   const fill = $('disk-bar-fill');
   if (fill) {
-    fill.className = 'bar-fill disk' + barClass(pct, 0.7, 0.85);
+    fill.className = 'bar-fill disk' + barClass(pct, 'disk');
   }
-  updateBar('disk-bar-fill', pct, (pct * 100).toFixed(1) + '%');
+  updateBar('disk-bar-fill', pct, (pct * 100).toFixed(1) + '%', 'disk');
   setText('disk-used-label', fmtBytes(used) + ' / ' + fmtBytes(total));
   setText('disk-avail', fmtBytes(disk.available));
 }

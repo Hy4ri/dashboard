@@ -11,9 +11,9 @@ export function renderCPU(data?: number | null): void {
   const pct = data / 100;
   const fill = $('cpu-bar-fill');
   if (fill) {
-    fill.className = 'bar-fill cpu' + barClass(pct, 0.6, 0.8);
+    fill.className = 'bar-fill cpu' + barClass(pct, 'cpu');
   }
-  updateBar('cpu-bar-fill', pct, data.toFixed(1) + '%');
+  updateBar('cpu-bar-fill', pct, data.toFixed(1) + '%', 'cpu');
 }
 
 export function renderCPUCores(cores?: (number | null)[]): void {

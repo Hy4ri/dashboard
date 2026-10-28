@@ -62,6 +62,14 @@ interface ModelQuotaPair {
   weekly: NormalizedBucket;
 }
 
+// Several buckets can share one window. The lowest remaining percentage is the
+// limit that actually binds, so that one is shown.
+function keepTighter(current: NormalizedBucket, candidate: NormalizedBucket): NormalizedBucket {
+  if (candidate.remainingPct == null) return current;
+  if (current.remainingPct == null || candidate.remainingPct < current.remainingPct) return candidate;
+  return current;
+}
+
 function extractModelBuckets(buckets: AntigravityQuotaBucket[]): ModelQuotaPair {
   let fiveHour: NormalizedBucket = { displayName: '5-Hour Limit', window: '5h', remainingPct: null };
   let weekly: NormalizedBucket = { displayName: 'Weekly Limit', window: 'weekly', remainingPct: null };
@@ -71,20 +79,16 @@ function extractModelBuckets(buckets: AntigravityQuotaBucket[]): ModelQuotaPair 
     const remaining = (b.remainingPct != null && !isNaN(b.remainingPct))
       ? b.remainingPct
       : (b.remainingFraction != null && !isNaN(b.remainingFraction) ? b.remainingFraction * 100 : null);
+    const bucket: NormalizedBucket = {
+      displayName: b.displayName || (is5h ? '5-Hour Limit' : 'Weekly Limit'),
+      window: is5h ? '5h' : 'weekly',
+      remainingPct: remaining,
+      resetTime: b.resetTime,
+    };
     if (is5h) {
-      fiveHour = {
-        displayName: b.displayName || '5-Hour Limit',
-        window: '5h',
-        remainingPct: remaining,
-        resetTime: b.resetTime,
-      };
+      fiveHour = keepTighter(fiveHour, bucket);
     } else {
-      weekly = {
-        displayName: b.displayName || 'Weekly Limit',
-        window: 'weekly',
-        remainingPct: remaining,
-        resetTime: b.resetTime,
-      };
+      weekly = keepTighter(weekly, bucket);
     }
   }
 
@@ -244,17 +248,10 @@ export function renderAntigravity(
         for (const group of account.groups) {
           const lowerName = group.displayName.toLowerCase();
           const isArgon = lowerName.includes('argon') || (group.buckets && group.buckets.some(b => b.bucketId.includes('argon')));
-          const isGemini = !isArgon && lowerName.includes('gemini');
 
-          let groupTitle = 'Claude Models';
-          let shortName = 'Claude';
-          if (isArgon) {
-            groupTitle = 'Gemini 4 Argon';
-            shortName = 'Argon';
-          } else if (isGemini) {
-            groupTitle = 'Gemini Models';
-            shortName = 'Gemini';
-          }
+          // The API owns the label; only the Argon gauge keeps a short name.
+          const groupTitle = group.displayName;
+          const shortName = isArgon ? 'Argon' : group.displayName;
 
           const has5h = group.buckets && group.buckets.some(b => b.window === '5h' || b.bucketId.includes('5h'));
           const { fiveHour, weekly } = extractModelBuckets(group.buckets);

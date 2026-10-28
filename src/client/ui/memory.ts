@@ -17,9 +17,9 @@ export function renderMemory(mem?: MemoryData | null): void {
   const pct = mem.MemTotal > 0 ? used / mem.MemTotal : 0;
   const fill = $('mem-bar-fill');
   if (fill) {
-    fill.className = 'bar-fill memory' + barClass(pct, 0.6, 0.8);
+    fill.className = 'bar-fill memory' + barClass(pct, 'mem');
   }
-  updateBar('mem-bar-fill', pct, fmtBytes(used) + ' / ' + fmtBytes(mem.MemTotal));
+  updateBar('mem-bar-fill', pct, fmtBytes(used) + ' / ' + fmtBytes(mem.MemTotal), 'mem');
   setText('mem-avail', fmtBytes(mem.MemAvailable));
   setText('mem-free', fmtBytes(mem.MemFree));
   setText('mem-buffers', fmtBytes(mem.Buffers));
@@ -38,8 +38,8 @@ export function renderSwap(swap?: SwapData | null): void {
   const pct = swap.total > 0 ? used / swap.total : 0;
   const fill = $('swap-bar-fill');
   if (fill) {
-    fill.className = 'bar-fill swap' + barClass(pct, 0.6, 0.8);
+    fill.className = 'bar-fill swap' + barClass(pct, 'mem');
   }
-  updateBar('swap-bar-fill', pct, fmtBytes(used) + ' / ' + fmtBytes(swap.total));
+  updateBar('swap-bar-fill', pct, fmtBytes(used) + ' / ' + fmtBytes(swap.total), 'swap');
   setText('swap-free', fmtBytes(swap.free));
 }

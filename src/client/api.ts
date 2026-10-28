@@ -16,9 +16,8 @@ import { renderThermal } from './ui/thermal.js';
 import { renderSystem } from './ui/system.js';
 import { renderSparklines } from './ui/sparklines.js';
 import { renderAntigravity } from './ui/antigravity.js';
-import { checkAlerts, initNotifications } from './ui/alerts.js';
+import { checkAlerts } from './ui/alerts.js';
 import { updateServiceHealth } from './service-bar.js';
-import { updateCPULoad } from './particles.js';
 import { DashboardState } from '../shared/types.js';
 
 let staleTimer: any = null;
@@ -27,7 +26,7 @@ let reconnectTimeout: any = null;
 let lastTimestamp: number = 0;
 let isIntentionallyDisconnected: boolean = false;
 
-export function updateUI(data?: DashboardState | null): void {
+export function updateUI(data?: DashboardState | null, fromTick = false): void {
   if (!data) return;
 
   if (typeof data.timestamp === 'number') {
@@ -69,11 +68,10 @@ export function updateUI(data?: DashboardState | null): void {
   renderSystem(data.system);
 
   // New modules
-  renderSparklines(data);
+  renderSparklines(data, fromTick);
   renderAntigravity(data.antigravity, data.claudeUsage, data.codexUsage);
   checkAlerts(data);
   updateServiceHealth(data.services);
-  updateCPULoad(data.cpu);
 
   // Toggle logout button visibility based on auth settings
   const logoutBtn = $('logout-btn');
@@ -123,7 +121,6 @@ export function connectWS(): void {
     if (dot) dot.className = 'status-dot';
     const statusText = $('status-text');
     if (statusText) statusText.textContent = 'Connected';
-    initNotifications(); // initialize HTML5 notification requests
     if (reconnectTimeout) {
       clearTimeout(reconnectTimeout);
       reconnectTimeout = null;
@@ -141,7 +138,7 @@ export function connectWS(): void {
     }
 
     try {
-      updateUI(data);
+      updateUI(data, true);
     } catch (err) {
       console.error('Failed to render WS update:', err);
     }

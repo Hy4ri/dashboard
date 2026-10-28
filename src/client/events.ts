@@ -7,7 +7,7 @@ import { fetchStatus } from './api.js';
 const pendingTorrentHashes = new Set<string>();
 let isTorrentBulkPending = false;
 
-export function setupTorrentEvents(): void {
+export function setupTorrentActions(): void {
   const torrentList = $('torrent-list');
   if (torrentList) {
     torrentList.addEventListener('click', async (e) => {
@@ -26,8 +26,10 @@ export function setupTorrentEvents(): void {
         return;
       }
 
+      let deleteFiles = false;
       if (action === 'delete') {
-        if (!confirm(`Delete "${name}" and remove downloaded files?`)) return;
+        if (!confirm(`Delete torrent "${name}"?`)) return;
+        deleteFiles = confirm('Also remove the downloaded files?');
       }
 
       pendingTorrentHashes.add(hash);
@@ -36,33 +38,34 @@ export function setupTorrentEvents(): void {
       const originalHTML = btn.innerHTML;
       btn.innerHTML = '…';
 
+      let ok = false;
       try {
-        const res = await fetch(`/api/qbittorrent/${action}/${hash}`, { method: 'POST' });
+        const query = action === 'delete' && deleteFiles ? '?files=1' : '';
+        const res = await fetch(`/api/qbittorrent/${action}/${hash}${query}`, { method: 'POST' });
         let data: any = null;
         try {
           data = await res.json();
         } catch {
           // data stays null
         }
-        if (res.ok && data?.success) {
+        ok = Boolean(res.ok && data?.success);
+        if (ok) {
           setTimeout(() => fetchStatus(), 300);
         } else {
           const errDetail = data?.error || (res.status ? `HTTP ${res.status}` : 'Unknown error');
           alert(`Failed to ${action}: ` + errDetail);
+        }
+      } catch (err: any) {
+        alert('Request failed: ' + (err?.message || 'Network error'));
+      } finally {
+        pendingTorrentHashes.delete(hash);
+        // On success the button stays disabled until the next render replaces
+        // the row; on failure it must be usable again.
+        if (!ok) {
           btn.disabled = false;
           btn.removeAttribute('aria-disabled');
           btn.innerHTML = originalHTML;
         }
-      } catch (err: any) {
-        alert('Request failed: ' + (err?.message || 'Network error'));
-        btn.disabled = false;
-        btn.removeAttribute('aria-disabled');
-        btn.innerHTML = originalHTML;
-      } finally {
-        pendingTorrentHashes.delete(hash);
-        btn.disabled = false;
-        btn.removeAttribute('aria-disabled');
-        btn.innerHTML = originalHTML;
       }
     });
   }
@@ -120,5 +123,3 @@ export function setupTorrentEvents(): void {
     });
   }
 }
-
-export const setupTorrentDelete = setupTorrentEvents;

@@ -1,5 +1,6 @@
 import { $ } from '../utils/dom.js';
 import { DashboardState } from '../../shared/types.js';
+import { POLL_MS } from '../config.js';
 
 const HISTORY_LIMIT = 30;
 
@@ -100,24 +101,30 @@ function updateSparkline(
   }
 }
 
-export function renderSparklines(data?: DashboardState | null): void {
+// renderSparklines draws the rolling history. Only the WebSocket tick adds a
+// point: a manual refresh repeats the same interval, so it must not skew the
+// time axis.
+export function renderSparklines(data?: DashboardState | null, fromTick = false): void {
   if (!data) return;
 
-  // 1. Push current metrics into history
-  if (data.cpu !== undefined && data.cpu !== null) {
-    pushHistory('cpu', data.cpu);
+  if (fromTick) {
+    if (data.cpu !== undefined && data.cpu !== null) {
+      pushHistory('cpu', data.cpu);
+    }
+
+    let totalRx = 0;
+    let totalTx = 0;
+    if (data.network) {
+      Object.values(data.network).forEach(iface => {
+        totalRx += iface.rx_rate || 0;
+        totalTx += iface.tx_rate || 0;
+      });
+    }
+    pushHistory('rx', totalRx);
+    pushHistory('tx', totalTx);
   }
 
-  let totalRx = 0;
-  let totalTx = 0;
-  if (data.network) {
-    Object.values(data.network).forEach(iface => {
-      totalRx += iface.rx_rate || 0;
-      totalTx += iface.tx_rate || 0;
-    });
-  }
-  pushHistory('rx', totalRx);
-  pushHistory('tx', totalTx);
+  const windowLabel = Math.round((HISTORY_LIMIT * POLL_MS) / 1000) + 's';
 
   // 2. Render CPU Sparkline
   updateSparkline(
@@ -126,7 +133,7 @@ export function renderSparklines(data?: DashboardState | null): void {
     100,
     '#CC3333',
     '#cpu-sparkline-container',
-    '30s Load'
+    windowLabel + ' CPU'
   );
 
   // 3. Create Network Sparkline container in card if not exists

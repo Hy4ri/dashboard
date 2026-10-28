@@ -14,6 +14,7 @@
       {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
+            go
             nodejs_22
             pm2
           ];
@@ -22,6 +23,7 @@
             echo "==========================================="
             echo "  Server Dashboard Dev Environment         "
             echo "  Node.js: $(node --version)               "
+            echo "  Go:      $(go version | cut -d' ' -f3)    "
             echo "==========================================="
           '';
         };
