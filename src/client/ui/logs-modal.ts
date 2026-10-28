@@ -12,6 +12,12 @@ let autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
 let currentAbortController: AbortController | null = null;
 let currentGeneration = 0;
 let isFetching = false;
+let opener: HTMLElement | null = null;
+
+const ICON_ATTRS = 'width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+const ICON_CLOSE = '<svg ' + ICON_ATTRS + '><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+const ICON_REFRESH = '<svg ' + ICON_ATTRS + '><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>';
+const ICON_TRASH = '<svg ' + ICON_ATTRS + '><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
 
 function esc(text: string | null | undefined): string {
   if (!text) return '';
@@ -115,6 +121,9 @@ export function closeLogsModal(): void {
   if (modalEl) {
     modalEl.remove();
     modalEl = null;
+    // Return focus to the control that opened the dialog.
+    if (opener && opener.isConnected) opener.focus({ preventScroll: true });
+    opener = null;
   }
   currentProcessId = null;
   currentProcessName = null;
@@ -123,8 +132,11 @@ export function closeLogsModal(): void {
   lastFetchedAt = '';
 }
 
-export function showLogsModal(processId: number, processName: string): void {
+export function showLogsModal(processId: number, processName: string, onDelete?: () => Promise<boolean>): void {
+  const active = document.activeElement as HTMLElement | null;
+  const trigger = active && typeof active.focus === 'function' ? active : null;
   closeLogsModal();
+  opener = trigger;
   currentGeneration++;
   currentProcessId = processId;
   currentProcessName = processName;
@@ -140,14 +152,15 @@ export function showLogsModal(processId: number, processName: string): void {
   modal.id = 'pm2-logs-modal';
 
   modal.innerHTML = `
-    <div class="modal-card">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pm2-logs-title">
       <div class="modal-header">
-        <h3>PM2 Process Logs: <code>${esc(processName)}</code></h3>
-        <button class="modal-close-btn" id="pm2-logs-close">&times;</button>
+        <h3 id="pm2-logs-title">Process: <code>${esc(processName)}</code></h3>
+        ${onDelete ? `<button type="button" class="btn-danger" id="pm2-delete-btn" title="Delete this process from PM2">${ICON_TRASH}<span>Delete</span></button>` : ''}
+        <button type="button" class="modal-close-btn" id="pm2-logs-close" aria-label="Close">${ICON_CLOSE}</button>
       </div>
-      <div class="modal-tabs">
-        <button class="tab-btn active" id="tab-out-btn">stdout (out)</button>
-        <button class="tab-btn" id="tab-err-btn">stderr (err)</button>
+      <div class="modal-tabs" role="tablist" aria-label="Log stream">
+        <button type="button" class="tab-btn active" id="tab-out-btn" role="tab" aria-selected="true">stdout</button>
+        <button type="button" class="tab-btn" id="tab-err-btn" role="tab" aria-selected="false">stderr</button>
       </div>
       <div class="modal-controls">
         <label class="checkbox-label">
@@ -165,7 +178,7 @@ export function showLogsModal(processId: number, processName: string): void {
           <option value="500">500 lines</option>
         </select>
         <span id="pm2-log-timestamp" class="log-timestamp"></span>
-        <button class="refresh-btn" id="refresh-logs-btn">↻ Refresh</button>
+        <button type="button" class="refresh-btn" id="refresh-logs-btn">${ICON_REFRESH}<span>Refresh</span></button>
       </div>
       <div class="modal-body" id="pm2-log-container">
         <pre><code id="pm2-log-content">Loading...</code></pre>
@@ -178,6 +191,19 @@ export function showLogsModal(processId: number, processName: string): void {
 
   // Event Listeners
   $('pm2-logs-close')?.addEventListener('click', closeLogsModal);
+  $<HTMLButtonElement>('pm2-logs-close')?.focus?.();
+
+  const deleteBtn = $<HTMLButtonElement>('pm2-delete-btn');
+  deleteBtn?.addEventListener('click', async () => {
+    if (!onDelete) return;
+    deleteBtn.disabled = true;
+    const deleted = await onDelete();
+    if (deleted) {
+      closeLogsModal();
+    } else {
+      deleteBtn.disabled = false;
+    }
+  });
   modal.addEventListener('click', (e) => {
     if (e.target === modal) closeLogsModal();
   });
@@ -185,6 +211,8 @@ export function showLogsModal(processId: number, processName: string): void {
   $('tab-out-btn')?.addEventListener('click', () => {
     $('tab-out-btn')?.classList.add('active');
     $('tab-err-btn')?.classList.remove('active');
+    $('tab-out-btn')?.setAttribute('aria-selected', 'true');
+    $('tab-err-btn')?.setAttribute('aria-selected', 'false');
     activeLogTab = 'out';
     renderLogContent();
   });
@@ -192,6 +220,8 @@ export function showLogsModal(processId: number, processName: string): void {
   $('tab-err-btn')?.addEventListener('click', () => {
     $('tab-err-btn')?.classList.add('active');
     $('tab-out-btn')?.classList.remove('active');
+    $('tab-err-btn')?.setAttribute('aria-selected', 'true');
+    $('tab-out-btn')?.setAttribute('aria-selected', 'false');
     activeLogTab = 'err';
     renderLogContent();
   });
@@ -235,7 +265,25 @@ export function showLogsModal(processId: number, processName: string): void {
   fetchLogs();
 }
 
-// Close modal on Escape key
+// Escape closes the dialog. Tab stays inside it while it is open.
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeLogsModal();
+  if (e.key === 'Escape') {
+    closeLogsModal();
+    return;
+  }
+  if (e.key !== 'Tab' || !modalEl) return;
+  const focusable = Array.from(
+    modalEl.querySelectorAll<HTMLElement>('button:not(:disabled), input, select, [href]')
+  );
+  if (focusable.length === 0) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const active = document.activeElement;
+  if (e.shiftKey && active === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && active === last) {
+    e.preventDefault();
+    first.focus();
+  }
 });

@@ -11,7 +11,19 @@ function statusClass(up: boolean): string {
 }
 
 function statusLabel(up: boolean): string {
-  return up ? 'Status: Online' : 'Status: Offline';
+  return up ? 'Online' : 'Offline';
+}
+
+// State is also text, not only a coloured dot. Offline is visible, online is
+// announced to screen readers.
+function applyState(link: Element, dot: Element, up: boolean): void {
+  dot.className = 'service-status-dot ' + statusClass(up);
+  link.classList.toggle('is-offline', !up);
+  const state = link.querySelector('.service-state');
+  if (state) {
+    state.className = up ? 'service-state sr-only' : 'service-state';
+    state.textContent = statusLabel(up);
+  }
 }
 
 // The server sends the whole list, so the bar is rebuilt only when the list
@@ -26,10 +38,11 @@ export function updateServiceHealth(services?: ServiceStatus[]): void {
     const host = window.location.hostname;
     const protocol = window.location.protocol;
     bar.innerHTML = services.map(s =>
-      '<a href="' + protocol + '//' + host + ':' + s.port + '" target="_blank" rel="noopener noreferrer" class="service-btn" data-service="' + esc(s.name) + '">' +
+      '<a href="' + protocol + '//' + host + ':' + s.port + '" target="_blank" rel="noopener noreferrer" class="service-btn' + (s.up ? '' : ' is-offline') + '" data-service="' + esc(s.name) + '">' +
       (SERVICE_ICONS[s.name] || DEFAULT_SERVICE_ICON) +
       '<span>' + esc(s.name) + '</span>' +
-      '<span class="service-status-dot ' + statusClass(s.up) + '" aria-label="' + statusLabel(s.up) + '"></span>' +
+      '<span class="service-status-dot ' + statusClass(s.up) + '" aria-hidden="true"></span>' +
+      '<span class="service-state' + (s.up ? ' sr-only' : '') + '">' + statusLabel(s.up) + '</span>' +
       '</a>'
     ).join('');
     return;
@@ -38,8 +51,7 @@ export function updateServiceHealth(services?: ServiceStatus[]): void {
   for (const s of services) {
     const btn = bar.querySelector<HTMLElement>('.service-btn[data-service="' + CSS.escape(s.name) + '"]');
     const dot = btn?.querySelector('.service-status-dot');
-    if (!dot) continue;
-    dot.className = 'service-status-dot ' + statusClass(s.up);
-    dot.setAttribute('aria-label', statusLabel(s.up));
+    if (!btn || !dot) continue;
+    applyState(btn, dot, s.up);
   }
 }

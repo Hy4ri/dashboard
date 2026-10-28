@@ -98,18 +98,19 @@ function extractModelBuckets(buckets: AntigravityQuotaBucket[]): ModelQuotaPair 
 function renderCircularGauge(label: string, bucket: NormalizedBucket): string {
   const isKnown = bucket.remainingPct != null && !isNaN(bucket.remainingPct);
   const pct = isKnown ? Math.min(Math.max(bucket.remainingPct as number, 0), 100) : 0;
-  const strokeColor = isKnown ? getStrokeColor(pct) : 'var(--muted, #666)';
+  const strokeColor = isKnown ? getStrokeColor(pct) : 'var(--text-muted)';
   const statCls = isKnown ? getStatClass(pct) : 'val-muted';
   const offset = isKnown ? (CIRCUMFERENCE * (1 - pct / 100)).toFixed(2) : CIRCUMFERENCE.toFixed(2);
   const resetTag = formatRelativeTime(bucket.resetTime);
   const win = bucket.window === '5h' ? '5-Hour' : 'Weekly';
   const displayNum = isKnown ? `${Math.round(pct)}%` : 'Unknown';
-  const timeText = resetTag ? 'Resets ' + esc(resetTag) : (isKnown ? `${Math.round(pct)}% available` : 'Unknown');
+  const leftText = isKnown ? `${Math.round(pct)}% left` : 'Unknown';
+  const resetText = resetTag ? 'Resets ' + esc(resetTag) : '';
 
   return `
     <div class="agy-mini-card" title="${esc(label)} ${esc(bucket.displayName)}${resetTag ? ' — resets in ' + esc(resetTag) : ''}">
       <div class="agy-circle-box">
-        <svg width="42" height="42" viewBox="0 0 32 32" class="agy-circle-svg">
+        <svg width="48" height="48" viewBox="0 0 32 32" class="agy-circle-svg">
           <circle cx="16" cy="16" r="12.5" class="agy-circle-track" />
           <circle cx="16" cy="16" r="12.5" class="agy-circle-fill" 
             style="stroke: ${strokeColor}; stroke-dasharray: ${CIRCUMFERENCE}; stroke-dashoffset: ${offset};" />
@@ -118,7 +119,8 @@ function renderCircularGauge(label: string, bucket: NormalizedBucket): string {
       </div>
       <div class="agy-meta">
         <span class="agy-meta-title">${esc(label)} <span class="agy-meta-win">${win}</span></span>
-        <span class="agy-meta-time">${timeText}</span>
+        <span class="agy-meta-time">${leftText}</span>
+        ${resetText ? `<span class="agy-meta-time">${resetText}</span>` : ''}
       </div>
     </div>
   `;
@@ -210,7 +212,7 @@ export function renderAntigravity(
       <div class="agy-toolbar ai-provider-toolbar">
         <div class="agy-filter-pills" role="group" aria-label="Select AI provider">
           ${providerTabs.map(tab => `
-            <button class="filter-pill ai-provider-pill ${tab.id === activeProvider ? 'active' : ''}" data-provider="${tab.id}">
+            <button class="filter-pill ai-provider-pill ${tab.id === activeProvider ? 'active' : ''}" aria-pressed="${tab.id === activeProvider}" data-provider="${tab.id}">
               ${tab.label}
             </button>
           `).join('')}
@@ -233,7 +235,7 @@ export function renderAntigravity(
           <div class="agy-account-bar">
             <div class="agy-filter-pills" role="group" aria-label="Select account">
               ${agyData.map((acc, idx) => `
-                <button class="filter-pill agy-acc-pill ${idx === selectedAccountIndex ? 'active' : ''}" data-idx="${idx}">
+                <button class="filter-pill agy-acc-pill ${idx === selectedAccountIndex ? 'active' : ''}" aria-pressed="${idx === selectedAccountIndex}" data-idx="${idx}">
                   ${esc(acc.email.split('@')[0])}
                 </button>
               `).join('')}
@@ -306,7 +308,7 @@ export function renderAntigravity(
       </div>
       <div class="ai-model-group">
         <div class="ai-group-header">
-          <span>Usage Quota</span>
+          <span>Remaining quota</span>
         </div>
         <div class="agy-mini-grid">
           ${renderCircularGauge('Session', fiveHourBucket)}
@@ -342,7 +344,7 @@ export function renderAntigravity(
       </div>
       <div class="ai-model-group">
         <div class="ai-group-header">
-          <span>Rate Limits</span>
+          <span>Remaining quota</span>
         </div>
         <div class="agy-mini-grid">
           ${renderCircularGauge('Primary', fiveHourBucket)}

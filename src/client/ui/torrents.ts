@@ -38,8 +38,12 @@ function setupTorrentFilters(): void {
   pills.forEach((pill) => {
     pill.addEventListener('click', (e) => {
       e.preventDefault();
-      pills.forEach(p => p.classList.remove('active'));
+      pills.forEach((p) => {
+        p.classList.remove('active');
+        p.setAttribute('aria-pressed', 'false');
+      });
       pill.classList.add('active');
+      pill.setAttribute('aria-pressed', 'true');
       torrentFilter = pill.getAttribute('data-filter') || 'all';
       if (lastTorrentData) renderTorrents(lastTorrentData);
     });
@@ -69,14 +73,31 @@ export function initTorrentsUI(): void {
   setupTorrentFilters();
 }
 
+// With no torrents the card shrinks to one line, and the bulk buttons are
+// disabled with a reason: they would do nothing.
+function setEmptyState(card: HTMLElement, empty: boolean): void {
+  if (empty) card.setAttribute('data-empty', 'true');
+  else card.removeAttribute('data-empty');
+  const reason: Record<string, string> = {
+    'torrent-resume-all-btn': 'Resume all downloads',
+    'torrent-pause-all-btn': 'Pause all downloads',
+  };
+  for (const id of Object.keys(reason)) {
+    const btn = $<HTMLButtonElement>(id);
+    if (!btn) continue;
+    btn.disabled = empty;
+    btn.title = empty ? 'No downloads to ' + reason[id].split(' ')[0].toLowerCase() : reason[id];
+  }
+}
+
 function buildPauseResumeBtnHTML(t: TorrentItem, paused: boolean): string {
   return paused
-    ? '<button class="torrent-action-btn resume" data-action="resume" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Resume torrent" aria-label="Resume ' + esc(t.name) + '"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>'
-    : '<button class="torrent-action-btn pause" data-action="pause" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Pause torrent" aria-label="Pause ' + esc(t.name) + '"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="4" width="4.5" height="16" rx="0.5"/><rect x="14.5" y="4" width="4.5" height="16" rx="0.5"/></svg></button>';
+    ? '<button class="torrent-action-btn resume" data-action="resume" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Resume torrent" aria-label="Resume ' + esc(t.name) + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>'
+    : '<button class="torrent-action-btn pause" data-action="pause" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Pause torrent" aria-label="Pause ' + esc(t.name) + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="4" width="4.5" height="16" rx="0.5"/><rect x="14.5" y="4" width="4.5" height="16" rx="0.5"/></svg></button>';
 }
 
 function buildDeleteBtnHTML(t: TorrentItem): string {
-  return '<button class="torrent-action-btn delete" data-action="delete" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Delete torrent and remove files" aria-label="Delete ' + esc(t.name) + '"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
+  return '<button class="torrent-action-btn delete" data-action="delete" data-hash="' + esc(t.hash) + '" data-name="' + esc(t.name) + '" title="Delete torrent and remove files" aria-label="Delete ' + esc(t.name) + '"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
 }
 
 function updateTorrentActions(actionsEl: HTMLElement, t: TorrentItem, paused: boolean): void {
@@ -220,13 +241,15 @@ export function renderTorrents(torrents?: TorrentItem[] | null): void {
   if (!torrents || torrents.length === 0) {
     list.innerHTML = torrents == null
       ? '<div class="none">Torrent data unavailable.</div>'
-      : '<div class="none">No active downloads. Torrents will appear here when downloading.</div>';
+      : '<div class="none">No active downloads.</div>';
     if (countEl) countEl.textContent = '';
     updateTorrentCounts([]);
     lastTorrentData = null;
+    setEmptyState(card, true);
     return;
   }
 
+  setEmptyState(card, false);
   lastTorrentData = torrents;
   updateTorrentCounts(torrents);
 
@@ -237,6 +260,7 @@ export function renderTorrents(torrents?: TorrentItem[] | null): void {
     const parts = [done + '/' + total];
     if (seeded > 0) parts.push('<span class="torrent-seeded">' + seeded + '</span>');
     countEl.innerHTML = parts.join(' ');
+    countEl.title = done + ' of ' + total + ' complete' + (seeded > 0 ? ', ' + seeded + ' seeding' : '');
   }
 
   // Filter torrents

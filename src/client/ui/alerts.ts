@@ -4,6 +4,8 @@ import { THRESHOLDS } from '../config.js';
 
 let notificationGranted = false;
 let previousAlerts = new Set<string>();
+// Alerts the user closed. An alert returns only after its condition clears and comes back.
+const dismissedKeys = new Set<string>();
 
 // Banners use inline icons so the UI carries no emoji glyphs.
 const ALERT_ICONS: Record<AlertItem['type'], string> = {
@@ -50,7 +52,7 @@ function updateNotificationButton(enabled: boolean): void {
 
   if (enabled) {
     btn.innerHTML = `
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
         <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" />
       </svg>
       <span>Alerts On</span>
@@ -58,7 +60,7 @@ function updateNotificationButton(enabled: boolean): void {
     btn.classList.add('enabled');
   } else {
     btn.innerHTML = `
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
         <path d="M13.73 21a2 2 0 01-3.46 0M18.02 8c0-1.55-.63-2.96-1.64-4M6.02 8c0-1.55.63-2.96 1.64-4M3 17h18M12 4v1" />
       </svg>
       <span>Enable Alerts</span>
@@ -177,7 +179,15 @@ export function checkAlerts(data?: DashboardState | null): void {
   renderAlertsList(currentAlerts);
 }
 
-function renderAlertsList(alerts: AlertItem[]): void {
+const ICON_CLOSE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+
+function renderAlertsList(allAlerts: AlertItem[]): void {
+  // Forget dismissals for alerts whose condition has cleared.
+  const liveKeys = new Set(allAlerts.map(a => a.key));
+  for (const key of Array.from(dismissedKeys)) {
+    if (!liveKeys.has(key)) dismissedKeys.delete(key);
+  }
+  const alerts = allAlerts.filter(a => !dismissedKeys.has(a.key));
   let container = $('alerts-container');
 
   // No alerts active — remove container entirely
@@ -191,6 +201,9 @@ function renderAlertsList(alerts: AlertItem[]): void {
     container = document.createElement('div');
     container.id = 'alerts-container';
     container.className = 'alerts-container';
+    container.setAttribute('role', 'region');
+    container.setAttribute('aria-live', 'polite');
+    container.setAttribute('aria-label', 'Alerts');
     document.body.appendChild(container);
   }
 
@@ -240,8 +253,22 @@ function renderAlertsList(alerts: AlertItem[]): void {
       msgSpan.className = 'alert-message';
       msgSpan.textContent = a.message;
 
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'alert-dismiss';
+      closeBtn.setAttribute('aria-label', 'Dismiss alert');
+      closeBtn.title = 'Dismiss';
+      closeBtn.innerHTML = ICON_CLOSE;
+      closeBtn.addEventListener('click', () => {
+        dismissedKeys.add(a.key);
+        banner.remove();
+        const box = $('alerts-container');
+        if (box && box.children.length === 0) box.remove();
+      });
+
       banner.appendChild(iconSpan);
       banner.appendChild(msgSpan);
+      banner.appendChild(closeBtn);
       container?.appendChild(banner);
 
       // Remove the 'entering' class after animation completes

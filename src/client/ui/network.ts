@@ -65,11 +65,11 @@ export function renderConnectivity(
   if (dnsEl) {
     if (data.dns && data.dns.ok) {
       const ms = data.dns.latency != null ? ` (${data.dns.latency}ms)` : '';
-      dnsEl.textContent = 'Resolving' + ms;
+      dnsEl.textContent = 'OK' + ms;
       dnsEl.className = 'connectivity-status online';
     } else {
       const err = data.dns && data.dns.error ? ` (${data.dns.error})` : '';
-      dnsEl.textContent = 'Issue' + err;
+      dnsEl.textContent = 'Failing' + err;
       dnsEl.className = 'connectivity-status offline';
     }
   }
@@ -101,11 +101,11 @@ export function renderConnectivity(
           </div>
           <div class="dns-stat-item">
             <span class="dns-stat-key">Blocked</span>
-            <span class="dns-stat-val val-red">${(dnsStats.blockedQueries || 0).toLocaleString()} (${dnsStats.blockedPercentage || 0}%)</span>
+            <span class="dns-stat-val">${(dnsStats.blockedQueries || 0).toLocaleString()} (${dnsStats.blockedPercentage || 0}%)</span>
           </div>
           <div class="dns-stat-item">
             <span class="dns-stat-key">Cached</span>
-            <span class="dns-stat-val val-green">${(dnsStats.cachedQueries || 0).toLocaleString()}</span>
+            <span class="dns-stat-val">${(dnsStats.cachedQueries || 0).toLocaleString()}</span>
           </div>
         `;
         statsEl.style.display = 'grid';

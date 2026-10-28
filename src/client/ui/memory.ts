@@ -38,7 +38,7 @@ export function renderSwap(swap?: SwapData | null): void {
   const pct = swap.total > 0 ? used / swap.total : 0;
   const fill = $('swap-bar-fill');
   if (fill) {
-    fill.className = 'bar-fill swap' + barClass(pct, 'mem');
+    fill.className = 'bar-fill swap' + barClass(pct, 'swap');
   }
   updateBar('swap-bar-fill', pct, fmtBytes(used) + ' / ' + fmtBytes(swap.total), 'swap');
   setText('swap-free', fmtBytes(swap.free));

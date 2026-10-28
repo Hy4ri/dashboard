@@ -31,7 +31,7 @@ function setupPM2Actions(): void {
     if (!Number.isInteger(id)) return;
 
     if (btn.classList.contains('logs')) {
-      showLogsModal(id, name);
+      showLogsModal(id, name, () => pm2ControlAction(id, 'delete', name));
     } else {
       const action = btn.getAttribute('data-action');
       if (action) {
@@ -47,23 +47,13 @@ function setupPM2Headers(): void {
   if (headersRegistered) return;
   const table = document.querySelector('#pm2-card table');
   if (!table) return;
-  const headers = table.querySelectorAll<HTMLElement>('thead th');
 
-  const nameHeader = headers[0];
-  const cpuHeader = headers[1];
-  const memHeader = headers[2];
-
-  const makeClickable = (header: HTMLElement | undefined, field: keyof PM2Process) => {
-    if (header) {
-      header.style.cursor = 'pointer';
-      header.style.userSelect = 'none';
-      header.addEventListener('click', () => toggleSort(field));
-    }
-  };
-
-  makeClickable(nameHeader, 'name');
-  makeClickable(cpuHeader, 'cpu');
-  makeClickable(memHeader, 'memory');
+  // Each sortable header holds a real button, so the keyboard can sort.
+  const buttons = table.querySelectorAll<HTMLElement>('thead [data-sort-btn]');
+  buttons.forEach((btn) => {
+    const field = btn.getAttribute('data-sort-btn') as keyof PM2Process | null;
+    if (field) btn.addEventListener('click', () => toggleSort(field));
+  });
 
   headersRegistered = true;
 }
@@ -81,28 +71,20 @@ function toggleSort(field: keyof PM2Process): void {
   }
 }
 
+const SORT_ARROW_UP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>';
+const SORT_ARROW_DOWN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
+// aria-sort tells assistive technology which column is sorted and how.
+// The arrow shows the same state to sighted users.
 function updateHeaderIndicators(): void {
   const table = document.querySelector('#pm2-card table');
   if (!table) return;
-  const headers = table.querySelectorAll<HTMLElement>('thead th');
-
-  const resetHeader = (header: HTMLElement | undefined, text: string) => {
-    if (header) {
-      header.innerHTML = text;
-      header.title = `Sort by ${text}`;
-    }
-  };
-
-  // Name = 0, CPU = 1, Memory = 2, Actions = 3
-  resetHeader(headers[0], 'Name');
-  resetHeader(headers[1], 'CPU');
-  resetHeader(headers[2], 'Memory');
-
-  const indicator = currentSortOrder === 'asc' ? ' ▲' : ' ▼';
-  const active = { name: headers[0], cpu: headers[1], memory: headers[2] }[currentSortBy as 'name' | 'cpu' | 'memory'];
-  if (active) {
-    active.innerHTML = active.textContent + indicator;
-  }
+  table.querySelectorAll<HTMLElement>('thead th[data-sort]').forEach((th) => {
+    const active = th.getAttribute('data-sort') === currentSortBy;
+    th.setAttribute('aria-sort', active ? (currentSortOrder === 'asc' ? 'ascending' : 'descending') : 'none');
+    const ind = th.querySelector<HTMLElement>('.sort-ind');
+    if (ind) ind.innerHTML = active ? (currentSortOrder === 'asc' ? SORT_ARROW_UP : SORT_ARROW_DOWN) : '';
+  });
 }
 
 function setupPM2Filters(): void {
@@ -120,8 +102,12 @@ function setupPM2Filters(): void {
   pills.forEach((pill) => {
     pill.addEventListener('click', (e) => {
       e.preventDefault();
-      pills.forEach(p => p.classList.remove('active'));
+      pills.forEach((p) => {
+        p.classList.remove('active');
+        p.setAttribute('aria-pressed', 'false');
+      });
       pill.classList.add('active');
+      pill.setAttribute('aria-pressed', 'true');
       statusFilter = pill.getAttribute('data-filter') || 'all';
       if (lastPM2Data) renderPM2(lastPM2Data);
     });
@@ -153,24 +139,23 @@ export function initPM2UI(): void {
   setupPM2Filters();
 }
 
+const ICON_ATTRS = 'width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+const ICON_PLAY = '<svg ' + ICON_ATTRS + '><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+const ICON_STOP = '<svg ' + ICON_ATTRS + '><rect x="5" y="5" width="14" height="14" rx="1"/></svg>';
+const ICON_RESTART = '<svg ' + ICON_ATTRS + '><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>';
+const ICON_LOGS = '<svg ' + ICON_ATTRS + '><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+
+// Delete is not a row action. It lives in the process dialog, away from Stop
+// and Restart, so a mis-tap cannot remove a process.
 function buildActionsHTML(p: PM2Process): string {
-  const attrs = 'data-id="' + p.id + '" data-name="' + esc(p.name) + '"';
+  const name = esc(p.name);
+  const attrs = 'data-id="' + p.id + '" data-name="' + name + '"';
   return '<div class="pm2-actions-cell">' +
     (p.status === 'stopped'
-      ? '<button class="pm2-action-btn start" data-action="start" ' + attrs + ' title="Start">▶</button>'
-      : '<button class="pm2-action-btn stop" data-action="stop" ' + attrs + ' title="Stop">■</button>') +
-    '<button class="pm2-action-btn restart" data-action="restart" ' + attrs + ' title="Restart">↻</button>' +
-    '<button class="pm2-action-btn delete" data-action="delete" ' + attrs + ' title="Delete" aria-label="Delete">' +
-      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
-        '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>' +
-      '</svg>' +
-    '</button>' +
-    '<button class="pm2-action-btn logs" ' + attrs + ' title="View Logs" aria-label="View logs">' +
-      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-        '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>' +
-        '<polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>' +
-      '</svg>' +
-    '</button>' +
+      ? '<button class="pm2-action-btn start" data-action="start" ' + attrs + ' title="Start" aria-label="Start ' + name + '">' + ICON_PLAY + '</button>'
+      : '<button class="pm2-action-btn stop" data-action="stop" ' + attrs + ' title="Stop" aria-label="Stop ' + name + '">' + ICON_STOP + '</button>') +
+    '<button class="pm2-action-btn restart" data-action="restart" ' + attrs + ' title="Restart" aria-label="Restart ' + name + '">' + ICON_RESTART + '</button>' +
+    '<button class="pm2-action-btn logs" ' + attrs + ' title="Details and logs" aria-label="Details and logs for ' + name + '">' + ICON_LOGS + '</button>' +
   '</div>';
 }
 
@@ -183,6 +168,35 @@ function updateActionsCell(cell: HTMLElement, p: PM2Process): void {
   cell.innerHTML = buildActionsHTML(p);
 }
 
+// Status is shown with a dot, and also as text: errored and stopped have a
+// visible label, online has a screen-reader label.
+function applyStatus(cell: HTMLElement, status: string): void {
+  const stCls = status === 'online' ? 'online' : status === 'errored' ? 'errored' : 'stopped';
+  const indicator = cell.querySelector('.status-indicator');
+  if (indicator) indicator.className = 'status-indicator ' + stCls;
+  let text = cell.querySelector<HTMLElement>('.status-text');
+  if (!text) {
+    text = document.createElement('span');
+    cell.appendChild(text);
+  }
+  text.className = stCls === 'online' ? 'status-text sr-only' : 'status-text ' + stCls;
+  text.textContent = status;
+}
+
+function applyRestarts(cell: HTMLElement, restarts: number): void {
+  let span = cell.querySelector<HTMLElement>('.restart-count');
+  if (restarts > 0) {
+    if (!span) {
+      span = document.createElement('span');
+      cell.appendChild(span);
+    }
+    span.className = 'restart-count' + (restarts >= 5 ? ' restart-high' : '');
+    span.textContent = restarts + (restarts === 1 ? ' restart' : ' restarts');
+  } else if (span) {
+    span.remove();
+  }
+}
+
 function createRowElement(p: PM2Process): HTMLTableRowElement {
   const tr = document.createElement('tr');
   tr.setAttribute('data-pm-id', String(p.id));
@@ -190,22 +204,14 @@ function createRowElement(p: PM2Process): HTMLTableRowElement {
   // Cell 0: Name + Status
   const td0 = document.createElement('td');
   const indicator = document.createElement('span');
-  const stCls = p.status === 'online' ? 'online' : p.status === 'errored' ? 'errored' : 'stopped';
-  indicator.className = 'status-indicator ' + stCls;
+  indicator.className = 'status-indicator';
+  indicator.setAttribute('aria-hidden', 'true');
   const strong = document.createElement('strong');
   strong.textContent = p.name;
   td0.appendChild(indicator);
   td0.appendChild(strong);
-
-  if (p.restarts > 0) {
-    const restartSpan = document.createElement('span');
-    const restartWarnCls = p.restarts >= 5 ? ' restart-high' : '';
-    restartSpan.className = 'restart-count' + restartWarnCls;
-    restartSpan.textContent = '• ' + p.restarts;
-    restartSpan.setAttribute('title', p.restarts + ' restarts');
-    td0.appendChild(document.createTextNode(' '));
-    td0.appendChild(restartSpan);
-  }
+  applyStatus(td0, p.status);
+  applyRestarts(td0, p.restarts);
   tr.appendChild(td0);
 
   // Cell 1: CPU
@@ -231,29 +237,11 @@ function updateRowElement(row: HTMLTableRowElement, p: PM2Process): void {
   const cells = row.querySelectorAll('td');
   if (cells.length < COLS) return;
 
-  const stCls = p.status === 'online' ? 'online' : p.status === 'errored' ? 'errored' : 'stopped';
-
   // Cell 0: Name + Status
-  const indicator = cells[0].querySelector('.status-indicator');
-  if (indicator) indicator.className = 'status-indicator ' + stCls;
-
   const nameStrong = cells[0].querySelector('strong');
   if (nameStrong) setTextOf(nameStrong, p.name);
-
-  let restSpan = cells[0].querySelector('.restart-count');
-  if (p.restarts > 0) {
-    if (!restSpan) {
-      restSpan = document.createElement('span');
-      cells[0].appendChild(document.createTextNode(' '));
-      cells[0].appendChild(restSpan);
-    }
-    const restartWarnCls = p.restarts >= 5 ? ' restart-high' : '';
-    restSpan.className = 'restart-count' + restartWarnCls;
-    restSpan.textContent = '• ' + p.restarts;
-    restSpan.setAttribute('title', p.restarts + ' restarts');
-  } else if (restSpan) {
-    restSpan.remove();
-  }
+  applyStatus(cells[0], p.status);
+  applyRestarts(cells[0], p.restarts);
 
   // Cell 1: CPU
   setTextOf(cells[1], p.cpu.toFixed(1) + '%');
