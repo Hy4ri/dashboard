@@ -297,6 +297,9 @@ func publishState() {
 }
 
 func collectAll() {
+	// Slow sources run in the background and honor their cache TTLs. A source
+	// that is still running is not started twice.
+	refreshSlowCollectors()
 	sampleFast()
 	publishState()
 }
