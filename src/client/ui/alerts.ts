@@ -5,6 +5,13 @@ import { THRESHOLDS } from '../config.js';
 let notificationGranted = false;
 let previousAlerts = new Set<string>();
 
+// Banners use inline icons so the UI carries no emoji glyphs.
+const ALERT_ICONS: Record<AlertItem['type'], string> = {
+  danger: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  warning: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+  info: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+};
+
 export interface AlertItem {
   key: string;
   type: 'danger' | 'warning' | 'info';
@@ -217,7 +224,7 @@ function renderAlertsList(alerts: AlertItem[]): void {
       }
       const iconEl = existing.querySelector('.alert-icon');
       if (iconEl) {
-        iconEl.textContent = a.type === 'danger' ? '⚠️' : '🔔';
+        iconEl.innerHTML = ALERT_ICONS[a.type];
       }
     } else {
       // Create new banner safely
@@ -227,7 +234,7 @@ function renderAlertsList(alerts: AlertItem[]): void {
 
       const iconSpan = document.createElement('span');
       iconSpan.className = 'alert-icon';
-      iconSpan.textContent = a.type === 'danger' ? '⚠️' : '🔔';
+      iconSpan.innerHTML = ALERT_ICONS[a.type];
 
       const msgSpan = document.createElement('span');
       msgSpan.className = 'alert-message';

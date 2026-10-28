@@ -160,8 +160,17 @@ function buildActionsHTML(p: PM2Process): string {
       ? '<button class="pm2-action-btn start" data-action="start" ' + attrs + ' title="Start">▶</button>'
       : '<button class="pm2-action-btn stop" data-action="stop" ' + attrs + ' title="Stop">■</button>') +
     '<button class="pm2-action-btn restart" data-action="restart" ' + attrs + ' title="Restart">↻</button>' +
-    '<button class="pm2-action-btn delete" data-action="delete" ' + attrs + ' title="Delete">✕</button>' +
-    '<button class="pm2-action-btn logs" ' + attrs + ' title="View Logs">📄</button>' +
+    '<button class="pm2-action-btn delete" data-action="delete" ' + attrs + ' title="Delete" aria-label="Delete">' +
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
+        '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>' +
+      '</svg>' +
+    '</button>' +
+    '<button class="pm2-action-btn logs" ' + attrs + ' title="View Logs" aria-label="View logs">' +
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>' +
+        '<polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>' +
+      '</svg>' +
+    '</button>' +
   '</div>';
 }
 

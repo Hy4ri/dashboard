@@ -90,7 +90,7 @@ function renderLogContent(): void {
 
   const tsEl = $('pm2-log-timestamp');
   if (tsEl) {
-    tsEl.textContent = lastFetchedAt ? '📋 Fetched: ' + lastFetchedAt : '';
+    tsEl.textContent = lastFetchedAt ? 'Fetched: ' + lastFetchedAt : '';
   }
 
   if (autoScroll) {
