@@ -218,7 +218,7 @@ async function loadModuleWithMocks(moduleRelativePath, mocks = {}, env = null) {
         './ui/network.js':['renderNetworkRates','renderConnectivity'], './ui/battery.js':['renderBattery'],
         './ui/torrents.js':['renderTorrents'], './ui/thermal.js':['renderThermal'], './ui/system.js':['renderSystem'],
         './ui/sparklines.js':['renderSparklines'], './ui/antigravity.js':['renderAntigravity'],
-        './ui/alerts.js':['checkAlerts','initNotifications'], './service-bar.js':['updateServiceHealth'], './particles.js':['updateCPULoad'] }[specifier];
+        './ui/alerts.js':['checkAlerts','initNotifications'], './service-bar.js':['updateServiceHealth'] }[specifier];
       if (names) {
         const stub=new vm.SyntheticModule(names,function(){for(const n of names) this.setExport(n,n==='$'?id=>doc.getElementById(id):n==='fmtTime'?ts=>String(ts):n==='POLL_MS'?3000:()=>{});},{context:sandbox});
         await stub.link(()=>{}); await stub.evaluate(); return stub;
@@ -720,7 +720,6 @@ async function runTests() {
           initNotifications: () => {},
           notificationsGranted: () => granted
         },
-        './particles.js': {}
       }
     }, env);
     return { env, calls };

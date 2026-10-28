@@ -7,7 +7,6 @@ import { initPM2UI } from './ui/pm2.js';
 import { initTorrentsUI } from './ui/torrents.js';
 import { setupTorrentActions } from './events.js';
 import { initNotifications, notificationsGranted } from './ui/alerts.js';
-import './particles.js';
 
 document.title = 'Server Dashboard — Loading...';
 

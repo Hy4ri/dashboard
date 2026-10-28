@@ -18,7 +18,6 @@ import { renderSparklines } from './ui/sparklines.js';
 import { renderAntigravity } from './ui/antigravity.js';
 import { checkAlerts } from './ui/alerts.js';
 import { updateServiceHealth } from './service-bar.js';
-import { updateCPULoad } from './particles.js';
 import { DashboardState } from '../shared/types.js';
 
 let staleTimer: any = null;
@@ -73,7 +72,6 @@ export function updateUI(data?: DashboardState | null, fromTick = false): void {
   renderAntigravity(data.antigravity, data.claudeUsage, data.codexUsage);
   checkAlerts(data);
   updateServiceHealth(data.services);
-  updateCPULoad(data.cpu);
 
   // Toggle logout button visibility based on auth settings
   const logoutBtn = $('logout-btn');
